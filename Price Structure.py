@@ -40,8 +40,8 @@ st.markdown("Estimate the value of SPX 0DTE options based on projected price and
 col1, col2 = st.columns(2)
 
 with col1:
-    entry_time = st.time_input("Current Time", value=datetime.now().time())
-    projected_time = st.time_input("Projected Time", value=(datetime.now() + timedelta(minutes=30)).time())
+    entry_datetime = st.datetime_input("Entry Time", value=datetime.now())
+    projected_datetime = st.datetime_input("Projected Time", value=(datetime.now() + timedelta(minutes=30)))
 
 with col2:
     current_price = st.number_input("Current or Projected SPX Price", value=6240.0, step=0.1)
@@ -51,15 +51,13 @@ option_type = st.selectbox("Option Type", ['call', 'put'])
 iv = st.slider("Implied Volatility (IV %)", min_value=5.0, max_value=40.0, value=15.0, step=0.5)
 entry_option_price = st.number_input("Entry Option Price (Optional)", value=0.0, step=0.1)
 
-# --- Time Difference ---
-now = datetime.combine(datetime.today(), entry_time)
-future = datetime.combine(datetime.today(), projected_time)
-if future < now:
-    future += timedelta(days=1)
+# --- Time Difference Calculation ---
+if projected_datetime < entry_datetime:
+    projected_datetime += timedelta(days=1)
 
-time_diff_minutes = int((future - now).total_seconds() / 60)
+time_diff_minutes = int((projected_datetime - entry_datetime).total_seconds() / 60)
 
-# --- Calculation ---
+# --- Option Price Projection ---
 projected_option_price = calculate_option_price(
     S=current_price,
     K=strike,
@@ -68,6 +66,7 @@ projected_option_price = calculate_option_price(
     option_type=option_type
 )
 
+# --- Output ---
 st.markdown(f"### ⏳ Time to Expiry: {time_diff_minutes} minutes")
 st.markdown(f"### 💰 Projected Option Price: **${projected_option_price}**")
 
@@ -76,4 +75,4 @@ if entry_option_price > 0:
     pnl_color = "🟢" if pnl >= 0 else "🔴"
     st.markdown(f"### {pnl_color} P/L: **${round(pnl, 2)}**")
 
-st.caption("This is a simplified Black-Scholes model with adjusted normal CDF. Real-world prices may differ due to volatility skew, gamma risk, and order flow.")
+st.caption("This is a simplified Black-Scholes model using a built-in normal CDF. Real-world prices may differ due to volatility skew, gamma risk, and market momentum.")
