@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# DR DAVID'S MARKETMIND - CLEAN VERSION
+# DR. DAVID'S MARKET MIND - CLEAN VERSION
 # PART 1: FOUNDATION & STRATEGY (NO EXTERNAL DEPENDENCIES)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -220,11 +220,11 @@ class SPXForecastStrategy:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="Dr David's MarketMind",
-    page_icon="🔮",
+    page_title="Dr. David's Market Mind",
+    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={'About': "Dr David's MarketMind - Advanced Financial Forecasting Tool"}
+    menu_items={'About': "Dr. David's Market Mind - Advanced Financial Forecasting Tool"}
 )
 
 # Initialize strategy
@@ -245,7 +245,7 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "SPX"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CLEAN DESIGN WITH PROPER CONTRAST
+# CLEAN DESIGN WITH SIDEBAR FIX
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
@@ -263,16 +263,55 @@ st.markdown("""
     color: #e2e8f0;
 }
 
-/* Sidebar - Darker blue */
+/* SIDEBAR FIX - Force dark background and light text */
 .css-1d391kg {
     background: #2d3748 !important;
 }
 
-.css-1d391kg .stMarkdown, 
-.css-1d391kg p, 
+/* Fix ALL sidebar text to be light colored */
+.css-1d391kg,
+.css-1d391kg .stMarkdown,
+.css-1d391kg .stSelectbox,
+.css-1d391kg .stSlider,
+.css-1d391kg .stButton,
+.css-1d391kg .stExpander,
+.css-1d391kg .stNumberInput,
+.css-1d391kg .stTextInput,
+.css-1d391kg p,
 .css-1d391kg label,
+.css-1d391kg div,
+.css-1d391kg span,
+.css-1d391kg h1,
+.css-1d391kg h2,
+.css-1d391kg h3 {
+    color: #e2e8f0 !important;
+}
+
+/* Fix sidebar input labels specifically */
 .css-1d391kg .stSelectbox label,
-.css-1d391kg .stSlider label {
+.css-1d391kg .stSlider label,
+.css-1d391kg .stNumberInput label,
+.css-1d391kg .stTextInput label {
+    color: #f7fafc !important;
+    font-weight: 500 !important;
+}
+
+/* Fix sidebar success/info messages */
+.css-1d391kg .stAlert {
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: #86efac !important;
+    border: 1px solid #22c55e !important;
+}
+
+/* Fix sidebar expander headers */
+.css-1d391kg .streamlit-expanderHeader {
+    background: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+/* Fix sidebar selectbox dropdown */
+.css-1d391kg .stSelectbox > div > div {
+    background: #374151 !important;
     color: #e2e8f0 !important;
 }
 
@@ -526,7 +565,7 @@ def render_hero_section():
     
     st.markdown(f"""
     <div class="hero-container">
-        <h1 class="hero-title">🔮 Dr David's MarketMind</h1>
+        <h1 class="hero-title">🧠 Dr. David's Market Mind</h1>
         <p class="hero-subtitle">Advanced Financial Forecasting with Time-Based Projections</p>
         <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
             <div style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 8px;">
@@ -542,7 +581,7 @@ def render_hero_section():
 render_hero_section()
 
 # Success message
-st.sidebar.success("✅ Dr David's MarketMind Loaded Successfully!")
+st.sidebar.success("✅ Dr. David's Market Mind Loaded Successfully!")
 # ═══════════════════════════════════════════════════════════════════════════════
 # PART 2: NAVIGATION & SPX FORECASTING PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
