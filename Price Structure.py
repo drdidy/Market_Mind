@@ -245,62 +245,71 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "SPX"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STYLING & CSS (FIXED FOR VISIBILITY)
+# CLEAN DESIGN WITH PROPER CONTRAST
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Force dark theme for the entire app */
+/* Main app background - Dark navy blue */
 .stApp {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    color: white !important;
+    background: #1a202c;
+    font-family: 'Inter', sans-serif;
 }
 
 .main {
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    min-height: 100vh;
-    color: white !important;
+    background: #1a202c;
+    color: #e2e8f0;
 }
 
-/* Fix all text visibility */
-.stMarkdown, .stText, p, div, span, label, h1, h2, h3, h4, h5, h6 {
-    color: white !important;
+/* Sidebar - Darker blue */
+.css-1d391kg {
+    background: #2d3748 !important;
 }
 
-/* Fix input labels */
-.stSelectbox label, .stNumberInput label, .stDateInput label, .stTimeInput label, .stTextInput label {
-    color: white !important;
+.css-1d391kg .stMarkdown, 
+.css-1d391kg p, 
+.css-1d391kg label,
+.css-1d391kg .stSelectbox label,
+.css-1d391kg .stSlider label {
+    color: #e2e8f0 !important;
+}
+
+/* Main content text */
+h1, h2, h3, h4, h5, h6 {
+    color: #f7fafc !important;
+}
+
+p, div, span, label {
+    color: #e2e8f0 !important;
+}
+
+/* Input labels */
+.stSelectbox label, 
+.stNumberInput label, 
+.stDateInput label, 
+.stTimeInput label, 
+.stTextInput label {
+    color: #f7fafc !important;
     font-weight: 500 !important;
-}
-
-/* Fix sidebar */
-.css-1d391kg, .css-1d391kg .stMarkdown, .css-1d391kg p, .css-1d391kg label {
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
-    color: white !important;
 }
 
 /* Hero section */
 .hero-container {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2)) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background: linear-gradient(135deg, #4299e1 20%, #667eea 80%);
     border-radius: 16px;
-    backdrop-filter: blur(10px);
     padding: 2rem;
     margin: 1rem 0;
     text-align: center;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     color: white !important;
 }
 
 .hero-title {
     font-size: 3rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: white !important;
     margin-bottom: 0.5rem;
 }
 
@@ -312,79 +321,154 @@ st.markdown("""
 
 /* Metric cards */
 .metric-card {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 16px;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 12px;
     padding: 1.5rem;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
     height: 100%;
-    color: white !important;
+    color: #e2e8f0 !important;
 }
 
 .metric-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    border-color: #4299e1;
 }
 
 /* Input containers */
 .input-container {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 16px;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 12px;
     padding: 1.5rem;
-    backdrop-filter: blur(10px);
     margin: 1rem 0;
-    color: white !important;
+    color: #e2e8f0 !important;
 }
 
-/* Fix dataframes */
-.stDataFrame, .stDataFrame table {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: white !important;
+/* Dataframes */
+.stDataFrame {
+    background: #2d3748 !important;
+    border-radius: 8px !important;
 }
 
-.stDataFrame th, .stDataFrame td {
-    color: white !important;
-    background: rgba(255, 255, 255, 0.05) !important;
+.stDataFrame table {
+    background: #2d3748 !important;
+    color: #e2e8f0 !important;
 }
 
-/* Fix buttons */
-.stButton button {
-    color: white !important;
+.stDataFrame th {
+    background: #4a5568 !important;
+    color: #f7fafc !important;
     font-weight: 600 !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Fix metrics */
-.metric-value {
+.stDataFrame td {
+    background: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+
+/* Buttons */
+.stButton > button {
+    background: #4299e1;
     color: white !important;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
-/* Fix expanders */
+.stButton > button:hover {
+    background: #3182ce;
+    transform: translateY(-1px);
+}
+
+/* Download buttons */
+.stDownloadButton > button {
+    background: #38a169;
+    color: white !important;
+    border: none;
+    border-radius: 8px;
+}
+
+.stDownloadButton > button:hover {
+    background: #2f855a;
+}
+
+/* Alert boxes */
+.stAlert > div {
+    background: #2d3748 !important;
+    border: 1px solid #4a5568 !important;
+    color: #e2e8f0 !important;
+}
+
+.stSuccess > div {
+    background: #22543d !important;
+    border: 1px solid #38a169 !important;
+    color: #9ae6b4 !important;
+}
+
+.stInfo > div {
+    background: #1e3a8a !important;
+    border: 1px solid #3b82f6 !important;
+    color: #93c5fd !important;
+}
+
+.stWarning > div {
+    background: #78350f !important;
+    border: 1px solid #f59e0b !important;
+    color: #fcd34d !important;
+}
+
+.stError > div {
+    background: #7f1d1d !important;
+    border: 1px solid #ef4444 !important;
+    color: #fca5a5 !important;
+}
+
+/* Expanders */
 .streamlit-expanderHeader {
+    background: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+
+.streamlit-expanderContent {
+    background: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    background: #2d3748;
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #e2e8f0 !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background: #4299e1 !important;
     color: white !important;
 }
 
-/* Fix info/success/warning boxes */
-.stAlert {
-    color: white !important;
+/* Metrics */
+.metric-value {
+    color: #f7fafc !important;
 }
 
-/* Hide Streamlit elements */
+/* Hide Streamlit branding */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
-/* Animation */
+/* Animations */
 .fade-in {
-    animation: fadeIn 0.6s ease-out;
+    animation: fadeIn 0.5s ease-out;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 </style>
@@ -398,10 +482,10 @@ def create_metric_card(icon: str, title: str, value: str, subtitle: str = ""):
     """Create a beautiful metric card"""
     return f"""
     <div class="metric-card fade-in">
-        <div style="font-size: 2.5rem; margin-bottom: 1rem; color: white;">{icon}</div>
-        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: white;">{value}</div>
-        <div style="font-size: 0.9rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; color: white;">{title}</div>
-        {f'<div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.6; color: white;">{subtitle}</div>' if subtitle else ''}
+        <div style="font-size: 2.5rem; margin-bottom: 1rem;">{icon}</div>
+        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: #f7fafc;">{value}</div>
+        <div style="font-size: 0.9rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; color: #cbd5e0;">{title}</div>
+        {f'<div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.7; color: #a0aec0;">{subtitle}</div>' if subtitle else ''}
     </div>
     """
 
@@ -445,10 +529,10 @@ def render_hero_section():
         <h1 class="hero-title">🔮 SPX Prophet</h1>
         <p class="hero-subtitle">Advanced Financial Forecasting with Time-Based Projections</p>
         <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
-            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px; color: white;">
+            <div style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 8px;">
                 <strong>⏰ {current_time}</strong>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px; color: white;">
+            <div style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 8px;">
                 <strong>{market_status}</strong>
             </div>
         </div>
