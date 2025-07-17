@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# PART 0: SIMPLE IMPORTS (NO PLOTLY)
+# PART 0: IMPORTS & STRATEGY CLASS (ALL-IN-ONE)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Core Python libraries
@@ -12,8 +12,227 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-# Import your strategy class - update this path if needed
-from spx_strategy import SPXForecastStrategy
+# ═══════════════════════════════════════════════════════════════════════════════
+# STRATEGY CLASS (BUILT-IN)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class SPXForecastStrategy:
+    """
+    Core SPX forecasting strategy based on time-block calculations and slope projections.
+    """
+    
+    def __init__(self):
+        # Default slopes for each asset
+        self.base_slopes = {
+            "SPX_HIGH": -0.2792, "SPX_CLOSE": -0.2792, "SPX_LOW": -0.2792,
+            "TSLA": -0.1508, "NVDA": -0.0485, "AAPL": -0.0750,
+            "MSFT": -0.17, "AMZN": -0.03, "GOOGL": -0.07,
+            "META": -0.035, "NFLX": -0.23,
+        }
+        
+        # Current slopes (can be modified)
+        self.slopes = self.base_slopes.copy()
+        
+        # SPX operates 8:30-14:30, others 7:30-14:30
+        self.spx_start_time = time(8, 30)
+        self.general_start_time = time(7, 30)
+        
+    def generate_time_slots(self, start_time: time = None) -> List[str]:
+        """Generate 30-minute time slots for forecasting."""
+        if start_time is None:
+            start_time = self.general_start_time
+            
+        base = datetime(2025, 1, 1, start_time.hour, start_time.minute)
+        slots = []
+        
+        # Calculate number of slots (15 total, minus 2 if SPX starts at 8:30)
+        num_slots = 15 - (2 if start_time.hour == 8 and start_time.minute == 30 else 0)
+        
+        for i in range(num_slots):
+            slot_time = base + timedelta(minutes=30 * i)
+            slots.append(slot_time.strftime("%H:%M"))
+            
+        return slots
+    
+    def calculate_spx_blocks(self, anchor_time: datetime, target_time: datetime) -> int:
+        """Calculate time blocks for SPX (skips 4:00 PM hour)."""
+        blocks = 0
+        current = anchor_time
+        
+        while current < target_time:
+            if current.hour != 16:  # Skip 4:00 PM hour
+                blocks += 1
+            current += timedelta(minutes=30)
+            
+        return blocks
+    
+    def calculate_stock_blocks(self, anchor_time: datetime, target_time: datetime) -> int:
+        """Calculate time blocks for regular stocks (simple 30-min intervals)."""
+        time_diff = target_time - anchor_time
+        return max(0, int(time_diff.total_seconds() // 1800))  # 1800 seconds = 30 minutes
+    
+    def project_price(self, base_price: float, slope: float, blocks: int) -> float:
+        """Core price projection formula."""
+        return base_price + (slope * blocks)
+    
+    def generate_forecast_table(self, 
+                              base_price: float, 
+                              slope: float, 
+                              anchor_time: datetime, 
+                              forecast_date: date, 
+                              is_spx: bool = True, 
+                              fan_mode: bool = False) -> pd.DataFrame:
+        """Generate a forecast table for given parameters."""
+        
+        # Get appropriate time slots
+        start_time = self.spx_start_time if is_spx else self.general_start_time
+        slots = self.generate_time_slots(start_time)
+        
+        rows = []
+        for slot in slots:
+            hour, minute = map(int, slot.split(":"))
+            target_time = datetime.combine(forecast_date, time(hour, minute))
+            
+            # Calculate blocks based on asset type
+            if is_spx:
+                blocks = self.calculate_spx_blocks(anchor_time, target_time)
+            else:
+                blocks = self.calculate_stock_blocks(anchor_time, target_time)
+            
+            # Generate projection
+            if fan_mode:
+                # Fan mode: entry and exit prices
+                entry_price = self.project_price(base_price, slope, blocks)
+                exit_price = self.project_price(base_price, -slope, blocks)
+                rows.append({
+                    "Time": slot,
+                    "Entry": round(entry_price, 2),
+                    "Exit": round(exit_price, 2)
+                })
+            else:
+                # Regular mode: single projected price
+                projected_price = self.project_price(base_price, slope, blocks)
+                rows.append({
+                    "Time": slot,
+                    "Projected": round(projected_price, 2)
+                })
+        
+        return pd.DataFrame(rows)
+    
+    def spx_forecast(self, 
+                    high_price: float, high_time: time,
+                    close_price: float, close_time: time,
+                    low_price: float, low_time: time,
+                    forecast_date: date) -> Dict[str, pd.DataFrame]:
+        """Generate SPX forecast with all three anchor points."""
+        
+        # Create anchor datetimes (previous day)
+        prev_day = forecast_date - timedelta(days=1)
+        high_anchor = datetime.combine(prev_day, high_time)
+        close_anchor = datetime.combine(prev_day, close_time)
+        low_anchor = datetime.combine(prev_day, low_time)
+        
+        forecasts = {}
+        
+        # Generate forecasts for each anchor
+        for anchor_type, price, anchor_time, slope_key in [
+            ("High", high_price, high_anchor, "SPX_HIGH"),
+            ("Close", close_price, close_anchor, "SPX_CLOSE"),
+            ("Low", low_price, low_anchor, "SPX_LOW")
+        ]:
+            forecasts[anchor_type] = self.generate_forecast_table(
+                price, self.slopes[slope_key], anchor_time, forecast_date, 
+                is_spx=True, fan_mode=True
+            )
+        
+        return forecasts
+    
+    def contract_line_forecast(self, 
+                             low1_price: float, low1_time: time,
+                             low2_price: float, low2_time: time,
+                             forecast_date: date) -> Tuple[pd.DataFrame, Dict]:
+        """Generate contract line forecast using two-point interpolation."""
+        
+        # Create anchor datetime
+        anchor_time = datetime.combine(forecast_date, low1_time)
+        
+        # Calculate slope between the two points
+        low2_datetime = datetime.combine(forecast_date, low2_time)
+        blocks_between = self.calculate_spx_blocks(anchor_time, low2_datetime)
+        
+        if blocks_between == 0:
+            slope = 0
+        else:
+            slope = (low2_price - low1_price) / blocks_between
+        
+        # Generate forecast table
+        forecast_table = self.generate_forecast_table(
+            low1_price, slope, anchor_time, forecast_date, 
+            is_spx=False, fan_mode=False
+        )
+        
+        # Return table and contract parameters for lookup
+        contract_params = {
+            "anchor_time": anchor_time,
+            "slope": slope,
+            "base_price": low1_price
+        }
+        
+        return forecast_table, contract_params
+    
+    def lookup_contract_price(self, contract_params: Dict, lookup_time: time, forecast_date: date) -> float:
+        """Look up contract price at any specific time."""
+        if not contract_params:
+            return 0.0
+            
+        target_time = datetime.combine(forecast_date, lookup_time)
+        blocks = self.calculate_spx_blocks(contract_params["anchor_time"], target_time)
+        
+        return self.project_price(
+            contract_params["base_price"], 
+            contract_params["slope"], 
+            blocks
+        )
+    
+    def stock_forecast(self, 
+                      ticker: str,
+                      low_price: float, low_time: time,
+                      high_price: float, high_time: time,
+                      forecast_date: date) -> Dict[str, pd.DataFrame]:
+        """Generate stock forecast with low and high anchors."""
+        
+        if ticker not in self.slopes:
+            raise ValueError(f"Unknown ticker: {ticker}")
+        
+        # Create anchor datetimes
+        low_anchor = datetime.combine(forecast_date, low_time)
+        high_anchor = datetime.combine(forecast_date, high_time)
+        
+        forecasts = {
+            "Low": self.generate_forecast_table(
+                low_price, self.slopes[ticker], low_anchor, forecast_date,
+                is_spx=False, fan_mode=True
+            ),
+            "High": self.generate_forecast_table(
+                high_price, self.slopes[ticker], high_anchor, forecast_date,
+                is_spx=False, fan_mode=True
+            )
+        }
+        
+        return forecasts
+    
+    def update_slope(self, asset: str, new_slope: float):
+        """Update slope for a specific asset."""
+        if asset in self.slopes:
+            self.slopes[asset] = new_slope
+    
+    def reset_slopes(self):
+        """Reset all slopes to default values."""
+        self.slopes = self.base_slopes.copy()
+    
+    def get_available_tickers(self) -> List[str]:
+        """Get list of available stock tickers."""
+        return [k for k in self.slopes.keys() if not k.startswith("SPX_")]
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PART 1: MAIN APPLICATION & INITIALIZATION
