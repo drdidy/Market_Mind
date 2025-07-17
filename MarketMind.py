@@ -542,7 +542,7 @@ def render_hero_section():
 render_hero_section()
 
 # Success message
-st.sidebar.success("✅ SPX Prophet Loaded Successfully!")
+st.sidebar.success("✅ Dr David's MarketMind Loaded Successfully!")
 # ═══════════════════════════════════════════════════════════════════════════════
 # PART 2: NAVIGATION & SPX FORECASTING PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
