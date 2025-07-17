@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# PART 0: IMPORTS AND DEPENDENCIES
+# PART 0: SIMPLE IMPORTS (NO VERIFICATION)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Core Python libraries
@@ -9,62 +9,13 @@ from datetime import datetime, date, time, timedelta
 from copy import deepcopy
 from typing import Dict, List, Optional, Tuple
 import numpy as np
-
-# Data handling
 import pandas as pd
-
-# Streamlit for web app
 import streamlit as st
-
-# Plotly for interactive charts
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Import your strategy class
-# Note: Make sure the SPXForecastStrategy class file is in the same directory
-# If your strategy file is named differently, update the import below
-try:
-    from spx_strategy import SPXForecastStrategy
-except ImportError:
-    st.error("❌ Could not import SPXForecastStrategy. Make sure the strategy file is in the same directory.")
-    st.stop()
-
-# Verify all required packages are available
-required_packages = {
-    'streamlit': st,
-    'pandas': pd,
-    'numpy': np,
-    'plotly.graph_objects': go,
-    'plotly.express': px
-}
-
-missing_packages = []
-for package_name, package_obj in required_packages.items():
-    if package_obj is None:
-        missing_packages.append(package_name)
-
-if missing_packages:
-    st.error(f"❌ Missing required packages: {', '.join(missing_packages)}")
-    st.markdown("""
-    **To install missing packages, run:**
-    ```bash
-    pip install streamlit plotly pandas numpy
-    ```
-    """)
-    st.stop()
-
-# Package versions (for debugging)
-package_versions = {
-    'Streamlit': st.__version__,
-    'Pandas': pd.__version__,
-    'NumPy': np.__version__
-}
-
-# Success message (can be removed in production)
-st.sidebar.success("✅ All packages loaded successfully!")
-st.sidebar.markdown("**Package Versions:**")
-for pkg, version in package_versions.items():
-    st.sidebar.caption(f"{pkg}: {version}")
+# Import your strategy class - update this path if needed
+from spx_strategy import SPXForecastStrategy
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PART 1: MAIN APPLICATION & INITIALIZATION
@@ -233,35 +184,10 @@ def load_custom_css():
         color: #ef4444;
     }
     
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-    }
-    
     /* Hide Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.5);
-    }
     
     /* Animation classes */
     .fade-in {
@@ -271,15 +197,6 @@ def load_custom_css():
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .pulse {
-        animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -301,12 +218,6 @@ def create_metric_card(icon: str, title: str, value: str, subtitle: str = "", st
         {f'<div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.6;">{subtitle}</div>' if subtitle else ''}
     </div>
     """
-
-def format_percentage(value: float, decimals: int = 2) -> str:
-    """Format a value as a percentage with color coding"""
-    color = "#10b981" if value >= 0 else "#ef4444"
-    sign = "+" if value > 0 else ""
-    return f'<span style="color: {color}; font-weight: 600;">{sign}{value:.{decimals}f}%</span>'
 
 def create_price_chart(df: pd.DataFrame, title: str = "Price Forecast") -> go.Figure:
     """Create an interactive price chart"""
@@ -400,7 +311,6 @@ def render_hero_section():
     """, unsafe_allow_html=True)
 
 render_hero_section()
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # PART 2: SPX FORECASTING INTERFACE
 # ═══════════════════════════════════════════════════════════════════════════════
