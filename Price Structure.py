@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# SPX PROPHET - CLEAN VERSION
+# DR DAVID'S MARKETMIND - CLEAN VERSION
 # PART 1: FOUNDATION & STRATEGY (NO EXTERNAL DEPENDENCIES)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -220,11 +220,11 @@ class SPXForecastStrategy:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="SPX Prophet",
+    page_title="Dr David's MarketMind",
     page_icon="🔮",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={'About': "SPX Prophet - Advanced Financial Forecasting Tool"}
+    menu_items={'About': "Dr David's MarketMind - Advanced Financial Forecasting Tool"}
 )
 
 # Initialize strategy
@@ -526,7 +526,7 @@ def render_hero_section():
     
     st.markdown(f"""
     <div class="hero-container">
-        <h1 class="hero-title">🔮 SPX Prophet</h1>
+        <h1 class="hero-title">🔮 Dr David's MarketMind</h1>
         <p class="hero-subtitle">Advanced Financial Forecasting with Time-Based Projections</p>
         <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
             <div style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 8px;">
@@ -1163,7 +1163,7 @@ if selected_page == "Contract":
                 
         except Exception as e:
             st.error(f"❌ Batch lookup error: {str(e)}")
-            # ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # PART 4: INDIVIDUAL STOCK PAGES
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1784,7 +1784,7 @@ with footer_col3:
     st.markdown("### ℹ️ About")
     
     st.markdown("""
-    **SPX Prophet v2.0**
+    **Dr David's MarketMind v2.0**
     
     Advanced financial forecasting tool using time-based projections and slope analysis.
     
