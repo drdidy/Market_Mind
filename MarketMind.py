@@ -263,13 +263,18 @@ st.markdown("""
     color: #e2e8f0;
 }
 
-/* SIDEBAR FIX - Force dark background and light text */
-.css-1d391kg {
+/* FORCE SIDEBAR DARK THEME - Multiple selectors to ensure it works */
+.css-1d391kg,
+section[data-testid="stSidebar"],
+.css-1d391kg > div,
+section[data-testid="stSidebar"] > div {
     background: #2d3748 !important;
+    color: #e2e8f0 !important;
 }
 
-/* Fix ALL sidebar text to be light colored */
-.css-1d391kg,
+/* FORCE ALL SIDEBAR TEXT TO BE DARK (since background is staying light) */
+.css-1d391kg *,
+section[data-testid="stSidebar"] *,
 .css-1d391kg .stMarkdown,
 .css-1d391kg .stSelectbox,
 .css-1d391kg .stSlider,
@@ -284,35 +289,38 @@ st.markdown("""
 .css-1d391kg h1,
 .css-1d391kg h2,
 .css-1d391kg h3 {
-    color: #e2e8f0 !important;
+    color: #1a202c !important;
+    font-weight: 500 !important;
 }
 
-/* Fix sidebar input labels specifically */
+/* Fix sidebar input labels to be dark */
 .css-1d391kg .stSelectbox label,
 .css-1d391kg .stSlider label,
 .css-1d391kg .stNumberInput label,
 .css-1d391kg .stTextInput label {
-    color: #f7fafc !important;
-    font-weight: 500 !important;
+    color: #1a202c !important;
+    font-weight: 600 !important;
 }
 
 /* Fix sidebar success/info messages */
 .css-1d391kg .stAlert {
-    background: rgba(34, 197, 94, 0.2) !important;
-    color: #86efac !important;
+    background: rgba(34, 197, 94, 0.8) !important;
+    color: #1a202c !important;
     border: 1px solid #22c55e !important;
+    font-weight: 600 !important;
 }
 
 /* Fix sidebar expander headers */
 .css-1d391kg .streamlit-expanderHeader {
-    background: #374151 !important;
-    color: #f3f4f6 !important;
+    background: #e2e8f0 !important;
+    color: #1a202c !important;
+    font-weight: 600 !important;
 }
 
 /* Fix sidebar selectbox dropdown */
 .css-1d391kg .stSelectbox > div > div {
-    background: #374151 !important;
-    color: #e2e8f0 !important;
+    background: #f7fafc !important;
+    color: #1a202c !important;
 }
 
 /* Main content text */
