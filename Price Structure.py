@@ -2147,11 +2147,6 @@ def render_advanced_analytics():
             yaxis='y2',
             line=dict(color='#6366f1')
         ))
-        
-        fig.update_layout(
-            title="30-Day Performance Trend",
-            xaxis_title="Date",
-            yaxis=dict(title="Accuracy (%)", side
 
         fig.update_layout(
             title="30-Day Performance Trend",
