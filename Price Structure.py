@@ -245,28 +245,54 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "SPX"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STYLING & CSS
+# STYLING & CSS (FIXED FOR VISIBILITY)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-.main {
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
+/* Force dark theme for the entire app */
+.stApp {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
 }
 
+.main {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    min-height: 100vh;
+    color: white !important;
+}
+
+/* Fix all text visibility */
+.stMarkdown, .stText, p, div, span, label, h1, h2, h3, h4, h5, h6 {
+    color: white !important;
+}
+
+/* Fix input labels */
+.stSelectbox label, .stNumberInput label, .stDateInput label, .stTimeInput label, .stTextInput label {
+    color: white !important;
+    font-weight: 500 !important;
+}
+
+/* Fix sidebar */
+.css-1d391kg, .css-1d391kg .stMarkdown, .css-1d391kg p, .css-1d391kg label {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
+    color: white !important;
+}
+
+/* Hero section */
 .hero-container {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
     border-radius: 16px;
     backdrop-filter: blur(10px);
     padding: 2rem;
     margin: 1rem 0;
     text-align: center;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    color: white !important;
 }
 
 .hero-title {
@@ -280,34 +306,71 @@ st.markdown("""
 
 .hero-subtitle {
     font-size: 1.2rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.9) !important;
     margin-bottom: 1rem;
 }
 
+/* Metric cards */
 .metric-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
     border-radius: 16px;
     padding: 1.5rem;
     backdrop-filter: blur(10px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
     height: 100%;
+    color: white !important;
 }
 
 .metric-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
-    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
+/* Input containers */
 .input-container {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
     border-radius: 16px;
     padding: 1.5rem;
     backdrop-filter: blur(10px);
     margin: 1rem 0;
+    color: white !important;
+}
+
+/* Fix dataframes */
+.stDataFrame, .stDataFrame table {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+.stDataFrame th, .stDataFrame td {
+    color: white !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Fix buttons */
+.stButton button {
+    color: white !important;
+    font-weight: 600 !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Fix metrics */
+.metric-value {
+    color: white !important;
+}
+
+/* Fix expanders */
+.streamlit-expanderHeader {
+    color: white !important;
+}
+
+/* Fix info/success/warning boxes */
+.stAlert {
+    color: white !important;
 }
 
 /* Hide Streamlit elements */
@@ -335,10 +398,10 @@ def create_metric_card(icon: str, title: str, value: str, subtitle: str = ""):
     """Create a beautiful metric card"""
     return f"""
     <div class="metric-card fade-in">
-        <div style="font-size: 2.5rem; margin-bottom: 1rem;">{icon}</div>
-        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">{value}</div>
-        <div style="font-size: 0.9rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">{title}</div>
-        {f'<div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.6;">{subtitle}</div>' if subtitle else ''}
+        <div style="font-size: 2.5rem; margin-bottom: 1rem; color: white;">{icon}</div>
+        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: white;">{value}</div>
+        <div style="font-size: 0.9rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; color: white;">{title}</div>
+        {f'<div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.6; color: white;">{subtitle}</div>' if subtitle else ''}
     </div>
     """
 
@@ -382,10 +445,10 @@ def render_hero_section():
         <h1 class="hero-title">🔮 SPX Prophet</h1>
         <p class="hero-subtitle">Advanced Financial Forecasting with Time-Based Projections</p>
         <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
-            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px;">
+            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px; color: white;">
                 <strong>⏰ {current_time}</strong>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px;">
+            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px; color: white;">
                 <strong>{market_status}</strong>
             </div>
         </div>
