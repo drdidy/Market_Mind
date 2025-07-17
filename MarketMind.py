@@ -245,7 +245,7 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "SPX"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CLEAN DESIGN WITH SIDEBAR & ALIGNMENT FIXES
+# CLEAN DESIGN WITH SIDEBAR FIX
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
@@ -263,18 +263,13 @@ st.markdown("""
     color: #e2e8f0;
 }
 
-/* FORCE SIDEBAR DARK THEME - Multiple selectors to ensure it works */
-.css-1d391kg,
-section[data-testid="stSidebar"],
-.css-1d391kg > div,
-section[data-testid="stSidebar"] > div {
+/* SIDEBAR FIX - Force dark background and light text */
+.css-1d391kg {
     background: #2d3748 !important;
-    color: #e2e8f0 !important;
 }
 
-/* FORCE ALL SIDEBAR TEXT TO BE DARK (since background is staying light) */
-.css-1d391kg *,
-section[data-testid="stSidebar"] *,
+/* Fix ALL sidebar text to be light colored */
+.css-1d391kg,
 .css-1d391kg .stMarkdown,
 .css-1d391kg .stSelectbox,
 .css-1d391kg .stSlider,
@@ -289,84 +284,35 @@ section[data-testid="stSidebar"] *,
 .css-1d391kg h1,
 .css-1d391kg h2,
 .css-1d391kg h3 {
-    color: #1a202c !important;
-    font-weight: 500 !important;
+    color: #e2e8f0 !important;
 }
 
-/* Fix sidebar input labels to be dark */
+/* Fix sidebar input labels specifically */
 .css-1d391kg .stSelectbox label,
 .css-1d391kg .stSlider label,
 .css-1d391kg .stNumberInput label,
 .css-1d391kg .stTextInput label {
-    color: #1a202c !important;
-    font-weight: 600 !important;
+    color: #f7fafc !important;
+    font-weight: 500 !important;
 }
 
 /* Fix sidebar success/info messages */
 .css-1d391kg .stAlert {
-    background: rgba(34, 197, 94, 0.8) !important;
-    color: #1a202c !important;
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: #86efac !important;
     border: 1px solid #22c55e !important;
-    font-weight: 600 !important;
 }
 
 /* Fix sidebar expander headers */
 .css-1d391kg .streamlit-expanderHeader {
-    background: #e2e8f0 !important;
-    color: #1a202c !important;
-    font-weight: 600 !important;
+    background: #374151 !important;
+    color: #f3f4f6 !important;
 }
 
 /* Fix sidebar selectbox dropdown */
 .css-1d391kg .stSelectbox > div > div {
-    background: #f7fafc !important;
-    color: #1a202c !important;
-}
-
-/* ALIGNMENT FIXES - Make all input elements same height */
-.stDateInput,
-.stNumberInput,
-.stTimeInput,
-.stTextInput {
-    display: flex;
-    align-items: center;
-    min-height: 2.5rem;
-}
-
-.stDateInput > div,
-.stNumberInput > div,
-.stTimeInput > div,
-.stTextInput > div {
-    margin-bottom: 0 !important;
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
-
-/* Fix info boxes to align with inputs */
-.stAlert {
-    display: flex;
-    align-items: center;
-    margin: 0 !important;
-    padding: 0.75rem 1rem !important;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-}
-
-/* Fix column alignment */
-.element-container {
-    display: flex;
-    align-items: center;
-    height: auto;
-}
-
-/* Ensure all form elements have consistent spacing */
-.stDateInput label,
-.stNumberInput label,
-.stTimeInput label,
-.stTextInput label {
-    margin-bottom: 0.25rem !important;
-    display: block;
+    background: #374151 !important;
+    color: #e2e8f0 !important;
 }
 
 /* Main content text */
