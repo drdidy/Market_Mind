@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# PART 0: SIMPLE IMPORTS (NO VERIFICATION)
+# PART 0: SIMPLE IMPORTS (NO PLOTLY)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Core Python libraries
@@ -11,8 +11,6 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 import streamlit as st
-import plotly.graph_objects as go
-import plotly.express as px
 
 # Import your strategy class - update this path if needed
 from spx_strategy import SPXForecastStrategy
@@ -204,7 +202,7 @@ def load_custom_css():
 load_custom_css()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# UTILITY FUNCTIONS
+# UTILITY FUNCTIONS (NO PLOTLY)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def create_metric_card(icon: str, title: str, value: str, subtitle: str = "", status: str = ""):
@@ -219,72 +217,49 @@ def create_metric_card(icon: str, title: str, value: str, subtitle: str = "", st
     </div>
     """
 
-def create_price_chart(df: pd.DataFrame, title: str = "Price Forecast") -> go.Figure:
-    """Create an interactive price chart"""
-    fig = go.Figure()
+def create_price_chart(df: pd.DataFrame, title: str = "Price Forecast"):
+    """Create a simple chart using Streamlit's built-in charting"""
     
     if 'Entry' in df.columns and 'Exit' in df.columns:
-        # Fan chart
-        fig.add_trace(go.Scatter(
-            x=df['Time'], y=df['Entry'],
-            mode='lines+markers',
-            name='Entry',
-            line=dict(color='#10b981', width=3),
-            marker=dict(size=8)
-        ))
+        # Fan chart with entry/exit
+        chart_data = df.set_index('Time')[['Entry', 'Exit']]
+        st.subheader(title)
+        st.line_chart(chart_data)
         
-        fig.add_trace(go.Scatter(
-            x=df['Time'], y=df['Exit'],
-            mode='lines+markers',
-            name='Exit',
-            line=dict(color='#ef4444', width=3),
-            marker=dict(size=8)
-        ))
-        
-        # Fill between
-        fig.add_trace(go.Scatter(
-            x=df['Time'].tolist() + df['Time'].tolist()[::-1],
-            y=df['Entry'].tolist() + df['Exit'].tolist()[::-1],
-            fill='toself',
-            fillcolor='rgba(99, 102, 241, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            name='Range'
-        ))
-    else:
+    elif 'Projected' in df.columns:
         # Single line chart
-        fig.add_trace(go.Scatter(
-            x=df['Time'], y=df['Projected'],
-            mode='lines+markers',
-            name='Projected',
-            line=dict(color='#6366f1', width=3),
-            marker=dict(size=8)
-        ))
+        chart_data = df.set_index('Time')[['Projected']]
+        st.subheader(title)
+        st.line_chart(chart_data)
     
-    fig.update_layout(
-        title=dict(text=title, font=dict(size=20, color='white')),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            title='Time',
-            tickangle=45
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            title='Price'
-        ),
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.3)',
-            bordercolor='rgba(255,255,255,0.1)',
-            borderwidth=1
-        ),
-        hovermode='x unified',
-        margin=dict(l=20, r=20, t=60, b=20)
-    )
+    else:
+        st.error("Invalid data format for chart")
+
+def create_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str = "Bar Chart"):
+    """Create a simple bar chart using Streamlit"""
+    st.subheader(title)
+    chart_data = df.set_index(x_col)[[y_col]]
+    st.bar_chart(chart_data)
+
+def display_dataframe_with_styling(df: pd.DataFrame, title: str = "Data Table"):
+    """Display a nicely formatted dataframe"""
+    st.subheader(title)
     
-    return fig
+    # Format numeric columns
+    styled_df = df.copy()
+    
+    for col in styled_df.columns:
+        if col in ['Entry', 'Exit', 'Projected', 'Price']:
+            if col in styled_df.columns:
+                styled_df[col] = styled_df[col].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "")
+        elif 'Change' in col and '%' not in col:
+            if col in styled_df.columns:
+                styled_df[col] = styled_df[col].apply(lambda x: f"${x:+.2f}" if pd.notna(x) else "")
+        elif '%' in col:
+            if col in styled_df.columns:
+                styled_df[col] = styled_df[col].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "")
+    
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN APP HEADER
