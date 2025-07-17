@@ -1,15 +1,77 @@
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-from datetime import datetime, date, time, timedelta
+# ═══════════════════════════════════════════════════════════════════════════════
+# PART 0: IMPORTS AND DEPENDENCIES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Core Python libraries
 import json
 import base64
-from typing import Dict, List, Optional
+from datetime import datetime, date, time, timedelta
+from copy import deepcopy
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 
-# Import your strategy class (assuming it's in the same directory)
-from spx_strategy import SPXForecastStrategy
+# Data handling
+import pandas as pd
+
+# Streamlit for web app
+import streamlit as st
+
+# Plotly for interactive charts
+import plotly.graph_objects as go
+import plotly.express as px
+
+# Import your strategy class
+# Note: Make sure the SPXForecastStrategy class file is in the same directory
+# If your strategy file is named differently, update the import below
+try:
+    from spx_strategy import SPXForecastStrategy
+except ImportError:
+    st.error("❌ Could not import SPXForecastStrategy. Make sure the strategy file is in the same directory.")
+    st.stop()
+
+# Verify all required packages are available
+required_packages = {
+    'streamlit': st,
+    'pandas': pd,
+    'numpy': np,
+    'plotly.graph_objects': go,
+    'plotly.express': px
+}
+
+missing_packages = []
+for package_name, package_obj in required_packages.items():
+    if package_obj is None:
+        missing_packages.append(package_name)
+
+if missing_packages:
+    st.error(f"❌ Missing required packages: {', '.join(missing_packages)}")
+    st.markdown("""
+    **To install missing packages, run:**
+    ```bash
+    pip install streamlit plotly pandas numpy
+    ```
+    """)
+    st.stop()
+
+# Package versions (for debugging)
+package_versions = {
+    'Streamlit': st.__version__,
+    'Pandas': pd.__version__,
+    'NumPy': np.__version__
+}
+
+# Success message (can be removed in production)
+st.sidebar.success("✅ All packages loaded successfully!")
+st.sidebar.markdown("**Package Versions:**")
+for pkg, version in package_versions.items():
+    st.sidebar.caption(f"{pkg}: {version}")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PART 1: Preliminary 
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+from datetime import datetime, date, time, timedelta
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG & INITIALIZATION
