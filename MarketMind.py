@@ -248,88 +248,36 @@ if 'selected_page' not in st.session_state:
 # CLEAN DESIGN WITH SIDEBAR FIX
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Replace the entire CSS section in Part 1 with this:
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Main app background - Dark navy blue */
+/* Clean Light Theme */
 .stApp {
-    background: #1a202c;
+    background: #f8fafc;
     font-family: 'Inter', sans-serif;
 }
 
 .main {
-    background: #1a202c;
-    color: #e2e8f0;
+    background: #f8fafc;
+    color: #1e293b;
 }
 
-/* FORCE SIDEBAR DARK THEME - Multiple selectors to ensure it works */
-.css-1d391kg,
-section[data-testid="stSidebar"],
-.css-1d391kg > div,
-section[data-testid="stSidebar"] > div {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
+/* Sidebar */
+.css-1d391kg {
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
 }
 
-/* FORCE ALL SIDEBAR TEXT TO BE DARK (since background is staying light) */
-.css-1d391kg *,
-section[data-testid="stSidebar"] *,
-.css-1d391kg .stMarkdown,
-.css-1d391kg .stSelectbox,
-.css-1d391kg .stSlider,
-.css-1d391kg .stButton,
-.css-1d391kg .stExpander,
-.css-1d391kg .stNumberInput,
-.css-1d391kg .stTextInput,
-.css-1d391kg p,
-.css-1d391kg label,
-.css-1d391kg div,
-.css-1d391kg span,
-.css-1d391kg h1,
-.css-1d391kg h2,
-.css-1d391kg h3 {
-    color: #1a202c !important;
-    font-weight: 500 !important;
-}
-
-/* Fix sidebar input labels to be dark */
-.css-1d391kg .stSelectbox label,
-.css-1d391kg .stSlider label,
-.css-1d391kg .stNumberInput label,
-.css-1d391kg .stTextInput label {
-    color: #1a202c !important;
-    font-weight: 600 !important;
-}
-
-/* Fix sidebar success/info messages */
-.css-1d391kg .stAlert {
-    background: rgba(34, 197, 94, 0.8) !important;
-    color: #1a202c !important;
-    border: 1px solid #22c55e !important;
-    font-weight: 600 !important;
-}
-
-/* Fix sidebar expander headers */
-.css-1d391kg .streamlit-expanderHeader {
-    background: #e2e8f0 !important;
-    color: #1a202c !important;
-    font-weight: 600 !important;
-}
-
-/* Fix sidebar selectbox dropdown */
-.css-1d391kg .stSelectbox > div > div {
-    background: #f7fafc !important;
-    color: #1a202c !important;
-}
-
-/* Main content text */
+/* All text dark for visibility */
 h1, h2, h3, h4, h5, h6 {
-    color: #f7fafc !important;
+    color: #1e293b !important;
 }
 
 p, div, span, label {
-    color: #e2e8f0 !important;
+    color: #374151 !important;
 }
 
 /* Input labels */
@@ -338,18 +286,23 @@ p, div, span, label {
 .stDateInput label, 
 .stTimeInput label, 
 .stTextInput label {
-    color: #f7fafc !important;
+    color: #1e293b !important;
     font-weight: 500 !important;
+}
+
+/* Sidebar text */
+.css-1d391kg * {
+    color: #1e293b !important;
 }
 
 /* Hero section */
 .hero-container {
-    background: linear-gradient(135deg, #4299e1 20%, #667eea 80%);
+    background: linear-gradient(135deg, #3b82f6 20%, #6366f1 80%);
     border-radius: 16px;
     padding: 2rem;
     margin: 1rem 0;
     text-align: center;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     color: white !important;
 }
 
@@ -368,57 +321,58 @@ p, div, span, label {
 
 /* Metric cards */
 .metric-card {
-    background: #2d3748;
-    border: 1px solid #4a5568;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
     height: 100%;
-    color: #e2e8f0 !important;
+    color: #1e293b !important;
 }
 
 .metric-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    border-color: #4299e1;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-color: #3b82f6;
 }
 
 /* Input containers */
 .input-container {
-    background: #2d3748;
-    border: 1px solid #4a5568;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 1.5rem;
     margin: 1rem 0;
-    color: #e2e8f0 !important;
+    color: #1e293b !important;
 }
 
 /* Dataframes */
 .stDataFrame {
-    background: #2d3748 !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
     border-radius: 8px !important;
 }
 
 .stDataFrame table {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
 }
 
 .stDataFrame th {
-    background: #4a5568 !important;
-    color: #f7fafc !important;
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
     font-weight: 600 !important;
 }
 
 .stDataFrame td {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
+    background: #ffffff !important;
+    color: #374151 !important;
 }
 
 /* Buttons */
 .stButton > button {
-    background: #4299e1;
+    background: #3b82f6;
     color: white !important;
     border: none;
     border-radius: 8px;
@@ -427,81 +381,82 @@ p, div, span, label {
 }
 
 .stButton > button:hover {
-    background: #3182ce;
+    background: #2563eb;
     transform: translateY(-1px);
 }
 
 /* Download buttons */
 .stDownloadButton > button {
-    background: #38a169;
+    background: #10b981;
     color: white !important;
     border: none;
     border-radius: 8px;
 }
 
 .stDownloadButton > button:hover {
-    background: #2f855a;
+    background: #059669;
 }
 
 /* Alert boxes */
 .stAlert > div {
-    background: #2d3748 !important;
-    border: 1px solid #4a5568 !important;
-    color: #e2e8f0 !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #374151 !important;
 }
 
 .stSuccess > div {
-    background: #22543d !important;
-    border: 1px solid #38a169 !important;
-    color: #9ae6b4 !important;
+    background: #f0fdf4 !important;
+    border: 1px solid #22c55e !important;
+    color: #15803d !important;
 }
 
 .stInfo > div {
-    background: #1e3a8a !important;
+    background: #eff6ff !important;
     border: 1px solid #3b82f6 !important;
-    color: #93c5fd !important;
+    color: #1d4ed8 !important;
 }
 
 .stWarning > div {
-    background: #78350f !important;
+    background: #fffbeb !important;
     border: 1px solid #f59e0b !important;
-    color: #fcd34d !important;
+    color: #d97706 !important;
 }
 
 .stError > div {
-    background: #7f1d1d !important;
+    background: #fef2f2 !important;
     border: 1px solid #ef4444 !important;
-    color: #fca5a5 !important;
+    color: #dc2626 !important;
 }
 
 /* Expanders */
 .streamlit-expanderHeader {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
+    background: #f8fafc !important;
+    color: #1e293b !important;
+    border: 1px solid #e2e8f0 !important;
 }
 
 .streamlit-expanderContent {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
+    background: #ffffff !important;
+    color: #374151 !important;
 }
 
 /* Tabs */
 .stTabs [data-baseweb="tab-list"] {
-    background: #2d3748;
+    background: #f8fafc;
 }
 
 .stTabs [data-baseweb="tab"] {
-    color: #e2e8f0 !important;
+    color: #374151 !important;
 }
 
 .stTabs [aria-selected="true"] {
-    background: #4299e1 !important;
+    background: #3b82f6 !important;
     color: white !important;
 }
 
 /* Metrics */
 .metric-value {
-    color: #f7fafc !important;
+    color: #1e293b !important;
 }
 
 /* Hide Streamlit branding */
@@ -520,7 +475,6 @@ header {visibility: hidden;}
 }
 </style>
 """, unsafe_allow_html=True)
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
