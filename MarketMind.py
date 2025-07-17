@@ -245,7 +245,7 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "SPX"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CLEAN DESIGN WITH SIDEBAR FIX
+# CLEAN DESIGN WITH SIDEBAR & ALIGNMENT FIXES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
@@ -321,6 +321,52 @@ section[data-testid="stSidebar"] *,
 .css-1d391kg .stSelectbox > div > div {
     background: #f7fafc !important;
     color: #1a202c !important;
+}
+
+/* ALIGNMENT FIXES - Make all input elements same height */
+.stDateInput,
+.stNumberInput,
+.stTimeInput,
+.stTextInput {
+    display: flex;
+    align-items: center;
+    min-height: 2.5rem;
+}
+
+.stDateInput > div,
+.stNumberInput > div,
+.stTimeInput > div,
+.stTextInput > div {
+    margin-bottom: 0 !important;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+/* Fix info boxes to align with inputs */
+.stAlert {
+    display: flex;
+    align-items: center;
+    margin: 0 !important;
+    padding: 0.75rem 1rem !important;
+    min-height: 2.5rem;
+    box-sizing: border-box;
+}
+
+/* Fix column alignment */
+.element-container {
+    display: flex;
+    align-items: center;
+    height: auto;
+}
+
+/* Ensure all form elements have consistent spacing */
+.stDateInput label,
+.stNumberInput label,
+.stTimeInput label,
+.stTextInput label {
+    margin-bottom: 0.25rem !important;
+    display: block;
 }
 
 /* Main content text */
