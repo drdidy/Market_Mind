@@ -6818,10 +6818,10 @@ for ticker in ["TSLA", "NVDA"]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# APPLE (AAPL) ANALYSIS PAGE
+# APPLE (AAPL) ANALYSIS PAGE - CORRECTED SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif st.session_state.selected_page == "AAPL":
+if st.session_state.selected_page == "AAPL":
     ticker = "AAPL"
     stock_data = stock_info[ticker]
     current_slope = strategy.slopes.get(ticker, 0)
