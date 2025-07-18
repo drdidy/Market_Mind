@@ -1222,7 +1222,7 @@ def display_premium_forecast_table(df: pd.DataFrame, title: str, chart_type: str
         st.info("📊 No data available - Generate a forecast to see results")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PREMIUM HEADER WITH CHICAGO TIME & ADVANCED CONTROLS
+# COMPLETE PREMIUM HEADER WITH CHICAGO TIME & ADVANCED CONTROLS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def render_premium_hero_section():
@@ -1239,26 +1239,26 @@ def render_premium_hero_section():
     
     with header_col2:
         # Sidebar toggle
-        sidebar_icon = "👁️" if st.session_state.sidebar_collapsed else "👁️‍🗨️"
+        sidebar_icon = "👁️" if st.session_state.get('sidebar_collapsed', False) else "👁️‍🗨️"
         if st.button(sidebar_icon, key="sidebar_toggle", help="Toggle Sidebar", use_container_width=True):
-            st.session_state.sidebar_collapsed = not st.session_state.sidebar_collapsed
+            st.session_state.sidebar_collapsed = not st.session_state.get('sidebar_collapsed', False)
             st.rerun()
     
     with header_col3:
         # Theme toggle
-        theme_icon = "🌙" if not st.session_state.dark_mode else "☀️"
+        theme_icon = "🌙" if not st.session_state.get('dark_mode', False) else "☀️"
         if st.button(theme_icon, key="theme_toggle", help="Toggle Dark/Light Mode", use_container_width=True):
-            st.session_state.dark_mode = not st.session_state.dark_mode
+            st.session_state.dark_mode = not st.session_state.get('dark_mode', False)
             st.rerun()
     
     with header_col4:
         # Premium effects toggle
-        effects_icon = "✨" if st.session_state.premium_effects else "💫"
+        effects_icon = "✨" if st.session_state.get('premium_effects', True) else "💫"
         if st.button(effects_icon, key="effects_toggle", help="Toggle Premium Effects", use_container_width=True):
-            st.session_state.premium_effects = not st.session_state.premium_effects
+            st.session_state.premium_effects = not st.session_state.get('premium_effects', True)
             st.rerun()
     
-    # Main hero section
+    # Main hero section - FIXED: Added unsafe_allow_html=True
     st.markdown(f"""
     <div class="hero-container">
         <h1 class="hero-title">🧠 Dr. David's Market Mind</h1>
@@ -1267,7 +1267,9 @@ def render_premium_hero_section():
             <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);">
                 <strong>🕐 {current_time_chicago}</strong>
             </div>
-            {create_status_badge(market_pulse['session_emoji'] + ' ' + market_pulse['session'], market_pulse['session_color'], market_pulse['session'] == 'Regular Hours')}
+            <div style="background: {market_pulse['session_color']}; color: white; padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 15px {market_pulse['session_color']}33;">
+                <strong>{market_pulse['session_emoji']} {market_pulse['session']}</strong>
+            </div>
             <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);">
                 <strong>📊 {market_pulse['volume_profile']}</strong>
             </div>
@@ -1283,6 +1285,7 @@ def render_premium_hero_section():
     </div>
     """, unsafe_allow_html=True)
 
+# Call the hero section function
 render_premium_hero_section()
 
 # ═══════════════════════════════════════════════════════════════════════════════
