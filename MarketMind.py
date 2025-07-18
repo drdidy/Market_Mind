@@ -1222,11 +1222,11 @@ def display_premium_forecast_table(df: pd.DataFrame, title: str, chart_type: str
         st.info("📊 No data available - Generate a forecast to see results")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# COMPLETE PREMIUM HEADER WITH CHICAGO TIME & ADVANCED CONTROLS
+# IMPROVED HERO SECTION - BETTER CONTRAST & READABILITY
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def render_premium_hero_section():
-    """Render premium hero section with advanced features and Chicago time."""
+    """Render premium hero section with improved visibility and readability."""
     chicago_time = strategy.get_chicago_time()
     current_time_chicago = chicago_time.strftime("%H:%M:%S CST")
     current_date = chicago_time.strftime("%A, %B %d, %Y")
@@ -1258,34 +1258,117 @@ def render_premium_hero_section():
             st.session_state.premium_effects = not st.session_state.get('premium_effects', True)
             st.rerun()
     
-    # Main hero section - FIXED: Added unsafe_allow_html=True
+    # Improved hero section with better contrast and larger text
     st.markdown(f"""
-    <div class="hero-container">
-        <h1 class="hero-title">🧠 Dr. David's Market Mind</h1>
-        <p class="hero-subtitle">Premium Financial Forecasting with Advanced Analytics & 3D Visualization</p>
-        <div style="display: flex; justify-content: center; gap: 1.5rem; margin-top: 2rem; flex-wrap: wrap;">
-            <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);">
-                <strong>🕐 {current_time_chicago}</strong>
+    <div style="
+        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1e40af 100%);
+        border-radius: 20px;
+        padding: 3rem 2rem;
+        margin: 2rem 0;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        position: relative;
+        overflow: hidden;
+    ">
+        <h1 style="
+            color: #ffffff; 
+            font-size: 3.5rem; 
+            font-weight: 900; 
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            line-height: 1.2;
+        ">🧠 Dr. David's Market Mind</h1>
+        
+        <p style="
+            color: #e0e7ff; 
+            font-size: 1.4rem; 
+            margin-bottom: 2.5rem;
+            font-weight: 500;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        ">Premium Financial Forecasting with Advanced Analytics</p>
+        
+        <div style="
+            display: flex; 
+            justify-content: center; 
+            gap: 1.5rem; 
+            margin-top: 2rem; 
+            flex-wrap: wrap;
+        ">
+            <div style="
+                background: rgba(255,255,255,0.9); 
+                color: #1e3a8a;
+                padding: 1rem 1.5rem; 
+                border-radius: 12px; 
+                font-weight: 700;
+                font-size: 1.1rem;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                min-width: 140px;
+            ">
+                🕐 {current_time_chicago}
             </div>
-            <div style="background: {market_pulse['session_color']}; color: white; padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 15px {market_pulse['session_color']}33;">
-                <strong>{market_pulse['session_emoji']} {market_pulse['session']}</strong>
+            
+            <div style="
+                background: {market_pulse['session_color']}; 
+                color: white; 
+                padding: 1rem 1.5rem; 
+                border-radius: 12px; 
+                font-weight: 700;
+                font-size: 1.1rem;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                min-width: 140px;
+            ">
+                {market_pulse['session_emoji']} {market_pulse['session']}
             </div>
-            <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);">
-                <strong>📊 {market_pulse['volume_profile']}</strong>
-            </div>
-            <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 0.8rem 1.5rem; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);">
-                <strong>📅 {current_date}</strong>
+            
+            <div style="
+                background: rgba(255,255,255,0.9); 
+                color: #1e3a8a;
+                padding: 1rem 1.5rem; 
+                border-radius: 12px; 
+                font-weight: 700;
+                font-size: 1.1rem;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                min-width: 140px;
+            ">
+                📊 {market_pulse['volume_profile']}
             </div>
         </div>
-        <div style="margin-top: 1.5rem; text-align: center;">
-            <div style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 10px; display: inline-block;">
-                <strong>Trading Opportunity: {market_pulse['opportunity_rating']}</strong>
+        
+        <div style="
+            background: rgba(255,255,255,0.9); 
+            color: #1e3a8a;
+            padding: 1rem 1.5rem; 
+            border-radius: 12px; 
+            font-weight: 700;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            margin-top: 1.5rem;
+            display: inline-block;
+        ">
+            📅 {current_date}
+        </div>
+        
+        <div style="
+            margin-top: 2rem;
+        ">
+            <div style="
+                background: linear-gradient(135deg, #10b981, #059669); 
+                color: white;
+                padding: 0.8rem 2rem; 
+                border-radius: 25px; 
+                font-weight: 700;
+                font-size: 1.2rem;
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+                display: inline-block;
+                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            ">
+                ⭐ Trading Opportunity: {market_pulse['opportunity_rating']}
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-# Call the hero section function
+# Call the improved hero section function
 render_premium_hero_section()
 
 # ═══════════════════════════════════════════════════════════════════════════════
