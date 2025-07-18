@@ -150,3 +150,49 @@ def glass_card(kind: str, sym: str, title: str, value: float):
         """,
         unsafe_allow_html=True,
     )
+# ────────────────────────────── SIDEBAR ──────────────────────────────────────
+with st.sidebar:
+    # 1. Theme toggle (persisted & animated)
+    st.markdown("### 🎨 Theme")
+    col_dark, col_light = st.columns(2)
+    if col_dark.button("🌙 Dark", key="btn_dark", use_container_width=True):
+        st.session_state.theme = "dark"
+        st.rerun()
+    if col_light.button("☀️ Light", key="btn_light", use_container_width=True):
+        st.session_state.theme = "light"
+        st.rerun()
+
+    st.divider()
+
+    # 2. Forecast date (with weekday label)
+    fcast_date = st.date_input("📅 Forecast Date", value=date.today() + timedelta(days=1))
+    wd = fcast_date.weekday()
+    day_grp = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][wd]
+    st.caption(f"Selected weekday: **{day_grp}**")
+
+    st.divider()
+
+    # 3. Slopes panel – collapsible, but open by default
+    with st.expander("📉 Slopes", expanded=True):
+        for key in list(st.session_state.slopes):
+            st.session_state.slopes[key] = st.slider(
+                key, -1.0, 1.0, st.session_state.slopes[key], 0.0001,
+                key=f"slope_{key}")
+
+    # 4. Presets – streamlined
+    with st.expander("💾 Presets"):
+        nm = st.text_input("Name", placeholder="My preset…")
+        if st.button("Save", key="save_preset", use_container_width=True):
+            if nm.strip():
+                st.session_state.presets[nm] = deepcopy(st.session_state.slopes)
+                st.success(f"Saved **{nm}**")
+        if st.session_state.presets:
+            sel = st.selectbox("Load preset", list(st.session_state.presets))
+            if st.button("Load", key="load_preset", use_container_width=True):
+                st.session_state.slopes.update(st.session_state.presets[sel])
+                st.rerun()
+
+    # 5. Share link – copy-friendly
+    share_qs = base64.b64encode(json.dumps(st.session_state.slopes).encode()).decode()
+    st.write("🔗 Share link")
+    st.code(f"?s={share_qs}", language=None)
