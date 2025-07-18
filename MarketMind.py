@@ -7349,10 +7349,10 @@ for ticker in ["AAPL", "MSFT"]:
             st.info(f"👆 Enter {stock_info[ticker]['name']}'s data and generate analysis to see results.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PART 8C: GOOGLE (GOOGL) ANALYSIS
+# GOOGLE (GOOGL) ANALYSIS PAGE - CORRECTED SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif st.session_state.selected_page == "GOOGL":
+if st.session_state.selected_page == "GOOGL":
     ticker = "GOOGL"
     stock_data = stock_info[ticker]
     current_slope = strategy.slopes.get(ticker, 0)
