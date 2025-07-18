@@ -196,3 +196,91 @@ with st.sidebar:
     share_qs = base64.b64encode(json.dumps(st.session_state.slopes).encode()).decode()
     st.write("🔗 Share link")
     st.code(f"?s={share_qs}", language=None)
+
+# ────────────────────────────── PART 3 ───────────────────────────────────────
+#  Same single-file layout, but now every ticker gets its own page via radio
+#  (simulates multi-page without extra files)
+# -----------------------------------------------------------------------------
+
+# Central page selector
+page = st.sidebar.radio(
+    "📍 Navigate",
+    ["SPX"] + list(ICONS.keys())[1:],  # [SPX, TSLA, NVDA, AAPL, …]
+    key="page_selector"
+)
+
+# ------------- SPX PAGE -------------
+if page == "SPX":
+    st.write(f"### {ICONS['SPX']} SPX Forecast")
+    c1, c2, c3 = st.columns(3)
+    hp, ht = c1.number_input("High Price", value=6185.8, min_value=0.0), \
+             c1.time_input("High Time", time(11, 30))
+    cp, ct = c2.number_input("Close Price", value=6170.2, min_value=0.0), \
+             c2.time_input("Close Time", time(15))
+    lp, lt = c3.number_input("Low  Price", value=6130.4, min_value=0.0), \
+             c3.time_input("Low Time", time(13, 30))
+
+    st.subheader("Contract Line (Low-1 ↔ Low-2)")
+    o1, o2 = st.columns(2)
+    l1_t, l1_p = o1.time_input("Low-1 Time", time(2), step=300), \
+                 o1.number_input("Low-1 Price", value=10.0, min_value=0.0, step=0.1, key="l1")
+    l2_t, l2_p = o2.time_input("Low-2 Time", time(3, 30), step=300), \
+                 o2.number_input("Low-2 Price", value=12.0, min_value=0.0, step=0.1, key="l2")
+
+    if st.button("Run Forecast"):
+        st.markdown('<div class="card-grid">', unsafe_allow_html=True)
+        glass_card("high", "▲", "High Anchor", hp)
+        glass_card("close", "■", "Close Anchor", cp)
+        glass_card("low", "▼", "Low Anchor", lp)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        ah, ac, al = [datetime.combine(fcast_date - timedelta(days=1), t)
+                      for t in (ht, ct, lt)]
+        for lbl, p, key, anc in [("High", hp, "SPX_HIGH", ah),
+                                 ("Close", cp, "SPX_CLOSE", ac),
+                                 ("Low", lp, "SPX_LOW", al)]:
+            st.subheader(f"{lbl} Anchor Trend")
+            st.dataframe(tbl(p, st.session_state.slopes[key], anc,
+                             fcast_date, SPX_SLOTS, fan=True), use_container_width=True)
+
+        anchor_dt = datetime.combine(fcast_date, l1_t)
+        slope = (l2_p - l1_p) / (blk_spx(anchor_dt, datetime.combine(fcast_date, l2_t)) or 1)
+        st.session_state.contract_anchor = anchor_dt
+        st.session_state.contract_slope = slope
+        st.session_state.contract_price = l1_p
+
+        st.subheader("Contract Line (2-pt)")
+        st.dataframe(tbl(l1_p, slope, anchor_dt, fcast_date, GEN_SLOTS),
+                     use_container_width=True)
+
+    lookup_t = st.time_input("Lookup time", time(9, 25), step=300, key="lookup_time")
+    if st.session_state.contract_anchor:
+        blocks = blk_spx(st.session_state.contract_anchor,
+                         datetime.combine(fcast_date, lookup_t))
+        val = st.session_state.contract_price + st.session_state.contract_slope * blocks
+        st.info(f"Projected @ {lookup_t.strftime('%H:%M')} → **{val:.2f}**")
+    else:
+        st.info("Enter Low-1 & Low-2 and press **Run Forecast** to activate lookup.")
+
+# ------------- STOCK PAGES -------------
+else:
+    tic = page
+    st.write(f"### {ICONS[tic]} {tic}")
+    a, b = st.columns(2)
+    lp, lt = a.number_input("Prev-day Low", value=0.0, min_value=0.0, key=f"{tic}_lp"), \
+             a.time_input("Low Time", time(7, 30), key=f"{tic}_lt")
+    hp, ht = b.number_input("Prev-day High", value=0.0, min_value=0.0, key=f"{tic}_hp"), \
+             b.time_input("High Time", time(7, 30), key=f"{tic}_ht")
+    if st.button("Generate", key=f"go_{tic}"):
+        low = tbl(lp, st.session_state.slopes[tic],
+                  datetime.combine(fcast_date, lt), fcast_date, GEN_SLOTS,
+                  spx=False, fan=True)
+        high = tbl(hp, st.session_state.slopes[tic],
+                   datetime.combine(fcast_date, ht), fcast_date, GEN_SLOTS,
+                   spx=False, fan=True)
+        st.subheader("Low Anchor Trend");  st.dataframe(low,  use_container_width=True)
+        st.subheader("High Anchor Trend"); st.dataframe(high, use_container_width=True)
+
+# ────────────────────────────── FOOTER ───────────────────────────────────────
+st.divider()
+st.caption(f"v{VERSION} • {datetime.now():%Y-%m-%d %H:%M:%S}")
