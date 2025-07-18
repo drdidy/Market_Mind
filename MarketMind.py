@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  DR Didy SPX Forecast – v1.5.7  |  UI Revamp – Part 1/3
+#  Dr David’s Market Mind – UI Revamp – Part 1/3
 # ─────────────────────────────────────────────────────────────────────────────
 import json, base64, streamlit as st
 from datetime import datetime, date, time, timedelta
@@ -7,8 +7,9 @@ from copy import deepcopy
 import pandas as pd
 
 # ── CONSTANTS & ICONS ───────────────────────────────────────────────────────
-PAGE_TITLE, PAGE_ICON = "DRSPX Forecast", "📈"
-VERSION = "1.5.7"
+PAGE_TITLE = "Dr David’s Market Mind"
+PAGE_ICON  = "📈"
+VERSION    = "1.5.7"
 
 BASE_SLOPES = {
     "SPX_HIGH": -0.2792, "SPX_CLOSE": -0.2792, "SPX_LOW": -0.2792,
@@ -47,12 +48,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── THEME TOGGLE HELPER ─────────────────────────────────────────────────────
-def set_theme(theme: str):
-    st.session_state.theme = theme
-    st.rerun()
-
-# ── CUSTOM CSS (dark / light + glassmorphism) ───────────────────────────────
+# ── CUSTOM CSS (centralized branding + glassmorphism) ───────────────────────
 css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
@@ -86,12 +82,13 @@ body {
   margin-bottom: 1.5rem;
   box-shadow: var(--shadow);
   animation: slideFade .6s ease-out;
+  text-align: center;
 }
 
 .banner h1 {
   margin: 0;
   font-weight: 800;
-  font-size: 2.1rem;
+  font-size: 2.4rem;
   letter-spacing: -.5px;
 }
 
@@ -130,7 +127,7 @@ st.markdown(css, unsafe_allow_html=True)
 st.markdown(
     f"""
     <div class="banner">
-      <h1>{PAGE_ICON} {PAGE_TITLE} – {VERSION}</h1>
+      <h1>{PAGE_TITLE}</h1>
     </div>
     """,
     unsafe_allow_html=True,
