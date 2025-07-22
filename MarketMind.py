@@ -1190,7 +1190,108 @@ else:
                         help="Time when the high occurred"
                     )
                 
-                # ADD YOUR EXISTING STOCK FORECAST GENERATION CODE HERE
+                # Current slope display
+                current_slope = st.session_state.slopes[ticker]
+                st.markdown(f"""
+                <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 1rem; margin: 1rem 0; border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <strong>📊 Current {ticker} Slope:</strong> <code>{current_slope:.4f}</code>
+                    <small style="opacity: 0.7; display: block;">Adjust in sidebar under 'Slope Adjustments'</small>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Generate button
+                generate_col = st.columns([1, 2, 1])[1]
+                with generate_col:
+                    generate_stock = st.button(
+                        f"🚀 Generate {ticker} Forecast",
+                        use_container_width=True,
+                        type="primary",
+                        key=f"generate_{ticker}",
+                        help=f"Generate complete forecast analysis for {ticker}"
+                    )
+                
+                # Results section
+                if generate_stock:
+                    if low_price > 0 and high_price > 0:
+                        # Metrics cards
+                        st.markdown('<div class="cards-container">', unsafe_allow_html=True)
+                        
+                        metric_col1, metric_col2 = st.columns(2)
+                        with metric_col1:
+                            create_metric_card("low", "📉", f"{ticker} Low", low_price)
+                        with metric_col2:
+                            create_metric_card("high", "📈", f"{ticker} High", high_price)
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # Calculate anchor times
+                        low_anchor = datetime.combine(forecast_date, low_time)
+                        high_anchor = datetime.combine(forecast_date, high_time)
+                        
+                        # Generate forecast tables
+                        create_section_header("📉", f"{ticker} Low Anchor Projections")
+                        
+                        low_forecast = create_forecast_table(
+                            low_price,
+                            current_slope,
+                            low_anchor,
+                            forecast_date,
+                            GENERAL_SLOTS,
+                            is_spx=False,
+                            fan_mode=True
+                        )
+                        st.dataframe(low_forecast, use_container_width=True, hide_index=True)
+                        
+                        # Analysis insights
+                        price_range = high_price - low_price
+                        avg_entry = low_forecast['Entry'].mean()
+                        avg_exit = low_forecast['Exit'].mean()
+                        avg_spread = low_forecast['Spread'].mean()
+                        
+                        st.markdown(f"""
+                        <div class="success-box">
+                            <h4 style="margin-top: 0;">📊 Low Anchor Analysis</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div><strong>Average Entry:</strong><br>${avg_entry:.2f}</div>
+                                <div><strong>Average Exit:</strong><br>${avg_exit:.2f}</div>
+                                <div><strong>Average Spread:</strong><br>${avg_spread:.2f}</div>
+                                <div><strong>Prev Day Range:</strong><br>${price_range:.2f}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        create_section_header("📈", f"{ticker} High Anchor Projections")
+                        
+                        high_forecast = create_forecast_table(
+                            high_price,
+                            current_slope,
+                            high_anchor,
+                            forecast_date,
+                            GENERAL_SLOTS,
+                            is_spx=False,
+                            fan_mode=True
+                        )
+                        st.dataframe(high_forecast, use_container_width=True, hide_index=True)
+                        
+                        # High anchor analysis
+                        avg_entry_high = high_forecast['Entry'].mean()
+                        avg_exit_high = high_forecast['Exit'].mean()
+                        avg_spread_high = high_forecast['Spread'].mean()
+                        
+                        st.markdown(f"""
+                        <div class="success-box">
+                            <h4 style="margin-top: 0;">📊 High Anchor Analysis</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div><strong>Average Entry:</strong><br>${avg_entry_high:.2f}</div>
+                                <div><strong>Average Exit:</strong><br>${avg_exit_high:.2f}</div>
+                                <div><strong>Average Spread:</strong><br>${avg_spread_high:.2f}</div>
+                                <div><strong>Efficiency:</strong><br>{(avg_spread_high/price_range*100):.1f}%</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    else:
+                        st.warning("⚠️ Please enter both low and high prices to generate forecast.")
         
         # Create all enhanced stock tabs
         stock_tickers = list(ICONS.keys())[1:]
