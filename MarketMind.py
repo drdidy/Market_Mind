@@ -540,8 +540,16 @@ def create_playbook_navigation():
     
     st.markdown("---")
     
-    # Playbook selection
+    # Playbook selection with enhanced styling
     st.markdown("## 📋 Select Detailed Playbook")
+    
+    st.markdown("""
+    <div style="text-align: center; margin: 1.5rem 0;">
+        <p style="color: #e2e8f0; font-size: 1.1rem; opacity: 0.8;">
+            Choose a ticker below to access comprehensive trading strategies and rules
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     cols = st.columns(3)
     playbook_options = ["SPX"] + list(BEST_TRADING_DAYS.keys())
@@ -549,9 +557,38 @@ def create_playbook_navigation():
     for i, ticker in enumerate(playbook_options):
         col_idx = i % 3
         with cols[col_idx]:
+            # Enhanced button styling for each playbook
+            button_color = "#667eea" if ticker == "SPX" else "#f59e0b"
+            st.markdown(f"""
+            <div style="margin-bottom: 1rem;">
+                <div style="
+                    background: linear-gradient(135deg, {button_color} 0%, {button_color}cc 100%);
+                    border-radius: 12px;
+                    padding: 0.1rem;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                ">
+                    <div style="
+                        background: rgba(255, 255, 255, 0.1);
+                        border-radius: 11px;
+                        padding: 1rem;
+                        text-align: center;
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    ">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">{ICONS[ticker]}</div>
+                        <div style="color: white; font-weight: 600; font-size: 1rem;">{ticker}</div>
+                        <div style="color: rgba(255, 255, 255, 0.8); font-size: 0.85rem;">
+                            {"Master Playbook" if ticker == "SPX" else "Trading Rules"}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             if st.button(
-                f"{ICONS[ticker]} {ticker} Playbook",
+                f"Open {ticker} Playbook",
                 use_container_width=True,
+                type="primary" if ticker == "SPX" else "secondary",
                 key=f"nav_playbook_{ticker}",
                 help=f"View comprehensive {ticker} strategy"
             ):
@@ -573,7 +610,10 @@ def display_spx_playbook():
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("← Back to Playbook Menu"):
+    if st.button("← Back to Playbook Menu", 
+                 type="secondary", 
+                 help="Return to playbook selection",
+                 use_container_width=False):
         st.session_state.selected_playbook = None
         st.rerun()
     
@@ -670,7 +710,10 @@ def display_stock_playbook(ticker):
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("← Back to Playbook Menu"):
+    if st.button("← Back to Playbook Menu", 
+                 type="secondary", 
+                 help="Return to playbook selection",
+                 use_container_width=False):
         st.session_state.selected_playbook = None
         st.rerun()
     
@@ -727,7 +770,7 @@ def display_selected_playbook():
 # Initialize playbook state
 if 'selected_playbook' not in st.session_state:
     st.session_state.selected_playbook = None
-    
+
 
 # ── ENHANCED SIDEBAR ────────────────────────────────────────────────────────
 
