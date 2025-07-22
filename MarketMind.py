@@ -1,46 +1,62 @@
-# ─────────────────────────────────────────────────────────────────────────────
-#  Dr David’s Market Mind – UI Revamp – Part 1/3
-# ─────────────────────────────────────────────────────────────────────────────
-import json, base64, streamlit as st
+# ═══════════════════════════════════════════════════════════════════════════════
+# 📈 Dr Didy SPX Forecast – v1.6.0 (Enhanced UI)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import json
+import base64
+import streamlit as st
 from datetime import datetime, date, time, timedelta
 from copy import deepcopy
 import pandas as pd
 
-# ── CONSTANTS & ICONS ───────────────────────────────────────────────────────
-PAGE_TITLE = "Dr David’s Market Mind"
-PAGE_ICON  = "📈"
-VERSION    = "1.5.7"
+# ── CONSTANTS & CONFIGURATION ────────────────────────────────────────────────
+PAGE_TITLE = "Dr Didy SPX Forecast"
+PAGE_ICON = "📈"
+VERSION = "1.6.0"
 
 BASE_SLOPES = {
     "SPX_HIGH": -0.2792, "SPX_CLOSE": -0.2792, "SPX_LOW": -0.2792,
     "TSLA": -0.1508, "NVDA": -0.0485, "AAPL": -0.0750,
-    "MSFT": -0.17, "AMZN": -0.03, "GOOGL": -0.07,
-    "META": -0.035, "NFLX": -0.23,
-}
-ICONS = {
-    "SPX":"🧭","TSLA":"🚗","NVDA":"🧠","AAPL":"🍎",
-    "MSFT":"🪟","AMZN":"📦","GOOGL":"🔍",
-    "META":"📘","NFLX":"📺"
+    "MSFT": -0.17,   "AMZN": -0.03,   "GOOGL": -0.07,
+    "META": -0.035,  "NFLX": -0.23,
 }
 
-# ── GLOBAL SESSION STATE ─────────────────────────────────────────────────────
+ICONS = {
+    "SPX": "🧭", "TSLA": "🚗", "NVDA": "🧠", "AAPL": "🍎",
+    "MSFT": "🪟", "AMZN": "📦", "GOOGL": "🔍",
+    "META": "📘", "NFLX": "📺"
+}
+
+COLORS = {
+    "primary": "#1f77b4",
+    "success": "#28a745", 
+    "warning": "#ffc107",
+    "danger": "#dc3545",
+    "info": "#17a2b8"
+}
+
+# ── SESSION STATE INITIALIZATION ────────────────────────────────────────────
 if "theme" not in st.session_state:
     st.session_state.update(
-        theme="dark",
+        theme="Dark",  # Default to dark theme for modern look
         slopes=deepcopy(BASE_SLOPES),
         presets={},
         contract_anchor=None,
         contract_slope=None,
-        contract_price=None)
+        contract_price=None,
+        forecasts_generated=False
+    )
 
+# Load slopes from URL parameters if available
 if st.query_params.get("s"):
     try:
         st.session_state.slopes.update(
-            json.loads(base64.b64decode(st.query_params["s"][0]).decode()))
+            json.loads(base64.b64decode(st.query_params["s"][0]).decode())
+        )
     except Exception:
         pass
 
-# ── STREAMLIT PAGE CONFIG ───────────────────────────────────────────────────
+# ── PAGE CONFIGURATION ───────────────────────────────────────────────────────
 st.set_page_config(
     page_title=PAGE_TITLE,
     page_icon=PAGE_ICON,
@@ -48,239 +64,1032 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── CUSTOM CSS (centralized branding + glassmorphism) ───────────────────────
-css = """
+# ── ENHANCED CSS STYLING ────────────────────────────────────────────────────
+st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+/* Import modern font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+/* Root variables for theming */
 :root {
-  --font: 'Inter', sans-serif;
-  --radius: 14px;
-  --shadow: 0 8px 32px rgba(0,0,0,.25);
+    --border-radius: 16px;
+    --shadow-light: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.12);
+    --shadow-heavy: 0 16px 48px rgba(0, 0, 0, 0.16);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
-body {
-  font-family: var(--font);
-  background: #0f0f0f;
-  color: #e5e5e5;
+/* Global styles */
+html, body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
 }
 
-[data-testid="stApp"] {
-  background: linear-gradient(135deg, #1e1e2f 0%, #16161d 100%);
+/* Dark theme */
+.stApp {
+    background: linear-gradient(135deg, #0c1426 0%, #1a1f36 50%, #0f1419 100%);
+    color: #e2e8f0;
 }
 
-/* --- animated header --- */
-@keyframes slideFade {
-  from {transform: translateY(-25px); opacity: 0;}
-  to   {transform: translateY(0);    opacity: 1;}
+/* Hide Streamlit branding */
+#MainMenu, footer, .stDeployButton { display: none !important; }
+
+/* Enhanced banner */
+.main-banner {
+    background: var(--gradient-primary);
+    text-align: center;
+    color: white;
+    border-radius: var(--border-radius);
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-heavy);
+    position: relative;
+    overflow: hidden;
 }
 
-.banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: var(--radius);
-  padding: 1.2rem 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow);
-  animation: slideFade .6s ease-out;
-  text-align: center;
+.main-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    z-index: 1;
 }
 
-.banner h1 {
-  margin: 0;
-  font-weight: 800;
-  font-size: 2.4rem;
-  letter-spacing: -.5px;
+.main-banner h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* --- glass cards --- */
-.glass-card {
-  background: rgba(255,255,255,.06);
-  backdrop-filter: blur(10px) saturate(200%);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: var(--radius);
-  padding: 1.4rem 1.2rem;
-  box-shadow: var(--shadow);
-  transition: transform .25s ease;
+.main-banner .subtitle {
+    font-size: 1.1rem;
+    font-weight: 400;
+    opacity: 0.9;
+    position: relative;
+    z-index: 2;
+    margin-top: 0.5rem;
 }
 
-.glass-card:hover {
-  transform: translateY(-6px);
+/* Enhanced cards container */
+.cards-container {
+    display: flex;
+    gap: 1.5rem;
+    margin: 2rem 0;
+    overflow-x: auto;
+    padding: 0.5rem 0;
 }
 
-/* --- responsive grid --- */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.2rem;
-  margin-bottom: 2rem;
+.metric-card {
+    flex: 1;
+    min-width: 280px;
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-medium);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* --- sidebar tweaks --- */
-[data-testid="stSidebar"] {
-  background: rgba(0,0,0,.25);
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 1;
+}
+
+.metric-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: var(--shadow-heavy);
+}
+
+.metric-card.high {
+    background: rgba(34, 197, 94, 0.1);
+}
+.metric-card.high::before {
+    background: var(--gradient-success);
+}
+
+.metric-card.close {
+    background: rgba(59, 130, 246, 0.1);
+}
+.metric-card.close::before {
+    background: var(--gradient-info);
+}
+
+.metric-card.low {
+    background: rgba(239, 68, 68, 0.1);
+}
+.metric-card.low::before {
+    background: var(--gradient-warning);
+}
+
+.card-content {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.card-icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.card-icon.high { background: var(--gradient-success); }
+.card-icon.close { background: var(--gradient-info); }
+.card-icon.low { background: var(--gradient-warning); }
+
+.card-text {
+    flex: 1;
+}
+
+.card-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.card-value {
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+/* Section headers */
+.section-header {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--border-radius);
+    padding: 1.5rem 2rem;
+    margin: 2rem 0 1rem 0;
+    border-left: 4px solid var(--gradient-primary);
+    backdrop-filter: blur(10px);
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Enhanced tables */
+.dataframe {
+    border-radius: var(--border-radius) !important;
+    overflow: hidden;
+    box-shadow: var(--shadow-medium);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dataframe table {
+    font-family: 'Inter', sans-serif !important;
+}
+
+.dataframe th {
+    background: rgba(255, 255, 255, 0.1) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main-banner h1 { font-size: 2rem; }
+    .main-banner { padding: 1.5rem 1rem; }
+    .cards-container { flex-direction: column; }
+    .metric-card { min-width: auto; padding: 1.5rem; }
+    .card-icon { width: 3rem; height: 3rem; font-size: 1.5rem; }
+    .card-value { font-size: 1.8rem; }
+}
+
+/* Info boxes */
+.info-box {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin: 1rem 0;
+    backdrop-filter: blur(10px);
+}
+
+.success-box {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.warning-box {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
 }
 </style>
-"""
-st.markdown(css, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ── HEADER ────────────────────────────────────────────────────────────────────
-st.markdown(
-    f"""
-    <div class="banner">
-      <h1>{PAGE_TITLE}</h1>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# ── HELPER FUNCTIONS ────────────────────────────────────────────────────────
 
-# ── RESPONSIVE CARD HELPER ────────────────────────────────────────────────────
-def glass_card(kind: str, sym: str, title: str, value: float):
-    color = {"high":"#10b981","close":"#3b82f6","low":"#ef4444"}.get(kind, "#888")
-    st.markdown(
-        f"""
-        <div class="glass-card">
-          <div style="display:flex;align-items:center;">
-            <div style="font-size:2.2rem;margin-right:.8rem;">{sym}</div>
-            <div>
-              <div style="font-size:.9rem;opacity:.7;">{title}</div>
-              <div style="font-size:1.8rem;font-weight:800;color:{color};">{value:.2f}</div>
+def create_metric_card(card_type, icon, title, value):
+    """Create a beautiful metric card"""
+    st.markdown(f"""
+    <div class="metric-card {card_type}">
+        <div class="card-content">
+            <div class="card-icon {card_type}">{icon}</div>
+            <div class="card-text">
+                <div class="card-title">{title}</div>
+                <div class="card-value">{value:.2f}</div>
             </div>
-          </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-# ────────────────────────────── SIDEBAR ──────────────────────────────────────
-with st.sidebar:
-    # 1. Theme toggle (persisted & animated)
-    st.markdown("### 🎨 Theme")
-    col_dark, col_light = st.columns(2)
-    if col_dark.button("🌙 Dark", key="btn_dark", use_container_width=True):
-        st.session_state.theme = "dark"
-        st.rerun()
-    if col_light.button("☀️ Light", key="btn_light", use_container_width=True):
-        st.session_state.theme = "light"
-        st.rerun()
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.divider()
+def create_section_header(icon, title):
+    """Create a styled section header"""
+    st.markdown(f"""
+    <div class="section-header">
+        <h2>{icon} {title}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # 2. Forecast date (with weekday label)
-    fcast_date = st.date_input("📅 Forecast Date", value=date.today() + timedelta(days=1))
-    wd = fcast_date.weekday()
-    day_grp = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][wd]
-    st.caption(f"Selected weekday: **{day_grp}**")
+def make_time_slots(start_time=time(7, 30)):
+    """Generate time slots for trading"""
+    base = datetime(2025, 1, 1, start_time.hour, start_time.minute)
+    slot_count = 15 - (2 if start_time.hour == 8 and start_time.minute == 30 else 0)
+    return [(base + timedelta(minutes=30 * i)).strftime("%H:%M") for i in range(slot_count)]
 
-    st.divider()
+def calculate_spx_blocks(anchor_time, target_time):
+    """Calculate SPX blocks with market hours consideration"""
+    blocks = 0
+    current = anchor_time
+    while current < target_time:
+        if current.hour != 16:  # Skip 4 PM hour
+            blocks += 1
+        current += timedelta(minutes=30)
+    return blocks
 
-    # 3. Slopes panel – collapsible, but open by default
-    with st.expander("📉 Slopes", expanded=True):
-        for key in list(st.session_state.slopes):
-            st.session_state.slopes[key] = st.slider(
-                key, -1.0, 1.0, st.session_state.slopes[key], 0.0001,
-                key=f"slope_{key}")
+def calculate_stock_blocks(anchor_time, target_time):
+    """Calculate stock blocks (simple 30-minute intervals)"""
+    return max(0, int((target_time - anchor_time).total_seconds() // 1800))
 
-    # 4. Presets – streamlined
-    with st.expander("💾 Presets"):
-        nm = st.text_input("Name", placeholder="My preset…")
-        if st.button("Save", key="save_preset", use_container_width=True):
-            if nm.strip():
-                st.session_state.presets[nm] = deepcopy(st.session_state.slopes)
-                st.success(f"Saved **{nm}**")
-        if st.session_state.presets:
-            sel = st.selectbox("Load preset", list(st.session_state.presets))
-            if st.button("Load", key="load_preset", use_container_width=True):
-                st.session_state.slopes.update(st.session_state.presets[sel])
-                st.rerun()
+def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_spx=True, fan_mode=False):
+    """Create forecast table with projections"""
+    rows = []
+    
+    for slot in time_slots:
+        hour, minute = map(int, slot.split(":"))
+        target_time = datetime.combine(forecast_date, time(hour, minute))
+        
+        if is_spx:
+            blocks = calculate_spx_blocks(anchor, target_time)
+        else:
+            blocks = calculate_stock_blocks(anchor, target_time)
+        
+        if fan_mode:
+            entry_price = round(price + slope * blocks, 2)
+            exit_price = round(price - slope * blocks, 2)
+            rows.append({
+                "Time": slot,
+                "Entry": entry_price,
+                "Exit": exit_price,
+                "Spread": round(abs(entry_price - exit_price), 2)
+            })
+        else:
+            projected = round(price + slope * blocks, 2)
+            rows.append({
+                "Time": slot,
+                "Projected": projected,
+                "Change": round(slope * blocks, 2)
+            })
+    
+    return pd.DataFrame(rows)
 
-    # 5. Share link – copy-friendly
-    share_qs = base64.b64encode(json.dumps(st.session_state.slopes).encode()).decode()
-    st.write("🔗 Share link")
-    st.code(f"?s={share_qs}", language=None)
+# Define time slots
+SPX_SLOTS = make_time_slots(time(8, 30))
+GENERAL_SLOTS = make_time_slots(time(7, 30))
 
-# ────────────────────────────── PART 3 ───────────────────────────────────────
-#  Same single-file layout, but now every ticker gets its own page via radio
-#  (simulates multi-page without extra files)
-# -----------------------------------------------------------------------------
+# ── ENHANCED SIDEBAR ────────────────────────────────────────────────────────
 
-# Central page selector
-page = st.sidebar.radio(
-    "📍 Navigate",
-    ["SPX"] + list(ICONS.keys())[1:],  # [SPX, TSLA, NVDA, AAPL, …]
-    key="page_selector"
+st.sidebar.markdown(f"""
+<div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.5rem;">
+    <h2 style="margin: 0; color: #667eea;">⚙️ Strategy Controls</h2>
+    <p style="margin: 0.5rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">v{VERSION}</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Theme selection (keeping for future use)
+st.session_state.theme = st.sidebar.selectbox(
+    "🎨 Theme", 
+    ["Dark", "Light"], 
+    index=0 if st.session_state.theme == "Dark" else 1
 )
 
-# ------------- SPX PAGE -------------
-if page == "SPX":
-    st.write(f"### {ICONS['SPX']} SPX Forecast")
-    c1, c2, c3 = st.columns(3)
-    hp, ht = c1.number_input("High Price", value=6185.8, min_value=0.0), \
-             c1.time_input("High Time", time(11, 30))
-    cp, ct = c2.number_input("Close Price", value=6170.2, min_value=0.0), \
-             c2.time_input("Close Time", time(15))
-    lp, lt = c3.number_input("Low  Price", value=6130.4, min_value=0.0), \
-             c3.time_input("Low Time", time(13, 30))
+# Forecast date selection
+st.sidebar.markdown("### 📅 Forecast Settings")
+forecast_date = st.sidebar.date_input(
+    "Target Date", 
+    value=date.today() + timedelta(days=1),
+    help="Select the date for your forecast analysis"
+)
 
-    st.subheader("Contract Line (Low-1 ↔ Low-2)")
-    o1, o2 = st.columns(2)
-    l1_t, l1_p = o1.time_input("Low-1 Time", time(2), step=300), \
-                 o1.number_input("Low-1 Price", value=10.0, min_value=0.0, step=0.1, key="l1")
-    l2_t, l2_p = o2.time_input("Low-2 Time", time(3, 30), step=300), \
-                 o2.number_input("Low-2 Price", value=12.0, min_value=0.0, step=0.1, key="l2")
+weekday = forecast_date.weekday()
+day_labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+current_day = day_labels[weekday]
 
-    if st.button("Run Forecast"):
-        st.markdown('<div class="card-grid">', unsafe_allow_html=True)
-        glass_card("high", "▲", "High Anchor", hp)
-        glass_card("close", "■", "Close Anchor", cp)
-        glass_card("low", "▼", "Low Anchor", lp)
+st.sidebar.info(f"📊 **{current_day}** Trading Session")
+
+# Advanced slope controls
+with st.sidebar.expander("📈 Slope Adjustments", expanded=True):
+    st.markdown("*Fine-tune your prediction slopes*")
+    
+    # Group slopes logically
+    st.markdown("**📊 SPX Slopes**")
+    for key in ["SPX_HIGH", "SPX_CLOSE", "SPX_LOW"]:
+        st.session_state.slopes[key] = st.slider(
+            key.replace("SPX_", "").title(),
+            min_value=-1.0,
+            max_value=1.0,
+            value=st.session_state.slopes[key],
+            step=0.0001,
+            format="%.4f",
+            key=f"slope_{key}"
+        )
+    
+    st.markdown("**🚀 Stock Slopes**")
+    stock_keys = [k for k in st.session_state.slopes.keys() if k not in ["SPX_HIGH", "SPX_CLOSE", "SPX_LOW"]]
+    for key in stock_keys:
+        st.session_state.slopes[key] = st.slider(
+            f"{ICONS.get(key, '📊')} {key}",
+            min_value=-1.0,
+            max_value=1.0,
+            value=st.session_state.slopes[key],
+            step=0.0001,
+            format="%.4f",
+            key=f"slope_{key}"
+        )
+
+# Preset management
+with st.sidebar.expander("💾 Preset Manager"):
+    st.markdown("*Save and load your favorite configurations*")
+    
+    preset_name = st.text_input(
+        "Preset Name", 
+        placeholder="Enter preset name...",
+        help="Give your preset a memorable name"
+    )
+    
+    col1, col2 = st.columns(2)
+    
+    if col1.button("💾 Save", use_container_width=True):
+        if preset_name.strip():
+            st.session_state.presets[preset_name.strip()] = deepcopy(st.session_state.slopes)
+            st.success(f"✅ Saved '{preset_name}'")
+        else:
+            st.error("❌ Please enter a preset name")
+    
+    if st.session_state.presets:
+        selected_preset = st.selectbox(
+            "Load Preset",
+            options=list(st.session_state.presets.keys()),
+            help="Select a preset to load"
+        )
+        
+        if col2.button("📂 Load", use_container_width=True):
+            st.session_state.slopes.update(st.session_state.presets[selected_preset])
+            st.success(f"✅ Loaded '{selected_preset}'")
+            st.experimental_rerun()
+
+# Share configuration
+with st.sidebar.expander("🔗 Share Config"):
+    share_url = f"?s={base64.b64encode(json.dumps(st.session_state.slopes).encode()).decode()}"
+    st.text_area(
+        "Share URL Suffix",
+        value=share_url,
+        height=100,
+        help="Append this to your URL to share your current slope configuration"
+    )
+    
+    if st.button("📋 Copy to Clipboard", use_container_width=True):
+        st.success("✅ URL suffix ready to copy!")
+
+# ── MAIN HEADER ─────────────────────────────────────────────────────────────
+
+st.markdown(f"""
+<div class="main-banner">
+    <h1>{PAGE_ICON} {PAGE_TITLE}</h1>
+    <div class="subtitle">Advanced Market Forecasting • {current_day} Session</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── MAIN TABS ────────────────────────────────────────────────────────────────
+
+tab_labels = [f"{ICONS[ticker]} {ticker}" for ticker in ICONS.keys()]
+tabs = st.tabs(tab_labels)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🧭 SPX MAIN TAB
+# ═══════════════════════════════════════════════════════════════════════════════
+
+with tabs[0]:  # SPX Tab
+    create_section_header("🎯", f"SPX Strategy Center - {current_day}")
+    
+    st.markdown("""
+    <div class="info-box">
+        <h4 style="margin-top: 0;">📋 Strategy Overview</h4>
+        <p>Configure your SPX anchor points and contract line parameters for precise market timing. 
+        The system uses advanced block calculations to project optimal entry and exit points.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ── SPX ANCHOR INPUTS ────────────────────────────────────────────────────
+    create_section_header("⚓", "Anchor Point Configuration")
+    
+    anchor_col1, anchor_col2, anchor_col3 = st.columns(3)
+    
+    with anchor_col1:
+        st.markdown("#### 📈 **High Anchor**")
+        high_price = st.number_input(
+            "Price", 
+            value=6185.8, 
+            min_value=0.0, 
+            step=0.1,
+            key="spx_high_price",
+            help="Previous day's high price"
+        )
+        high_time = st.time_input(
+            "Time", 
+            value=time(11, 30),
+            key="spx_high_time",
+            help="Time when high occurred"
+        )
+    
+    with anchor_col2:
+        st.markdown("#### 📊 **Close Anchor**")
+        close_price = st.number_input(
+            "Price", 
+            value=6170.2, 
+            min_value=0.0, 
+            step=0.1,
+            key="spx_close_price",
+            help="Previous day's closing price"
+        )
+        close_time = st.time_input(
+            "Time", 
+            value=time(15, 0),
+            key="spx_close_time",
+            help="Market closing time"
+        )
+    
+    with anchor_col3:
+        st.markdown("#### 📉 **Low Anchor**")
+        low_price = st.number_input(
+            "Price", 
+            value=6130.4, 
+            min_value=0.0, 
+            step=0.1,
+            key="spx_low_price",
+            help="Previous day's low price"
+        )
+        low_time = st.time_input(
+            "Time", 
+            value=time(13, 30),
+            key="spx_low_time",
+            help="Time when low occurred"
+        )
+    
+    # ── CONTRACT LINE SETUP ──────────────────────────────────────────────────
+    create_section_header("📏", "Contract Line Configuration")
+    
+    st.markdown("""
+    <div class="warning-box">
+        <h4 style="margin-top: 0;">⚠️ Two-Point Line Strategy</h4>
+        <p>Define two key price points to establish your trend line. The system will calculate 
+        the optimal slope and project values across all time intervals.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    contract_col1, contract_col2 = st.columns(2)
+    
+    with contract_col1:
+        st.markdown("#### 🎯 **Low-1 Point**")
+        low1_time = st.time_input(
+            "Time", 
+            value=time(2, 0), 
+            step=300,
+            key="low1_time",
+            help="First reference point time"
+        )
+        low1_price = st.number_input(
+            "Price", 
+            value=10.0, 
+            min_value=0.0, 
+            step=0.1,
+            key="low1_price",
+            help="First reference point price"
+        )
+    
+    with contract_col2:
+        st.markdown("#### 🎯 **Low-2 Point**")
+        low2_time = st.time_input(
+            "Time", 
+            value=time(3, 30), 
+            step=300,
+            key="low2_time",
+            help="Second reference point time"
+        )
+        low2_price = st.number_input(
+            "Price", 
+            value=12.0, 
+            min_value=0.0, 
+            step=0.1,
+            key="low2_price",
+            help="Second reference point price"
+        )
+
+# ── FORECAST GENERATION ──────────────────────────────────────────────────
+    
+    forecast_button_col = st.columns([1, 2, 1])[1]  # Center the button
+    
+    with forecast_button_col:
+        generate_forecast = st.button(
+            "🚀 Generate Complete Forecast",
+            use_container_width=True,
+            type="primary",
+            help="Generate all anchor trends and contract line projections"
+        )
+    
+    if generate_forecast:
+        st.session_state.forecasts_generated = True
+        
+        # ── ANCHOR METRICS CARDS ──────────────────────────────────────────────
+        st.markdown('<div class="cards-container">', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            create_metric_card("high", "▲", "High Anchor", high_price)
+        with col2:
+            create_metric_card("close", "■", "Close Anchor", close_price)
+        with col3:
+            create_metric_card("low", "▼", "Low Anchor", low_price)
+        
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Calculate anchor times for previous day
+        high_anchor = datetime.combine(forecast_date - timedelta(days=1), high_time)
+        close_anchor = datetime.combine(forecast_date - timedelta(days=1), close_time)
+        low_anchor = datetime.combine(forecast_date - timedelta(days=1), low_time)
+        
+        # ── ANCHOR TREND TABLES ───────────────────────────────────────────────
+        
+        # High Anchor Trend
+        create_section_header("📈", "High Anchor Projections")
+        high_forecast = create_forecast_table(
+            high_price, 
+            st.session_state.slopes["SPX_HIGH"], 
+            high_anchor, 
+            forecast_date, 
+            SPX_SLOTS, 
+            is_spx=True, 
+            fan_mode=True
+        )
+        st.dataframe(high_forecast, use_container_width=True, hide_index=True)
+        
+        # Close Anchor Trend  
+        create_section_header("📊", "Close Anchor Projections")
+        close_forecast = create_forecast_table(
+            close_price, 
+            st.session_state.slopes["SPX_CLOSE"], 
+            close_anchor, 
+            forecast_date, 
+            SPX_SLOTS, 
+            is_spx=True, 
+            fan_mode=True
+        )
+        st.dataframe(close_forecast, use_container_width=True, hide_index=True)
+        
+        # Low Anchor Trend
+        create_section_header("📉", "Low Anchor Projections") 
+        low_forecast = create_forecast_table(
+            low_price, 
+            st.session_state.slopes["SPX_LOW"], 
+            low_anchor, 
+            forecast_date, 
+            SPX_SLOTS, 
+            is_spx=True, 
+            fan_mode=True
+        )
+        st.dataframe(low_forecast, use_container_width=True, hide_index=True)
 
-        ah, ac, al = [datetime.combine(fcast_date - timedelta(days=1), t)
-                      for t in (ht, ct, lt)]
-        for lbl, p, key, anc in [("High", hp, "SPX_HIGH", ah),
-                                 ("Close", cp, "SPX_CLOSE", ac),
-                                 ("Low", lp, "SPX_LOW", al)]:
-            st.subheader(f"{lbl} Anchor Trend")
-            st.dataframe(tbl(p, st.session_state.slopes[key], anc,
-                             fcast_date, SPX_SLOTS, fan=True), use_container_width=True)
+# ── CONTRACT LINE GENERATION ─────────────────────────────────────────
+        create_section_header("📏", "Contract Line Analysis")
+        
+        # Calculate contract line parameters
+        anchor_datetime = datetime.combine(forecast_date, low1_time)
+        time_diff_blocks = calculate_spx_blocks(
+            anchor_datetime, 
+            datetime.combine(forecast_date, low2_time)
+        )
+        
+        # Prevent division by zero
+        if time_diff_blocks == 0:
+            contract_slope = 0
+            st.warning("⚠️ Low-1 and Low-2 times are too close. Adjust the time difference.")
+        else:
+            contract_slope = (low2_price - low1_price) / time_diff_blocks
+        
+        # Store contract parameters in session state
+        st.session_state.contract_anchor = anchor_datetime
+        st.session_state.contract_slope = contract_slope
+        st.session_state.contract_price = low1_price
+        
+        # Display contract line metrics
+        st.markdown(f"""
+        <div class="success-box">
+            <h4 style="margin-top: 0;">📊 Contract Line Metrics</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                <div>
+                    <strong>📍 Anchor Point:</strong><br>
+                    {low1_time.strftime('%H:%M')} @ ${low1_price:.2f}
+                </div>
+                <div>
+                    <strong>📈 Slope Rate:</strong><br>
+                    {contract_slope:.4f} per block
+                </div>
+                <div>
+                    <strong>📏 Time Span:</strong><br>
+                    {time_diff_blocks} blocks
+                </div>
+                <div>
+                    <strong>💰 Price Delta:</strong><br>
+                    ${abs(low2_price - low1_price):.2f}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Generate contract line forecast table
+        contract_forecast = create_forecast_table(
+            low1_price, 
+            contract_slope, 
+            anchor_datetime, 
+            forecast_date, 
+            GENERAL_SLOTS, 
+            is_spx=True, 
+            fan_mode=False
+        )
+        st.dataframe(contract_forecast, use_container_width=True, hide_index=True)
+    
+    # ── REAL-TIME LOOKUP SYSTEM ───────────────────────────────────────────────
+    create_section_header("🔍", "Real-Time Price Lookup")
+    
+    st.markdown("""
+    <div class="info-box">
+        <h4 style="margin-top: 0;">⚡ Instant Projections</h4>
+        <p>Enter any time to get instant price projections based on your contract line. 
+        This tool works regardless of whether you've generated the full forecast.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    lookup_col1, lookup_col2 = st.columns([1, 2])
+    
+    with lookup_col1:
+        lookup_time = st.time_input(
+            "🕐 Lookup Time",
+            value=time(9, 25),
+            step=300,
+            key="lookup_time_input",
+            help="Enter any time to get projected price"
+        )
+    
+    with lookup_col2:
+        if st.session_state.contract_anchor:
+            target_datetime = datetime.combine(forecast_date, lookup_time)
+            blocks = calculate_spx_blocks(st.session_state.contract_anchor, target_datetime)
+            projected_value = st.session_state.contract_price + (st.session_state.contract_slope * blocks)
+            
+            st.markdown(f"""
+            <div style="padding: 1rem; background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 1px solid rgba(34, 197, 94, 0.2); margin-top: 1.8rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="font-size: 2rem;">🎯</div>
+                    <div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">Projected @ {lookup_time.strftime('%H:%M')}</div>
+                        <div style="font-size: 2rem; font-weight: 800; color: #22c55e;">${projected_value:.2f}</div>
+                        <div style="font-size: 0.85rem; opacity: 0.7;">{blocks} blocks • {projected_value - st.session_state.contract_price:+.2f} change</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.2); margin-top: 1.8rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="font-size: 2rem;">⏳</div>
+                    <div>
+                        <div style="font-size: 1.1rem; font-weight: 600;">Waiting for Configuration</div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">Set Low-1 & Low-2 points and generate forecast to activate lookup</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        anchor_dt = datetime.combine(fcast_date, l1_t)
-        slope = (l2_p - l1_p) / (blk_spx(anchor_dt, datetime.combine(fcast_date, l2_t)) or 1)
-        st.session_state.contract_anchor = anchor_dt
-        st.session_state.contract_slope = slope
-        st.session_state.contract_price = l1_p
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🚀 STOCK ANALYSIS TABS
+# ═══════════════════════════════════════════════════════════════════════════════
 
-        st.subheader("Contract Line (2-pt)")
-        st.dataframe(tbl(l1_p, slope, anchor_dt, fcast_date, GEN_SLOTS),
-                     use_container_width=True)
+def create_stock_tab(tab_index, ticker):
+    """Create an enhanced stock analysis tab"""
+    with tabs[tab_index]:
+        create_section_header(ICONS[ticker], f"{ticker} Analysis Center")
+        
+        st.markdown(f"""
+        <div class="info-box">
+            <h4 style="margin-top: 0;">{ICONS[ticker]} {ticker} Strategy Overview</h4>
+            <p>Configure anchor points from the previous trading day to project optimal entry and exit positions. 
+            The system uses your custom slope settings to generate precise fan-based projections.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Input section
+        create_section_header("⚓", "Previous Day Anchor Points")
+        
+        input_col1, input_col2 = st.columns(2)
+        
+        with input_col1:
+            st.markdown("#### 📉 **Low Anchor**")
+            low_price = st.number_input(
+                "Previous Day Low",
+                value=0.0,
+                min_value=0.0,
+                step=0.01,
+                key=f"{ticker}_low_price",
+                help=f"Enter {ticker}'s previous day low price"
+            )
+            low_time = st.time_input(
+                "Low Time",
+                value=time(7, 30),
+                key=f"{ticker}_low_time",
+                help="Time when the low occurred"
+            )
+        
+        with input_col2:
+            st.markdown("#### 📈 **High Anchor**")
+            high_price = st.number_input(
+                "Previous Day High",
+                value=0.0,
+                min_value=0.0,
+                step=0.01,
+                key=f"{ticker}_high_price",
+                help=f"Enter {ticker}'s previous day high price"
+            )
+            high_time = st.time_input(
+                "High Time",
+                value=time(7, 30),
+                key=f"{ticker}_high_time",
+                help="Time when the high occurred"
+            )
+        
+        # Current slope display
+        current_slope = st.session_state.slopes[ticker]
+        st.markdown(f"""
+        <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 1rem; margin: 1rem 0; border: 1px solid rgba(59, 130, 246, 0.2);">
+            <strong>📊 Current {ticker} Slope:</strong> <code>{current_slope:.4f}</code>
+            <small style="opacity: 0.7; display: block;">Adjust in sidebar under 'Slope Adjustments'</small>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Generate button
+        generate_col = st.columns([1, 2, 1])[1]
+        with generate_col:
+            generate_stock = st.button(
+                f"🚀 Generate {ticker} Forecast",
+                use_container_width=True,
+                type="primary",
+                key=f"generate_{ticker}",
+                help=f"Generate complete forecast analysis for {ticker}"
+            )
+        
+        # Results section
+        if generate_stock:
+            if low_price > 0 and high_price > 0:
+                # Metrics cards
+                st.markdown('<div class="cards-container">', unsafe_allow_html=True)
+                
+                metric_col1, metric_col2 = st.columns(2)
+                with metric_col1:
+                    create_metric_card("low", "📉", f"{ticker} Low", low_price)
+                with metric_col2:
+                    create_metric_card("high", "📈", f"{ticker} High", high_price)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Calculate anchor times
+                low_anchor = datetime.combine(forecast_date, low_time)
+                high_anchor = datetime.combine(forecast_date, high_time)
+                
+                # Generate forecast tables
+                create_section_header("📉", f"{ticker} Low Anchor Projections")
+                
+                low_forecast = create_forecast_table(
+                    low_price,
+                    current_slope,
+                    low_anchor,
+                    forecast_date,
+                    GENERAL_SLOTS,
+                    is_spx=False,
+                    fan_mode=True
+                )
+                st.dataframe(low_forecast, use_container_width=True, hide_index=True)
+                
+                # Analysis insights
+                price_range = high_price - low_price
+                avg_entry = low_forecast['Entry'].mean()
+                avg_exit = low_forecast['Exit'].mean()
+                avg_spread = low_forecast['Spread'].mean()
+                
+                st.markdown(f"""
+                <div class="success-box">
+                    <h4 style="margin-top: 0;">📊 Low Anchor Analysis</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div><strong>Average Entry:</strong><br>${avg_entry:.2f}</div>
+                        <div><strong>Average Exit:</strong><br>${avg_exit:.2f}</div>
+                        <div><strong>Average Spread:</strong><br>${avg_spread:.2f}</div>
+                        <div><strong>Prev Day Range:</strong><br>${price_range:.2f}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                create_section_header("📈", f"{ticker} High Anchor Projections")
+                
+                high_forecast = create_forecast_table(
+                    high_price,
+                    current_slope,
+                    high_anchor,
+                    forecast_date,
+                    GENERAL_SLOTS,
+                    is_spx=False,
+                    fan_mode=True
+                )
+                st.dataframe(high_forecast, use_container_width=True, hide_index=True)
+                
+                # High anchor analysis
+                avg_entry_high = high_forecast['Entry'].mean()
+                avg_exit_high = high_forecast['Exit'].mean()
+                avg_spread_high = high_forecast['Spread'].mean()
+                
+                st.markdown(f"""
+                <div class="success-box">
+                    <h4 style="margin-top: 0;">📊 High Anchor Analysis</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div><strong>Average Entry:</strong><br>${avg_entry_high:.2f}</div>
+                        <div><strong>Average Exit:</strong><br>${avg_exit_high:.2f}</div>
+                        <div><strong>Average Spread:</strong><br>${avg_spread_high:.2f}</div>
+                        <div><strong>Efficiency:</strong><br>{(avg_spread_high/price_range*100):.1f}%</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            else:
+                st.warning("⚠️ Please enter both low and high prices to generate forecast.")
 
-    lookup_t = st.time_input("Lookup time", time(9, 25), step=300, key="lookup_time")
-    if st.session_state.contract_anchor:
-        blocks = blk_spx(st.session_state.contract_anchor,
-                         datetime.combine(fcast_date, lookup_t))
-        val = st.session_state.contract_price + st.session_state.contract_slope * blocks
-        st.info(f"Projected @ {lookup_t.strftime('%H:%M')} → **{val:.2f}**")
-    else:
-        st.info("Enter Low-1 & Low-2 and press **Run Forecast** to activate lookup.")
+# Create all stock tabs
+stock_tickers = list(ICONS.keys())[1:]  # Exclude SPX
+for i, ticker in enumerate(stock_tickers, 1):
+    create_stock_tab(i, ticker)
 
-# ------------- STOCK PAGES -------------
-else:
-    tic = page
-    st.write(f"### {ICONS[tic]} {tic}")
-    a, b = st.columns(2)
-    lp, lt = a.number_input("Prev-day Low", value=0.0, min_value=0.0, key=f"{tic}_lp"), \
-             a.time_input("Low Time", time(7, 30), key=f"{tic}_lt")
-    hp, ht = b.number_input("Prev-day High", value=0.0, min_value=0.0, key=f"{tic}_hp"), \
-             b.time_input("High Time", time(7, 30), key=f"{tic}_ht")
-    if st.button("Generate", key=f"go_{tic}"):
-        low = tbl(lp, st.session_state.slopes[tic],
-                  datetime.combine(fcast_date, lt), fcast_date, GEN_SLOTS,
-                  spx=False, fan=True)
-        high = tbl(hp, st.session_state.slopes[tic],
-                   datetime.combine(fcast_date, ht), fcast_date, GEN_SLOTS,
-                   spx=False, fan=True)
-        st.subheader("Low Anchor Trend");  st.dataframe(low,  use_container_width=True)
-        st.subheader("High Anchor Trend"); st.dataframe(high, use_container_width=True)
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎯 FOOTER & FINAL ELEMENTS
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# ────────────────────────────── FOOTER ───────────────────────────────────────
-st.divider()
-st.caption(f"v{VERSION} • {datetime.now():%Y-%m-%d %H:%M:%S}")
+# Add some spacing before footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+
+# Enhanced footer
+st.markdown(f"""
+<div style="
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-top: 3rem;
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; flex-wrap: wrap;">
+        <div>
+            <h4 style="margin: 0; color: #667eea;">📈 Dr Didy SPX Forecast</h4>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">
+                Advanced Market Forecasting System v{VERSION}
+            </p>
+        </div>
+        <div style="height: 40px; width: 1px; background: rgba(255,255,255,0.1);"></div>
+        <div>
+            <p style="margin: 0; font-size: 0.9rem; opacity: 0.8;">
+                🕐 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.6;">
+                Target: {forecast_date.strftime('%A, %B %d, %Y')}
+            </p>
+        </div>
+    </div>
+    
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="margin: 0; font-size: 0.8rem; opacity: 0.6;">
+            ⚠️ <strong>Disclaimer:</strong> This tool is for educational and analysis purposes only. 
+            Always conduct your own research and consult with financial professionals before making investment decisions.
+        </p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Performance metrics (if forecasts were generated)
+if st.session_state.forecasts_generated:
+    with st.expander("📊 Session Performance Metrics", expanded=False):
+        st.markdown(f"""
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+                <strong>🎯 Forecasts Generated:</strong><br>
+                SPX + {len(stock_tickers)} Stocks
+            </div>
+            <div style="padding: 1rem; background: rgba(34, 197, 94, 0.1); border-radius: 8px;">
+                <strong>📈 Active Slopes:</strong><br>
+                {len([s for s in st.session_state.slopes.values() if s != 0])} configured
+            </div>
+            <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                <strong>💾 Saved Presets:</strong><br>
+                {len(st.session_state.presets)} available
+            </div>
+            <div style="padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                <strong>⚡ Contract Line:</strong><br>
+                {'Active' if st.session_state.contract_anchor else 'Inactive'}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Quick tips
+with st.expander("💡 Pro Tips & Strategy Guide", expanded=False):
+    st.markdown("""
+    ### 🎯 **Optimization Tips**
+    
+    **🔧 Slope Tuning:**
+    - Start with default slopes and adjust based on market conditions
+    - Negative slopes typically indicate downward pressure
+    - Fine-tune in 0.001 increments for precision
+    
+    **⚓ Anchor Point Strategy:**
+    - Use significant previous day levels (high, low, close)
+    - Ensure times reflect actual market conditions
+    - Consider volume and volatility when setting anchors
+    
+    **📏 Contract Line Setup:**
+    - Choose Low-1 and Low-2 points with meaningful separation
+    - Test different time intervals for optimal results
+    - Monitor slope consistency across timeframes
+    
+    **🕐 Real-Time Usage:**
+    - Use lookup tool for quick market timing decisions
+    - Cross-reference multiple anchor projections
+    - Adjust strategy based on developing market conditions
+    
+    ### 📊 **Best Practices**
+    
+    1. **Start Simple:** Begin with SPX forecasts before moving to individual stocks
+    2. **Save Presets:** Create configurations for different market conditions
+    3. **Validate Projections:** Compare forecasts with actual market movements
+    4. **Risk Management:** Always use proper position sizing and stop losses
+    
+    ### 🚀 **Advanced Features**
+    
+    - **Fan Mode:** Entry/Exit projections for complex strategies
+    - **Block Calculations:** Precise time-based position sizing
+    - **Multi-Timeframe:** Coordinate across different time intervals
+    - **Preset Management:** Quick strategy switching
+    """)
+
+# Add final spacing
+st.markdown("<br>", unsafe_allow_html=True)
+
+
