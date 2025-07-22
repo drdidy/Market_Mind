@@ -1015,54 +1015,7 @@ else:
                     help="Time when low occurred"
                 )
             
-            # ── CONTRACT LINE SETUP ──────────────────────────────────────────────────
-            create_section_header("📏", "Contract Line Configuration")
             
-            st.markdown("""
-            <div class="warning-box">
-                <h4 style="margin-top: 0;">⚠️ Two-Point Line Strategy</h4>
-                <p>Define two key price points to establish your trend line. The system will calculate 
-                the optimal slope and project values across all time intervals.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            contract_col1, contract_col2 = st.columns(2)
-            
-            with contract_col1:
-                st.markdown("#### 🎯 **Low-1 Point**")
-                low1_time = st.time_input(
-                    "Time", 
-                    value=time(2, 0), 
-                    step=300,
-                    key="spx_low1_time",
-                    help="First reference point time"
-                )
-                low1_price = st.number_input(
-                    "Price", 
-                    value=10.0, 
-                    min_value=0.0, 
-                    step=0.1,
-                    key="spx_low1_price",
-                    help="First reference point price"
-                )
-            
-            with contract_col2:
-                st.markdown("#### 🎯 **Low-2 Point**")
-                low2_time = st.time_input(
-                    "Time", 
-                    value=time(3, 30), 
-                    step=300,
-                    key="spx_low2_time",
-                    help="Second reference point time"
-                )
-                low2_price = st.number_input(
-                    "Price", 
-                    value=12.0, 
-                    min_value=0.0, 
-                    step=0.1,
-                    key="spx_low2_price",
-                    help="Second reference point price"
-                )
             
             # ADD YOUR SECTIONS 7-8 (FORECAST GENERATION & LOOKUP) HERE
             
