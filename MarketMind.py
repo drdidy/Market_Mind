@@ -991,7 +991,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"""
 <div style="
     background: rgba(255, 255, 255, 0.05);
-    border-radius: var(--border-radius);
+    border-radius: 16px;
     padding: 2rem;
     margin-top: 3rem;
     text-align: center;
@@ -1015,13 +1015,23 @@ st.markdown(f"""
             </p>
         </div>
     </div>
-    
-    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
-        <p style="margin: 0; font-size: 0.8rem; opacity: 0.6;">
-            ⚠️ <strong>Disclaimer:</strong> This tool is for educational and analysis purposes only. 
-            Always conduct your own research and consult with financial professionals before making investment decisions.
-        </p>
-    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Disclaimer as separate element
+st.markdown("""
+<div style="
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+">
+    <p style="margin: 0; font-size: 0.85rem;">
+        ⚠️ <strong>Disclaimer:</strong> This tool is for educational and analysis purposes only. 
+        Always conduct your own research and consult with financial professionals before making investment decisions.
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1091,5 +1101,3 @@ with st.expander("💡 Pro Tips & Strategy Guide", expanded=False):
 
 # Add final spacing
 st.markdown("<br>", unsafe_allow_html=True)
-
-
