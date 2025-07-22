@@ -909,11 +909,36 @@ else:
         with forecast_tabs[0]:
             create_section_header("🎯", f"SPX Strategy Center - {current_day}")
             
-            # Quick playbook access
+            # Quick playbook access with enhanced styling
+            st.markdown("""
+            <div style="text-align: center; margin: 1.5rem 0;">
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 12px;
+                    padding: 0.1rem;
+                    display: inline-block;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                ">
+                    <div style="
+                        background: rgba(255, 255, 255, 0.1);
+                        border-radius: 11px;
+                        padding: 0.8rem 2rem;
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    ">
+                        <p style="margin: 0; color: white; font-weight: 600; font-size: 1rem;">
+                            📚 Click below to access complete SPX trading strategies & rules
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             playbook_col = st.columns([1, 2, 1])[1]
             with playbook_col:
-                if st.button("📚 View Complete SPX Playbook", 
+                if st.button("🎯 Open SPX Master Playbook", 
                             use_container_width=True,
+                            type="primary",
                             help="Access comprehensive SPX trading strategies and rules"):
                     st.session_state.selected_playbook = "SPX"
                     st.rerun()
@@ -1009,7 +1034,7 @@ else:
                     "Time", 
                     value=time(2, 0), 
                     step=300,
-                    key="low1_time",
+                    key="spx_low1_time",
                     help="First reference point time"
                 )
                 low1_price = st.number_input(
@@ -1017,7 +1042,7 @@ else:
                     value=10.0, 
                     min_value=0.0, 
                     step=0.1,
-                    key="low1_price",
+                    key="spx_low1_price",
                     help="First reference point price"
                 )
             
@@ -1027,7 +1052,7 @@ else:
                     "Time", 
                     value=time(3, 30), 
                     step=300,
-                    key="low2_time",
+                    key="spx_low2_time",
                     help="Second reference point time"
                 )
                 low2_price = st.number_input(
@@ -1035,7 +1060,7 @@ else:
                     value=12.0, 
                     min_value=0.0, 
                     step=0.1,
-                    key="low2_price",
+                    key="spx_low2_price",
                     help="Second reference point price"
                 )
             
@@ -1047,21 +1072,72 @@ else:
             with forecast_tabs[tab_index]:
                 create_section_header(ICONS[ticker], f"{ticker} Analysis Center")
                 
-                # Show best trading days for this stock
+                # Show best trading days for this stock with enhanced visibility
                 if ticker in BEST_TRADING_DAYS:
                     best_info = BEST_TRADING_DAYS[ticker]
                     st.markdown(f"""
-                    <div style="background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-                        <strong>📅 Best Trading Days:</strong> {best_info['days']} - {best_info['rationale']}
+                    <div style="
+                        background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+                        border: 2px solid rgba(34, 197, 94, 0.3);
+                        border-radius: 12px;
+                        padding: 1.2rem;
+                        margin-bottom: 1.5rem;
+                        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2);
+                    ">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="
+                                background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                                border-radius: 50%;
+                                width: 3rem;
+                                height: 3rem;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 1.5rem;
+                            ">📅</div>
+                            <div>
+                                <div style="color: #22c55e; font-weight: 700; font-size: 1.1rem;">
+                                    Best Trading Days: {best_info['days']}
+                                </div>
+                                <div style="color: #e2e8f0; opacity: 0.9; margin-top: 0.25rem;">
+                                    {best_info['rationale']}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                 
-                # Quick playbook access
+                # Enhanced playbook access
+                st.markdown("""
+                <div style="text-align: center; margin: 1rem 0;">
+                    <div style="
+                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                        border-radius: 12px;
+                        padding: 0.1rem;
+                        display: inline-block;
+                        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+                    ">
+                        <div style="
+                            background: rgba(255, 255, 255, 0.1);
+                            border-radius: 11px;
+                            padding: 0.6rem 1.5rem;
+                            backdrop-filter: blur(10px);
+                            border: 1px solid rgba(255, 255, 255, 0.2);
+                        ">
+                            <p style="margin: 0; color: white; font-weight: 600; font-size: 0.9rem;">
+                                📚 Access detailed trading rules & risk management
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 playbook_col = st.columns([1, 2, 1])[1]
                 with playbook_col:
-                    if st.button(f"📚 View {ticker} Trading Rules", 
+                    if st.button(f"🎯 Open {ticker} Playbook", 
                                 key=f"playbook_btn_{ticker}",
                                 use_container_width=True,
+                                type="secondary",
                                 help=f"Access {ticker} specific trading guidelines"):
                         st.session_state.selected_playbook = ticker
                         st.rerun()
