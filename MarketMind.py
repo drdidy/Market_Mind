@@ -35,6 +35,114 @@ COLORS = {
     "info": "#17a2b8"
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 📚 PLAYBOOK PART 1: DATA STRUCTURES
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔗 ADD THIS AFTER SECTION 1 (Imports & Constants)
+
+# ── BEST TRADING DAYS CHEAT SHEET ────────────────────────────────────────────
+BEST_TRADING_DAYS = {
+    "NVDA": {"days": "Tue / Thu", "rationale": "Highest volatility and option-flow mid-week"},
+    "META": {"days": "Tue / Thu", "rationale": "News-feed reprice, AI headlines often drop Tue/Thu"},
+    "TSLA": {"days": "Mon / Wed", "rationale": "Post-weekend gamma squeeze & mid-week momentum"},
+    "AAPL": {"days": "Mon / Wed", "rationale": "Earnings drift & supply-chain headlines"},
+    "AMZN": {"days": "Wed / Thu", "rationale": "Mid-week marketplace volume & OPEX flow"},
+    "GOOGL": {"days": "Thu / Fri", "rationale": "Search-ad spend updates tilt end-week"},
+    "NFLX": {"days": "Tue / Fri", "rationale": "Subscriber metrics chatter on Tue, positioning unwind on Fri"}
+}
+
+# ── SPX GOLDEN RULES ─────────────────────────────────────────────────────────
+SPX_GOLDEN_RULES = [
+    "🚪 **Exit levels are exits - never entries**",
+    "🧲 **Anchors are magnets, not timing signals - let price come to you**", 
+    "🎁 **The market will give you your entry - don't force it**",
+    "🔄 **Consistency in process trumps perfection in prediction**",
+    "❓ **When in doubt, stay out - there's always another trade**",
+    "🏗️ **SPX ignores the full 16:00-17:00 maintenance block**"
+]
+
+# ── RISK MANAGEMENT RULES ────────────────────────────────────────────────────
+RISK_RULES = {
+    "position_sizing": [
+        "🎯 **Never risk more than 2% per trade**: Consistency beats home runs",
+        "📈 **Scale into positions**: 1/3 initial, 1/3 confirmation, 1/3 momentum", 
+        "📅 **Reduce size on Fridays**: Weekend risk isn't worth it"
+    ],
+    "stop_strategy": [
+        "🛑 **Hard stops at -15% for options**: No exceptions",
+        "📈 **Trailing stops after +25%**: Protect profits aggressively",
+        "🕞 **Time stops at 3:45 PM**: Avoid close volatility"
+    ],
+    "market_context": [
+        "📊 **VIX above 25**: Reduce position sizes by 50%",
+        "📈 **Major earnings week**: Avoid unrelated tickers",
+        "📢 **FOMC/CPI days**: Trade post-announcement only (10:30+ AM)"
+    ],
+    "psychological": [
+        "🛑 **3 losses in a row**: Step away for 1 hour minimum",
+        "🎉 **Big win euphoria**: Reduce next position size by 50%",
+        "😡 **Revenge trading**: Automatic day-end (no exceptions)"
+    ],
+    "performance_targets": [
+        "🎯 **Win rate target: 55%+**: More important than individual trade size",
+        "💰 **Risk/reward minimum: 1:1.5**: Risk $100 to make $150+",
+        "📊 **Weekly P&L cap**: Stop after +20% or -10% weekly moves"
+    ]
+}
+
+# ── SPX ANCHOR TRADING RULES ─────────────────────────────────────────────────
+SPX_ANCHOR_RULES = {
+    "rth_breaks": [
+        "📉 **30-min close below RTH entry anchor**: Price may retrace above anchor line but will fall below again shortly after",
+        "🚫 **Don't chase the bounce**: Prepare for the inevitable breakdown",
+        "⏱️ **Wait for confirmation**: Let the market give you the entry"
+    ],
+    "extended_hours": [
+        "🌙 **Extended session weakness + recovery**: Use recovered anchor as buy signal in RTH",
+        "📈 **Extended session anchors carry forward momentum** into regular trading hours",
+        "🎯 **Overnight anchor recovery**: Strong setup for next day strength"
+    ],
+    "mon_wed_fri": [
+        "📅 **No touch of high, close, or low anchors** on Mon/Wed/Fri = Potential sell day later",
+        "⏳ **Don't trade TO the anchor**: Let the market give you the entry", 
+        "✅ **Wait for price action confirmation** rather than anticipating touches"
+    ]
+}
+
+# ── CONTRACT STRATEGIES ──────────────────────────────────────────────────────
+CONTRACT_STRATEGIES = {
+    "tuesday_play": [
+        "🎯 **Identify two overnight option low points** that rise $400-$500",
+        "📐 **Use them to set Tuesday contract slope** (handled in SPX tab)",
+        "⚡ **Tuesday contract setups often provide best mid-week momentum**"
+    ],
+    "thursday_play": [
+        "💰 **If Wednesday's low premium was cheap**: Thursday low ≈ Wed low (buy-day)",
+        "📉 **If Wednesday stayed pricey**: Thursday likely a put-day (avoid longs)",
+        "🔄 **Wednesday pricing telegraphs Thursday direction**"
+    ]
+}
+
+# ── TIME MANAGEMENT RULES ────────────────────────────────────────────────────
+TIME_RULES = {
+    "market_sessions": [
+        "🕘 **9:30-10:00 AM**: Initial range, avoid FOMO entries",
+        "🕙 **10:30-11:30 AM**: Institutional flow window, best entries",
+        "🕐 **2:00-3:00 PM**: Final push time, momentum plays", 
+        "🕞 **3:30+ PM**: Scalps only, avoid new positions"
+    ],
+    "volume_patterns": [
+        "📊 **Entry volume > 20-day average**: Strong conviction signal",
+        "📉 **Declining volume on bounces**: Fade the move",
+        "⚡ **Volume spike + anchor break**: High probability setup"
+    ],
+    "multi_timeframe": [
+        "🎯 **5-min + 15-min + 1-hour** all pointing same direction = high conviction",
+        "❓ **Conflicting timeframes** = wait for resolution",
+        "📊 **Daily anchor + intraday setup** = strongest edge"
+    ]
+}
+
 # ── SESSION STATE INITIALIZATION ────────────────────────────────────────────
 if "theme" not in st.session_state:
     st.session_state.update(
@@ -392,6 +500,235 @@ def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_sp
 SPX_SLOTS = make_time_slots(time(8, 30))
 GENERAL_SLOTS = make_time_slots(time(7, 30))
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 📚 PLAYBOOK PART 2: DISPLAY FUNCTIONS  
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔗 ADD THIS AFTER SECTION 4 (Helper Functions)
+
+def create_playbook_navigation():
+    """Create the main playbook navigation page"""
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 3rem 2rem;
+        text-align: center;
+        color: white;
+        margin-bottom: 2rem;
+    ">
+        <h1 style="margin: 0; font-size: 3rem;">📚 Strategy Playbooks</h1>
+        <p style="margin: 1rem 0 0 0; font-size: 1.2rem; opacity: 0.9;">
+            Comprehensive trading strategies for each asset class
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Best Trading Days Cheat Sheet
+    st.markdown("## 📅 Best Trading Days Cheat Sheet")
+    
+    # Create the table
+    table_data = []
+    for ticker, info in BEST_TRADING_DAYS.items():
+        table_data.append({
+            "Ticker": f"{ICONS[ticker]} **{ticker}**",
+            "Best Days": f"**{info['days']}**",
+            "Rationale": info['rationale']
+        })
+    
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    
+    # Playbook selection
+    st.markdown("## 📋 Select Detailed Playbook")
+    
+    cols = st.columns(3)
+    playbook_options = ["SPX"] + list(BEST_TRADING_DAYS.keys())
+    
+    for i, ticker in enumerate(playbook_options):
+        col_idx = i % 3
+        with cols[col_idx]:
+            if st.button(
+                f"{ICONS[ticker]} {ticker} Playbook",
+                use_container_width=True,
+                key=f"nav_playbook_{ticker}",
+                help=f"View comprehensive {ticker} strategy"
+            ):
+                st.session_state.selected_playbook = ticker
+                st.rerun()
+
+def display_spx_playbook():
+    """Display comprehensive SPX playbook"""
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    ">
+        <h1 style="margin: 0;">🧭 SPX Master Playbook</h1>
+        <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; opacity: 0.9;">S&P 500 Index Trading Strategy</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("← Back to Playbook Menu"):
+        st.session_state.selected_playbook = None
+        st.rerun()
+    
+    # Golden Rules
+    st.markdown("## 🔔 Golden Rules")
+    st.markdown("""
+    <div style="
+        background: rgba(255, 215, 0, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    ">
+    """, unsafe_allow_html=True)
+    
+    for rule in SPX_GOLDEN_RULES:
+        st.markdown(rule)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Anchor Trading Rules
+    st.markdown("## ⚓ Anchor Trading Rules")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 📈 RTH Anchor Breaks")
+        for rule in SPX_ANCHOR_RULES['rth_breaks']:
+            st.markdown(f"• {rule}")
+    
+    with col2:
+        st.markdown("### 🌙 Extended Hours")
+        for rule in SPX_ANCHOR_RULES['extended_hours']:
+            st.markdown(f"• {rule}")
+    
+    with col3:
+        st.markdown("### 📅 Mon/Wed/Fri Rules")
+        for rule in SPX_ANCHOR_RULES['mon_wed_fri']:
+            st.markdown(f"• {rule}")
+    
+    st.markdown("---")
+    
+    # Contract Strategies
+    st.markdown("## 📏 Contract Line Strategies")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📊 Tuesday Contract Play")
+        for strategy in CONTRACT_STRATEGIES['tuesday_play']:
+            st.markdown(f"• {strategy}")
+    
+    with col2:
+        st.markdown("### 📈 Thursday Contract Play")
+        for strategy in CONTRACT_STRATEGIES['thursday_play']:
+            st.markdown(f"• {strategy}")
+    
+    st.markdown("---")
+    
+    # Time Management
+    st.markdown("## ⏰ Time Management & Volume")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 🕐 Market Sessions")
+        for session in TIME_RULES['market_sessions']:
+            st.markdown(f"• {session}")
+    
+    with col2:
+        st.markdown("### 📊 Volume Patterns")
+        for pattern in TIME_RULES['volume_patterns']:
+            st.markdown(f"• {pattern}")
+    
+    with col3:
+        st.markdown("### 🎯 Multi-Timeframe")
+        for rule in TIME_RULES['multi_timeframe']:
+            st.markdown(f"• {rule}")
+
+def display_stock_playbook(ticker):
+    """Display simplified stock playbook"""
+    best_day_info = BEST_TRADING_DAYS.get(ticker, {"days": "N/A", "rationale": "General market patterns"})
+    
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    ">
+        <h1 style="margin: 0;">{ICONS[ticker]} {ticker} Playbook</h1>
+        <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; opacity: 0.9;">Optimized Trading Strategy</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("← Back to Playbook Menu"):
+        st.session_state.selected_playbook = None
+        st.rerun()
+    
+    # Best Trading Days
+    st.markdown("## 📅 Optimal Trading Schedule")
+    st.markdown(f"""
+    <div style="
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    ">
+        <h3 style="margin-top: 0; color: #22c55e;">Best Days: {best_day_info['days']}</h3>
+        <p style="margin-bottom: 0;"><strong>Rationale:</strong> {best_day_info['rationale']}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Universal Risk Management
+    st.markdown("## 🛡️ Risk Management (Universal Rules)")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📏 Position Sizing")
+        for rule in RISK_RULES['position_sizing']:
+            st.markdown(f"• {rule}")
+        
+        st.markdown("### 🛑 Stop Strategy")
+        for rule in RISK_RULES['stop_strategy']:
+            st.markdown(f"• {rule}")
+    
+    with col2:
+        st.markdown("### 📊 Market Context")
+        for rule in RISK_RULES['market_context']:
+            st.markdown(f"• {rule}")
+        
+        st.markdown("### 🧠 Psychology")
+        for rule in RISK_RULES['psychological']:
+            st.markdown(f"• {rule}")
+    
+    # Performance Targets
+    st.markdown("### 🎯 Performance Targets")
+    for target in RISK_RULES['performance_targets']:
+        st.markdown(f"• {target}")
+
+def display_selected_playbook():
+    """Route to appropriate playbook display"""
+    if st.session_state.selected_playbook == "SPX":
+        display_spx_playbook()
+    else:
+        display_stock_playbook(st.session_state.selected_playbook)
+
+# Initialize playbook state
+if 'selected_playbook' not in st.session_state:
+    st.session_state.selected_playbook = None
+    
+
 # ── ENHANCED SIDEBAR ────────────────────────────────────────────────────────
 
 st.sidebar.markdown(f"""
@@ -505,81 +842,247 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── MAIN TABS ────────────────────────────────────────────────────────────────
-
-tab_labels = [f"{ICONS[ticker]} {ticker}" for ticker in ICONS.keys()]
-tabs = st.tabs(tab_labels)
-
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🧭 SPX MAIN TAB
+# 📚 PLAYBOOK PART 3: MAIN INTEGRATION
 # ═══════════════════════════════════════════════════════════════════════════════
+# 🔗 REPLACE YOUR EXISTING MAIN TABS SECTION WITH THIS
 
-with tabs[0]:  # SPX Tab
-    create_section_header("🎯", f"SPX Strategy Center - {current_day}")
+# Check if user is viewing a specific playbook
+if st.session_state.selected_playbook:
+    display_selected_playbook()
+else:
+    # Create main navigation tabs
+    main_tabs = st.tabs(["📈 Forecasting Tools", "📚 Strategy Playbooks"])
     
-    st.markdown("""
-    <div class="info-box">
-        <h4 style="margin-top: 0;">📋 Strategy Overview</h4>
-        <p>Configure your SPX anchor points and contract line parameters for precise market timing. 
-        The system uses advanced block calculations to project optimal entry and exit points.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # FORECASTING TAB (Your existing functionality)
+    # ═══════════════════════════════════════════════════════════════════════════════
+    with main_tabs[0]:
+        # Sub-tabs for different assets
+        tab_labels = [f"{ICONS[ticker]} {ticker}" for ticker in ICONS.keys()]
+        forecast_tabs = st.tabs(tab_labels)
+        
+        # SPX Tab - Enhanced with playbook integration
+        with forecast_tabs[0]:
+            create_section_header("🎯", f"SPX Strategy Center - {current_day}")
+            
+            # Quick playbook access
+            playbook_col = st.columns([1, 2, 1])[1]
+            with playbook_col:
+                if st.button("📚 View Complete SPX Playbook", 
+                            use_container_width=True,
+                            help="Access comprehensive SPX trading strategies and rules"):
+                    st.session_state.selected_playbook = "SPX"
+                    st.rerun()
+            
+            st.markdown("""
+            <div class="info-box">
+                <h4 style="margin-top: 0;">📋 Strategy Overview</h4>
+                <p>Configure your SPX anchor points and contract line parameters for precise market timing. 
+                The system uses advanced block calculations to project optimal entry and exit points.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Quick Rules Reminder
+            with st.expander("🔔 Quick SPX Rules Reminder", expanded=False):
+                st.markdown("**Key Rules to Remember:**")
+                for rule in SPX_GOLDEN_RULES[:3]:  # Show first 3 rules
+                    st.markdown(f"• {rule}")
+                st.markdown("*Click 'View Complete SPX Playbook' above for all rules and strategies*")
+            
+            # YOUR EXISTING SPX CONTENT GOES HERE
+            # ── SPX ANCHOR INPUTS ────────────────────────────────────────────────────
+            create_section_header("⚓", "Anchor Point Configuration")
+            
+            anchor_col1, anchor_col2, anchor_col3 = st.columns(3)
+            
+            with anchor_col1:
+                st.markdown("#### 📈 **High Anchor**")
+                high_price = st.number_input(
+                    "Price", 
+                    value=6185.8, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="spx_high_price",
+                    help="Previous day's high price"
+                )
+                high_time = st.time_input(
+                    "Time", 
+                    value=time(11, 30),
+                    key="spx_high_time",
+                    help="Time when high occurred"
+                )
+            
+            with anchor_col2:
+                st.markdown("#### 📊 **Close Anchor**")
+                close_price = st.number_input(
+                    "Price", 
+                    value=6170.2, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="spx_close_price",
+                    help="Previous day's closing price"
+                )
+                close_time = st.time_input(
+                    "Time", 
+                    value=time(15, 0),
+                    key="spx_close_time",
+                    help="Market closing time"
+                )
+            
+            with anchor_col3:
+                st.markdown("#### 📉 **Low Anchor**")
+                low_price = st.number_input(
+                    "Price", 
+                    value=6130.4, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="spx_low_price",
+                    help="Previous day's low price"
+                )
+                low_time = st.time_input(
+                    "Time", 
+                    value=time(13, 30),
+                    key="spx_low_time",
+                    help="Time when low occurred"
+                )
+            
+            # ── CONTRACT LINE SETUP ──────────────────────────────────────────────────
+            create_section_header("📏", "Contract Line Configuration")
+            
+            st.markdown("""
+            <div class="warning-box">
+                <h4 style="margin-top: 0;">⚠️ Two-Point Line Strategy</h4>
+                <p>Define two key price points to establish your trend line. The system will calculate 
+                the optimal slope and project values across all time intervals.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            contract_col1, contract_col2 = st.columns(2)
+            
+            with contract_col1:
+                st.markdown("#### 🎯 **Low-1 Point**")
+                low1_time = st.time_input(
+                    "Time", 
+                    value=time(2, 0), 
+                    step=300,
+                    key="low1_time",
+                    help="First reference point time"
+                )
+                low1_price = st.number_input(
+                    "Price", 
+                    value=10.0, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="low1_price",
+                    help="First reference point price"
+                )
+            
+            with contract_col2:
+                st.markdown("#### 🎯 **Low-2 Point**")
+                low2_time = st.time_input(
+                    "Time", 
+                    value=time(3, 30), 
+                    step=300,
+                    key="low2_time",
+                    help="Second reference point time"
+                )
+                low2_price = st.number_input(
+                    "Price", 
+                    value=12.0, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="low2_price",
+                    help="Second reference point price"
+                )
+            
+            # ADD YOUR SECTIONS 7-8 (FORECAST GENERATION & LOOKUP) HERE
+            
+        # Enhanced Stock Tabs with playbook integration
+        def create_enhanced_stock_tab(tab_index, ticker):
+            """Create stock tab with playbook integration"""
+            with forecast_tabs[tab_index]:
+                create_section_header(ICONS[ticker], f"{ticker} Analysis Center")
+                
+                # Show best trading days for this stock
+                if ticker in BEST_TRADING_DAYS:
+                    best_info = BEST_TRADING_DAYS[ticker]
+                    st.markdown(f"""
+                    <div style="background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <strong>📅 Best Trading Days:</strong> {best_info['days']} - {best_info['rationale']}
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Quick playbook access
+                playbook_col = st.columns([1, 2, 1])[1]
+                with playbook_col:
+                    if st.button(f"📚 View {ticker} Trading Rules", 
+                                key=f"playbook_btn_{ticker}",
+                                use_container_width=True,
+                                help=f"Access {ticker} specific trading guidelines"):
+                        st.session_state.selected_playbook = ticker
+                        st.rerun()
+                
+                # YOUR EXISTING STOCK TAB CONTENT GOES HERE
+                st.markdown(f"""
+                <div class="info-box">
+                    <h4 style="margin-top: 0;">{ICONS[ticker]} {ticker} Strategy Overview</h4>
+                    <p>Configure anchor points from the previous trading day to project optimal entry and exit positions. 
+                    Use the optimal trading days shown above for best results.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Input section
+                create_section_header("⚓", "Previous Day Anchor Points")
+                
+                input_col1, input_col2 = st.columns(2)
+                
+                with input_col1:
+                    st.markdown("#### 📉 **Low Anchor**")
+                    low_price = st.number_input(
+                        "Previous Day Low",
+                        value=0.0,
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"{ticker}_low_price",
+                        help=f"Enter {ticker}'s previous day low price"
+                    )
+                    low_time = st.time_input(
+                        "Low Time",
+                        value=time(7, 30),
+                        key=f"{ticker}_low_time",
+                        help="Time when the low occurred"
+                    )
+                
+                with input_col2:
+                    st.markdown("#### 📈 **High Anchor**")
+                    high_price = st.number_input(
+                        "Previous Day High",
+                        value=0.0,
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"{ticker}_high_price",
+                        help=f"Enter {ticker}'s previous day high price"
+                    )
+                    high_time = st.time_input(
+                        "High Time",
+                        value=time(7, 30),
+                        key=f"{ticker}_high_time",
+                        help="Time when the high occurred"
+                    )
+                
+                # ADD YOUR EXISTING STOCK FORECAST GENERATION CODE HERE
+        
+        # Create all enhanced stock tabs
+        stock_tickers = list(ICONS.keys())[1:]
+        for i, ticker in enumerate(stock_tickers, 1):
+            create_enhanced_stock_tab(i, ticker)
     
-    # ── SPX ANCHOR INPUTS ────────────────────────────────────────────────────
-    create_section_header("⚓", "Anchor Point Configuration")
-    
-    anchor_col1, anchor_col2, anchor_col3 = st.columns(3)
-    
-    with anchor_col1:
-        st.markdown("#### 📈 **High Anchor**")
-        high_price = st.number_input(
-            "Price", 
-            value=6185.8, 
-            min_value=0.0, 
-            step=0.1,
-            key="spx_high_price",
-            help="Previous day's high price"
-        )
-        high_time = st.time_input(
-            "Time", 
-            value=time(11, 30),
-            key="spx_high_time",
-            help="Time when high occurred"
-        )
-    
-    with anchor_col2:
-        st.markdown("#### 📊 **Close Anchor**")
-        close_price = st.number_input(
-            "Price", 
-            value=6170.2, 
-            min_value=0.0, 
-            step=0.1,
-            key="spx_close_price",
-            help="Previous day's closing price"
-        )
-        close_time = st.time_input(
-            "Time", 
-            value=time(15, 0),
-            key="spx_close_time",
-            help="Market closing time"
-        )
-    
-    with anchor_col3:
-        st.markdown("#### 📉 **Low Anchor**")
-        low_price = st.number_input(
-            "Price", 
-            value=6130.4, 
-            min_value=0.0, 
-            step=0.1,
-            key="spx_low_price",
-            help="Previous day's low price"
-        )
-        low_time = st.time_input(
-            "Time", 
-            value=time(13, 30),
-            key="spx_low_time",
-            help="Time when low occurred"
-        )
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # STRATEGY PLAYBOOKS TAB
+    # ═══════════════════════════════════════════════════════════════════════════════
+    with main_tabs[1]:
+        create_playbook_navigation()
     
     # ── CONTRACT LINE SETUP ──────────────────────────────────────────────────
     create_section_header("📏", "Contract Line Configuration")
