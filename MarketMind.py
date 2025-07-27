@@ -1474,6 +1474,121 @@ else:
             fan_mode=False
         )
         st.dataframe(contract_forecast, use_container_width=True, hide_index=True)
+
+# ── FIBONACCI BOUNCE ANALYZER ────────────────────────────────────────────────
+create_section_header("📈", "Fibonacci Bounce Analysis")
+
+st.markdown("""
+<div class="info-box">
+    <h4 style="margin-top: 0;">🎯 Algorithmic Entry Detection</h4>
+    <p>When SPX bounces off a line, the contract follows with a retracement to 0.786 Fibonacci level. 
+    This is where algorithms typically enter for high-probability runs. Use this tool to identify optimal entry points.</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Fibonacci input section
+fib_col1, fib_col2, fib_col3 = st.columns(3)
+
+with fib_col1:
+    st.markdown("#### 📉 **Bounce Low**")
+    bounce_low = st.number_input(
+        "Contract Low Price",
+        value=0.0,
+        min_value=0.0,
+        step=0.01,
+        key="fib_bounce_low",
+        help="Lowest price of the contract bounce"
+    )
+
+with fib_col2:
+    st.markdown("#### 📈 **Bounce High**")
+    bounce_high = st.number_input(
+        "Contract High Price", 
+        value=0.0,
+        min_value=0.0,
+        step=0.01,
+        key="fib_bounce_high",
+        help="Highest price of the contract bounce"
+    )
+
+with fib_col3:
+    st.markdown("#### ⏰ **Next Hour Candle**")
+    st.markdown("""
+    <div style="background: rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 1rem; margin-top: 1.8rem;">
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚠️</div>
+            <div style="font-size: 0.9rem; font-weight: 600;">Watch Next Hour</div>
+            <div style="font-size: 0.8rem; opacity: 0.8;">0.786 entry typically occurs</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Generate Fibonacci analysis
+if bounce_low > 0 and bounce_high > bounce_low:
+    st.markdown("### 🧮 Fibonacci Retracement Levels")
+    
+    # Create and display fibonacci table
+    fib_table = create_fibonacci_table(bounce_low, bounce_high)
+    st.dataframe(fib_table, use_container_width=True, hide_index=True)
+    
+    # Highlight the key 0.786 level
+    fib_levels = calculate_fibonacci_levels(bounce_low, bounce_high)
+    key_entry = fib_levels["0.786"]
+    
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+        border: 2px solid rgba(34, 197, 94, 0.4);
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+    ">
+        <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎯</div>
+        <h3 style="margin: 0; color: #22c55e; font-size: 1.8rem;">Algorithmic Entry Zone</h3>
+        <div style="font-size: 3rem; font-weight: 800; color: #22c55e; margin: 1rem 0;">
+            ${key_entry:.2f}
+        </div>
+        <div style="font-size: 1.1rem; opacity: 0.9;">
+            <strong>0.786 Fibonacci Level</strong><br>
+            <span style="font-size: 0.9rem;">Expected in next hour candle</span>
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.85rem; opacity: 0.7;">
+            Range: ${bounce_high:.2f} → ${bounce_low:.2f} (${bounce_high - bounce_low:.2f} spread)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Trading alerts
+    current_range_percent = ((bounce_high - bounce_low) / bounce_low) * 100
+    
+    st.markdown("### ⚠️ Trading Alerts")
+    
+    alert_col1, alert_col2 = st.columns(2)
+    
+    with alert_col1:
+        st.markdown(f"""
+        <div style="background: rgba(59, 130, 246, 0.1); border-radius: 8px; padding: 1rem;">
+            <strong>📊 Range Analysis:</strong><br>
+            Bounce Range: {current_range_percent:.1f}%<br>
+            {"Strong signal" if current_range_percent > 2 else "Weak signal" if current_range_percent < 1 else "Moderate signal"}
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with alert_col2:
+        st.markdown(f"""
+        <div style="background: rgba(139, 92, 246, 0.1); border-radius: 8px; padding: 1rem;">
+            <strong>⏰ Timing:</strong><br>
+            Watch for: Next hour candle<br>
+            Entry: Around ${key_entry:.2f}
+        </div>
+        """, unsafe_allow_html=True)
+
+elif bounce_low > 0 or bounce_high > 0:
+    st.warning("⚠️ Please enter both bounce low and high values, with high > low")
+else:
+    st.info("💡 Enter bounce low and high prices to calculate Fibonacci retracement levels")
     
     # ── REAL-TIME LOOKUP SYSTEM ───────────────────────────────────────────────
     create_section_header("🔍", "Real-Time Price Lookup")
