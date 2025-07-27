@@ -108,7 +108,7 @@ SPX_ANCHOR_RULES = {
         "✅ **Wait for price action confirmation** rather than anticipating touches"
     ]
 "📈 **SPX Line Touch + Bounce**: When SPX price touches line and bounces, contract follows the same pattern",
-        "🎯 **0.786 Fibonacci Entry**: Contract retraces to 0.786 fib level (low to high of bounce) = major algo entry point",
+        "🎯 **0.786 Fibonacci Entry**:[ Contract retraces to 0.786 fib level (low to high of bounce) = major algo entry point",
         "⏰ **Next Hour Candle**: The 0.786 retracement typically occurs in the NEXT hour candle, not the same one",
         "💰 **High Probability**: Algos consistently enter at 0.786 level for profitable runs",
         "📊 **Setup Requirements**: Clear bounce off SPX line + identifiable low-to-high swing for fib calculation"
