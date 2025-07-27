@@ -506,6 +506,36 @@ def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_sp
 SPX_SLOTS = make_time_slots(time(8, 30))
 GENERAL_SLOTS = make_time_slots(time(7, 30))
 
+def calculate_fibonacci_levels(swing_low, swing_high):
+    """Calculate key Fibonacci retracement levels for bounce analysis"""
+    price_range = swing_high - swing_low
+    
+    fib_levels = {
+        "0.236": swing_high - (price_range * 0.236),
+        "0.382": swing_high - (price_range * 0.382), 
+        "0.500": swing_high - (price_range * 0.500),
+        "0.618": swing_high - (price_range * 0.618),
+        "0.786": swing_high - (price_range * 0.786),  # 🎯 KEY LEVEL
+        "1.000": swing_low
+    }
+    
+    return fib_levels
+
+def create_fibonacci_table(swing_low, swing_high):
+    """Create a formatted table showing Fibonacci levels"""
+    fib_levels = calculate_fibonacci_levels(swing_low, swing_high)
+    
+    fib_data = []
+    for level, price in fib_levels.items():
+        emphasis = "🎯 **ALGO ENTRY**" if level == "0.786" else ""
+        fib_data.append({
+            "Fibonacci Level": level,
+            "Price": f"${price:.2f}",
+            "Note": emphasis
+        })
+    
+    return pd.DataFrame(fib_data)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 📚 PLAYBOOK PART 2: DISPLAY FUNCTIONS  
 # ═══════════════════════════════════════════════════════════════════════════════
