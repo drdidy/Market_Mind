@@ -1957,13 +1957,17 @@ else:
         create_playbook_navigation()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🎯 ENHANCED FOOTER & FINAL ELEMENTS
+# 🎯 ENHANCED FOOTER & FINAL ELEMENTS (With Timezone Support)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Add spacing before footer
 st.markdown("<br><br>", unsafe_allow_html=True)
 
-# Enhanced footer with comprehensive information
+# Enhanced footer with timezone-aware time
+user_tz = get_user_timezone()
+current_time = get_current_time_in_timezone(user_tz)
+generation_time = format_time_with_timezone(current_time, user_tz)
+
 st.markdown(f"""
 <div style="
     background: rgba(255, 255, 255, 0.05);
@@ -1984,7 +1988,7 @@ st.markdown(f"""
         <div style="height: 40px; width: 1px; background: rgba(255,255,255,0.1);"></div>
         <div>
             <p style="margin: 0; font-size: 0.9rem; opacity: 0.8;">
-                🕐 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                🕐 Generated: {generation_time}
             </p>
             <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.6;">
                 Target: {forecast_date.strftime('%A, %B %d, %Y')}
@@ -2124,6 +2128,10 @@ with st.expander("🔧 System Status", expanded=False):
             <strong>🎨 Theme:</strong><br>
             {st.session_state.theme} Mode
         </div>
+        <div style="padding: 1rem; background: rgba(168, 85, 247, 0.1); border-radius: 8px;">
+            <strong>🌍 Timezone:</strong><br>
+            {user_tz.split('/')[-1]} Time
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2142,3 +2150,4 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ✅ Clean, well-organized code structure
 # ✅ Advanced risk management and performance tracking
 # ✅ Real-time lookup and contract line analysis
+# ✅ Timezone support with Chicago default and global options
