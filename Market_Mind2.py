@@ -555,3 +555,285 @@ def create_fibonacci_table(swing_low, swing_high):
 # Define time slots
 SPX_SLOTS = make_time_slots(time(8, 30))
 GENERAL_SLOTS = make_time_slots(time(7, 30))
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 📚 PLAYBOOK DISPLAY FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def create_playbook_navigation():
+    """Create the main playbook navigation page with enhanced styling"""
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 3rem 2rem;
+        text-align: center;
+        color: white;
+        margin-bottom: 2rem;
+    ">
+        <h1 style="margin: 0; font-size: 3rem;">📚 Strategy Playbooks</h1>
+        <p style="margin: 1rem 0 0 0; font-size: 1.2rem; opacity: 0.9;">
+            Comprehensive trading strategies for each asset class
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Best Trading Days Cheat Sheet
+    st.markdown("## 📅 Best Trading Days Cheat Sheet")
+    
+    table_data = []
+    for ticker, info in BEST_TRADING_DAYS.items():
+        table_data.append({
+            "Ticker": f"{ICONS[ticker]} **{ticker}**",
+            "Best Days": f"**{info['days']}**",
+            "Rationale": info['rationale']
+        })
+    
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    
+    # Enhanced playbook selection
+    st.markdown("## 📋 Select Detailed Playbook")
+    
+    st.markdown("""
+    <div style="text-align: center; margin: 1.5rem 0;">
+        <p style="color: #e2e8f0; font-size: 1.1rem; opacity: 0.8;">
+            Choose a ticker below to access comprehensive trading strategies and rules
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    cols = st.columns(3)
+    playbook_options = ["SPX"] + list(BEST_TRADING_DAYS.keys())
+    
+    for i, ticker in enumerate(playbook_options):
+        col_idx = i % 3
+        with cols[col_idx]:
+            button_color = "#667eea" if ticker == "SPX" else "#f59e0b"
+            st.markdown(f"""
+            <div style="margin-bottom: 1rem;">
+                <div style="
+                    background: linear-gradient(135deg, {button_color} 0%, {button_color}cc 100%);
+                    border-radius: 12px;
+                    padding: 0.1rem;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                ">
+                    <div style="
+                        background: rgba(255, 255, 255, 0.1);
+                        border-radius: 11px;
+                        padding: 1rem;
+                        text-align: center;
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    ">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">{ICONS[ticker]}</div>
+                        <div style="color: white; font-weight: 600; font-size: 1rem;">{ticker}</div>
+                        <div style="color: rgba(255, 255, 255, 0.8); font-size: 0.85rem;">
+                            {"Master Playbook" if ticker == "SPX" else "Trading Rules"}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button(
+                f"Open {ticker} Playbook",
+                use_container_width=True,
+                type="primary" if ticker == "SPX" else "secondary",
+                key=f"nav_playbook_{ticker}",
+                help=f"View comprehensive {ticker} strategy"
+            ):
+                st.session_state.selected_playbook = ticker
+                st.rerun()
+
+def display_spx_playbook():
+    """Display comprehensive SPX playbook with all strategies"""
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    ">
+        <h1 style="margin: 0;">🧭 SPX Master Playbook</h1>
+        <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; opacity: 0.9;">S&P 500 Index Trading Strategy</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("← Back to Playbook Menu",
+                 type="secondary",
+                 help="Return to playbook selection",
+                 use_container_width=False):
+        st.session_state.selected_playbook = None
+        st.rerun()
+    
+    # Golden Rules
+    st.markdown("## 🔔 Golden Rules")
+    st.markdown("""
+    <div style="
+        background: rgba(255, 215, 0, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    ">
+    """, unsafe_allow_html=True)
+    
+    for rule in SPX_GOLDEN_RULES:
+        st.markdown(rule)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Anchor Trading Rules
+    st.markdown("## ⚓ Anchor Trading Rules")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 📈 RTH Anchor Breaks")
+        for rule in SPX_ANCHOR_RULES['rth_breaks']:
+            st.markdown(f"• {rule}")
+    
+    with col2:
+        st.markdown("### 🌙 Extended Hours")
+        for rule in SPX_ANCHOR_RULES['extended_hours']:
+            st.markdown(f"• {rule}")
+    
+    with col3:
+        st.markdown("### 📅 Mon/Wed/Fri Rules")
+        for rule in SPX_ANCHOR_RULES['mon_wed_fri']:
+            st.markdown(f"• {rule}")
+    
+    st.markdown("---")
+    
+    # Fibonacci Bounce Strategy
+    st.markdown("## 📈 Fibonacci Bounce Strategy")
+    
+    st.markdown("""
+    <div style="
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    ">
+    """, unsafe_allow_html=True)
+    
+    for rule in SPX_ANCHOR_RULES['fibonacci_bounce']:
+        st.markdown(f"• {rule}")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Contract Strategies
+    st.markdown("## 📏 Contract Line Strategies")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📊 Tuesday Contract Play")
+        for strategy in CONTRACT_STRATEGIES['tuesday_play']:
+            st.markdown(f"• {strategy}")
+    
+    with col2:
+        st.markdown("### 📈 Thursday Contract Play")
+        for strategy in CONTRACT_STRATEGIES['thursday_play']:
+            st.markdown(f"• {strategy}")
+    
+    st.markdown("---")
+    
+    # Time Management
+    st.markdown("## ⏰ Time Management & Volume")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 🕐 Market Sessions")
+        for session in TIME_RULES['market_sessions']:
+            st.markdown(f"• {session}")
+    
+    with col2:
+        st.markdown("### 📊 Volume Patterns")
+        for pattern in TIME_RULES['volume_patterns']:
+            st.markdown(f"• {pattern}")
+    
+    with col3:
+        st.markdown("### 🎯 Multi-Timeframe")
+        for rule in TIME_RULES['multi_timeframe']:
+            st.markdown(f"• {rule}")
+
+def display_stock_playbook(ticker):
+    """Display simplified stock playbook with universal rules"""
+    best_day_info = BEST_TRADING_DAYS.get(ticker, {"days": "N/A", "rationale": "General market patterns"})
+    
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    ">
+        <h1 style="margin: 0;">{ICONS[ticker]} {ticker} Playbook</h1>
+        <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; opacity: 0.9;">Optimized Trading Strategy</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("← Back to Playbook Menu",
+                 type="secondary",
+                 help="Return to playbook selection",
+                 use_container_width=False):
+        st.session_state.selected_playbook = None
+        st.rerun()
+    
+    # Best Trading Days
+    st.markdown("## 📅 Optimal Trading Schedule")
+    st.markdown(f"""
+    <div style="
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    ">
+        <h3 style="margin-top: 0; color: #22c55e;">Best Days: {best_day_info['days']}</h3>
+        <p style="margin-bottom: 0;"><strong>Rationale:</strong> {best_day_info['rationale']}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Universal Risk Management
+    st.markdown("## 🛡️ Risk Management (Universal Rules)")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📏 Position Sizing")
+        for rule in RISK_RULES['position_sizing']:
+            st.markdown(f"• {rule}")
+        
+        st.markdown("### 🛑 Stop Strategy")
+        for rule in RISK_RULES['stop_strategy']:
+            st.markdown(f"• {rule}")
+    
+    with col2:
+        st.markdown("### 📊 Market Context")
+        for rule in RISK_RULES['market_context']:
+            st.markdown(f"• {rule}")
+        
+        st.markdown("### 🧠 Psychology")
+        for rule in RISK_RULES['psychological']:
+            st.markdown(f"• {rule}")
+    
+    # Performance Targets
+    st.markdown("### 🎯 Performance Targets")
+    for target in RISK_RULES['performance_targets']:
+        st.markdown(f"• {target}")
+
+def display_selected_playbook():
+    """Route to appropriate playbook display"""
+    if st.session_state.selected_playbook == "SPX":
+        display_spx_playbook()
+    else:
+        display_stock_playbook(st.session_state.selected_playbook)
