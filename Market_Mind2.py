@@ -1869,15 +1869,6 @@ else:
     
     with main_tabs[3]:
         create_playbook_navigation()
-                
-# ═══════════════════════════════════════════════════════════════════════════════
-# 🔧 EXACT SPACING FIX - Count These Spaces Carefully
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# This should be at the SAME indentation level as your dataframe lines
-# Look for this pattern in your code:
-#     st.dataframe(low_forecast, use_container_width=True, hide_index=True)
-# The performance analysis should be at the SAME level as st.dataframe
 
         # ── PERFORMANCE ANALYSIS ──────────────────────────────────────────────
         create_section_header("🎯", "Exit Strategy Performance Analysis")
