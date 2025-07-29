@@ -454,11 +454,82 @@ html, body {
     border-radius: var(--border-radius) !important;
 }
 
-/* Neumorphic sidebar */
+/* SIDEBAR FIXES FOR TEXT CUTOFF */
 .css-1d391kg {
     background: var(--bg-color) !important;
     border-right: none !important;
     box-shadow: var(--neu-flat) !important;
+    min-width: 320px !important;
+    width: 320px !important;
+}
+
+/* Sidebar text visibility */
+.css-1d391kg .stSelectbox label,
+.css-1d391kg .stTextInput label,
+.css-1d391kg .stDateInput label,
+.css-1d391kg .stSlider label,
+.css-1d391kg .stTextArea label {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+}
+
+/* Sidebar selectbox width fixes */
+.css-1d391kg .stSelectbox > div {
+    width: 100% !important;
+}
+
+.css-1d391kg .stSelectbox > div > div {
+    width: 100% !important;
+    min-width: 280px !important;
+}
+
+.css-1d391kg .stSelectbox > div > div > div {
+    background: var(--bg-color) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--shadow-dark) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--neu-concave) !important;
+    width: 100% !important;
+    min-width: 280px !important;
+    padding: 0.75rem !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+}
+
+/* Sidebar input field width fixes */
+.css-1d391kg .stTextInput > div,
+.css-1d391kg .stDateInput > div,
+.css-1d391kg .stTextArea > div {
+    width: 100% !important;
+    min-width: 280px !important;
+}
+
+.css-1d391kg .stTextInput > div > div,
+.css-1d391kg .stDateInput > div > div,
+.css-1d391kg .stTextArea > div > div {
+    width: 100% !important;
+}
+
+.css-1d391kg input {
+    background: var(--bg-color) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--shadow-dark) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--neu-concave) !important;
+    width: 100% !important;
+    padding: 0.75rem !important;
+}
+
+/* Sidebar markdown text */
+.css-1d391kg .stMarkdown p,
+.css-1d391kg .stMarkdown h1,
+.css-1d391kg .stMarkdown h2,
+.css-1d391kg .stMarkdown h3,
+.css-1d391kg .stMarkdown h4,
+.css-1d391kg .stMarkdown h5,
+.css-1d391kg .stMarkdown h6 {
+    color: var(--text-primary) !important;
 }
 
 /* Neumorphic tabs */
@@ -507,6 +578,7 @@ html, body {
     .metric-card { min-width: auto; padding: 1.5rem; }
     .card-icon { width: 3rem; height: 3rem; font-size: 1.5rem; }
     .card-value { font-size: 1.8rem; }
+    .css-1d391kg { min-width: 280px !important; width: 280px !important; }
 }
 
 /* Custom scrollbar for neumorphic feel */
@@ -532,7 +604,6 @@ html, body {
 }
 </style>
 """, unsafe_allow_html=True)
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🔧 HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
