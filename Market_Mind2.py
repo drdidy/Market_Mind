@@ -191,7 +191,7 @@ st.set_page_config(
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🎨 ENHANCED CSS STYLING
+# 🎨 CSS STYLING
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
@@ -442,8 +442,9 @@ html, body {
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔧 HELPER FUNCTIONS
+# 🔧 SECTION 4: COMPLETE ENHANCED HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
+# 🎯 Complete helper functions with timezone support, two-stage exits, and Fibonacci analysis
 
 def get_user_timezone():
     """Get user's selected timezone from session state"""
@@ -541,9 +542,9 @@ def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_sp
             rows.append({
                 "Time": slot,
                 "Entry": entry_price,
-                "Exit 1 (+ 9)": first_exit,
+                "Exit 1 (+9)": first_exit,
                 "Fan Exit": fan_exit,
-                "Profit 1": "+ 9",
+                "Profit 1": "+9",
                 "Fan Profit": round(abs(entry_price - fan_exit), 1)
             })
             
@@ -598,7 +599,7 @@ def create_fibonacci_table(swing_low, swing_high):
     
     return pd.DataFrame(fib_data)
 
-# Define time slots
+# ── TIME SLOT DEFINITIONS ────────────────────────────────────────────────────
 SPX_SLOTS = make_time_slots(time(8, 30))
 GENERAL_SLOTS = make_time_slots(time(7, 30))
 
