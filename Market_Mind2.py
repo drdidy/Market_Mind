@@ -533,17 +533,17 @@ def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_sp
             blocks = calculate_stock_blocks(anchor, target_time)
         
         if two_stage_exits:
-            # SPX Two-Stage Exit System with 8.5 point target
+            # SPX Two-Stage Exit System with 9 point target
             entry_price = round(price + slope * blocks, 2)
-            first_exit = round(entry_price + 8.5, 2)  # 8.5 point target
+            first_exit = round(entry_price + 9, 2)  # 8.5 point target
             fan_exit = round(price - slope * blocks, 2)  # Fan model exit
             
             rows.append({
                 "Time": slot,
                 "Entry": entry_price,
-                "Exit 1 (+8.5)": first_exit,
+                "Exit 1 (+9)": first_exit,
                 "Fan Exit": fan_exit,
-                "Profit 1": "+8.5",
+                "Profit 1": "+9",
                 "Fan Profit": round(abs(entry_price - fan_exit), 1)
             })
             
