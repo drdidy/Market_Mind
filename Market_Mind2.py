@@ -1584,7 +1584,7 @@ else:
                 type="primary",
                 help="Generate contract line projections and analysis"
             )
-            if generate_contract:
+        if generate_contract:
             # Calculate contract line parameters
             anchor_datetime = datetime.combine(forecast_date, low1_time)
             time_diff_blocks = calculate_spx_blocks(
