@@ -1873,7 +1873,7 @@ else:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 📊 PERFORMANCE ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════════
-        create_section_header("🎯", "Exit Strategy Performance Analysis")
+                create_section_header("🎯", "Exit Strategy Performance Analysis")
                 
                 # Calculate comprehensive performance metrics
                 all_entries = []
