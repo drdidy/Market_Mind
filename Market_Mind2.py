@@ -10,6 +10,7 @@ import streamlit as st
 from datetime import datetime, date, time, timedelta
 from copy import deepcopy
 import pandas as pd
+import pytz
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🔧 CONSTANTS & CONFIGURATION
@@ -18,6 +19,7 @@ import pandas as pd
 PAGE_TITLE = "Dr Didy SPX Forecast"
 PAGE_ICON = "📈"
 VERSION = "1.6.1"
+DEFAULT_TIMEZONE = "America/Chicago"  # Chicago timezone
 
 BASE_SLOPES = {
     "SPX_HIGH": -0.2792, "SPX_CLOSE": -0.2792, "SPX_LOW": -0.2792,
@@ -30,6 +32,19 @@ ICONS = {
     "SPX": "🧭", "TSLA": "🚗", "NVDA": "🧠", "AAPL": "🍎",
     "MSFT": "🪟", "AMZN": "📦", "GOOGL": "🔍",
     "META": "📘", "NFLX": "📺"
+}
+
+TIMEZONE_OPTIONS = {
+    "🇺🇸 Chicago (CT)": "America/Chicago",
+    "🇺🇸 New York (ET)": "America/New_York", 
+    "🇺🇸 Los Angeles (PT)": "America/Los_Angeles",
+    "🇺🇸 Denver (MT)": "America/Denver",
+    "🇬🇧 London (GMT)": "Europe/London",
+    "🇯🇵 Tokyo (JST)": "Asia/Tokyo",
+    "🇦🇺 Sydney (AEST)": "Australia/Sydney",
+    "🇩🇪 Frankfurt (CET)": "Europe/Berlin",
+    "🇸🇬 Singapore (SGT)": "Asia/Singapore",
+    "🌍 UTC": "UTC"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -139,7 +154,6 @@ TIME_RULES = {
         "📊 **Daily anchor + intraday setup** = strongest edge"
     ]
 }
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # ⚙️ SESSION STATE INITIALIZATION
 # ═══════════════════════════════════════════════════════════════════════════════
