@@ -954,3 +954,187 @@ st.markdown(f"""
     <div class="subtitle">Advanced Market Forecasting • {current_day} Session</div>
 </div>
 """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🚀 MAIN NAVIGATION & TAB STRUCTURE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Check if user is viewing a specific playbook
+if st.session_state.selected_playbook:
+    display_selected_playbook()
+else:
+    # Create main navigation tabs
+    main_tabs = st.tabs(["📈 Forecasting Tools", "📚 Strategy Playbooks"])
+    
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # 📈 FORECASTING TAB - Enhanced with Two-Stage Exits
+    # ═══════════════════════════════════════════════════════════════════════════════
+    with main_tabs[0]:
+        # Sub-tabs for different assets
+        tab_labels = [f"{ICONS[ticker]} {ticker}" for ticker in ICONS.keys()]
+        forecast_tabs = st.tabs(tab_labels)
+        
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # 🧭 SPX TAB - Enhanced with Playbook Integration
+        # ═══════════════════════════════════════════════════════════════════════════════
+        with forecast_tabs[0]:
+            create_section_header("🎯", f"SPX Strategy Center - {current_day}")
+            
+            # Enhanced playbook access
+            st.markdown("""
+            <div style="text-align: center; margin: 1.5rem 0;">
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 12px;
+                    padding: 0.1rem;
+                    display: inline-block;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                ">
+                    <div style="
+                        background: rgba(255, 255, 255, 0.1);
+                        border-radius: 11px;
+                        padding: 0.8rem 2rem;
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    ">
+                        <p style="margin: 0; color: white; font-weight: 600; font-size: 1rem;">
+                            📚 Click below to access complete SPX trading strategies & rules
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            playbook_col = st.columns([1, 2, 1])[1]
+            with playbook_col:
+                if st.button("🎯 Open SPX Master Playbook", 
+                            use_container_width=True,
+                            type="primary",
+                            help="Access comprehensive SPX trading strategies and rules"):
+                    st.session_state.selected_playbook = "SPX"
+                    st.rerun()
+            
+            st.markdown("""
+            <div class="info-box">
+                <h4 style="margin-top: 0;">📋 Strategy Overview</h4>
+                <p>Configure your SPX anchor points and contract line parameters for precise market timing. 
+                The system uses advanced block calculations to project optimal entry and exit points with 
+                our proven 8.5-point + fan model two-stage exit strategy.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Quick Rules Reminder
+            with st.expander("🔔 Quick SPX Rules Reminder", expanded=False):
+                st.markdown("**Key Rules to Remember:**")
+                for rule in SPX_GOLDEN_RULES[:3]:  # Show first 3 rules
+                    st.markdown(f"• {rule}")
+                st.markdown("*Click 'Open SPX Master Playbook' above for all rules and strategies*")
+            
+            # ═══════════════════════════════════════════════════════════════════════════════
+            # ⚓ SPX ANCHOR INPUTS - Enhanced UI
+            # ═══════════════════════════════════════════════════════════════════════════════
+            create_section_header("⚓", "Anchor Point Configuration")
+            
+            anchor_col1, anchor_col2, anchor_col3 = st.columns(3)
+            
+            with anchor_col1:
+                st.markdown("#### 📈 **High Anchor**")
+                high_price = st.number_input(
+                    "Price", 
+                    value=6185.8, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="spx_high_price",
+                    help="Previous day's high price"
+                )
+                high_time = st.time_input(
+                    "Time", 
+                    value=time(11, 30),
+                    key="spx_high_time",
+                    help="Time when high occurred"
+                )
+            
+            with anchor_col2:
+                st.markdown("#### 📊 **Close Anchor**")
+                close_price = st.number_input(
+                    "Price", 
+                    value=6170.2, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="spx_close_price",
+                    help="Previous day's closing price"
+                )
+                close_time = st.time_input(
+                    "Time", 
+                    value=time(15, 0),
+                    key="spx_close_time",
+                    help="Market closing time"
+                )
+            
+            with anchor_col3:
+                st.markdown("#### 📉 **Low Anchor**")
+                low_price = st.number_input(
+                    "Price", 
+                    value=6130.4, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="spx_low_price",
+                    help="Previous day's low price"
+                )
+                low_time = st.time_input(
+                    "Time", 
+                    value=time(13, 30),
+                    key="spx_low_time",
+                    help="Time when low occurred"
+                )
+            
+            # ═══════════════════════════════════════════════════════════════════════════════
+            # 📏 CONTRACT LINE CONFIGURATION - Enhanced
+            # ═══════════════════════════════════════════════════════════════════════════════
+            create_section_header("📏", "Contract Line Configuration")
+            
+            st.markdown("""
+            <div class="warning-box">
+                <h4 style="margin-top: 0;">⚠️ Two-Point Line Strategy</h4>
+                <p>Define two key price points to establish your trend line. The system will calculate 
+                the optimal slope and project values across all time intervals for precise market timing.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            contract_col1, contract_col2 = st.columns(2)
+            
+            with contract_col1:
+                st.markdown("#### 🎯 **Low-1 Point**")
+                low1_time = st.time_input(
+                    "Time", 
+                    value=time(2, 0), 
+                    step=300,
+                    key="contract_low1_time",
+                    help="First reference point time"
+                )
+                low1_price = st.number_input(
+                    "Price", 
+                    value=10.0, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="contract_low1_price",
+                    help="First reference point price"
+                )
+            
+            with contract_col2:
+                st.markdown("#### 🎯 **Low-2 Point**")
+                low2_time = st.time_input(
+                    "Time", 
+                    value=time(3, 30), 
+                    step=300,
+                    key="contract_low2_time",
+                    help="Second reference point time"
+                )
+                low2_price = st.number_input(
+                    "Price", 
+                    value=12.0, 
+                    min_value=0.0, 
+                    step=0.1,
+                    key="contract_low2_price",
+                    help="Second reference point price"
+                )
