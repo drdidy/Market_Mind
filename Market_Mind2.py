@@ -1950,7 +1950,7 @@ else:
 # ═══════════════════════════════════════════════════════════════════════════════
             # 📏 CONTRACT LINE GENERATION & ANALYSIS
             # ═══════════════════════════════════════════════════════════════════════════════
-            create_section_header("📏", "Contract Line Analysis")
+        create_section_header("📏", "Contract Line Analysis")
             
             # Calculate contract line parameters
             anchor_datetime = datetime.combine(forecast_date, low1_time)
