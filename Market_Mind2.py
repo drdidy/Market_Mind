@@ -1024,18 +1024,35 @@ current_time = get_current_time_in_timezone(user_tz)
 current_time_str = format_time_with_timezone(current_time, user_tz)
 
 st.sidebar.markdown(f"""
-<div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid var(--shadow-dark); margin-bottom: 1.5rem;">
+<div style="
+    text-align: center; 
+    padding: 1rem 0; 
+    border-bottom: 1px solid var(--shadow-dark); 
+    margin-bottom: 1.5rem;
+    background: var(--bg-color);
+">
     <h2 style="margin: 0; color: var(--text-primary);">⚙️ Strategy Controls</h2>
     <p style="margin: 0.5rem 0 0 0; color: var(--text-muted); font-size: 0.9rem;">v{VERSION}</p>
-    <div style="margin-top: 1rem; padding: 0.5rem; background: var(--bg-color); border-radius: 8px; box-shadow: var(--neu-concave);">
-        <div style="font-size: 0.85rem; color: var(--text-muted);">Current Time:</div>
+    <div style="
+        margin-top: 1rem; 
+        padding: 1rem; 
+        background: var(--bg-color); 
+        border-radius: var(--border-radius); 
+        box-shadow: var(--neu-concave);
+    ">
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Current Time:</div>
         <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">{current_time_str}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Timezone selection
+# Add spacing before timezone section
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
+# Timezone selection with better spacing
 st.sidebar.markdown("### 🌍 Timezone Settings")
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
 selected_timezone_display = st.sidebar.selectbox(
     "Select Your Timezone",
     options=list(TIMEZONE_OPTIONS.keys()),
@@ -1049,15 +1066,24 @@ if new_timezone != st.session_state.get('user_timezone'):
     st.session_state.user_timezone = new_timezone
     st.rerun()
 
-# Theme selection
+# Add spacing before theme section
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
+# Theme selection with better spacing
 st.session_state.theme = st.sidebar.selectbox(
     "🎨 Theme", 
     ["Dark", "Light"], 
-    index=0 if st.session_state.theme == "Dark" else 1
+    index=0 if st.session_state.theme == "Dark" else 1,
+    help="Choose your preferred theme"
 )
+
+# Add spacing before forecast section
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 # Forecast date selection
 st.sidebar.markdown("### 📅 Forecast Settings")
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
 forecast_date = st.sidebar.date_input(
     "Target Date", 
     value=date.today() + timedelta(days=1),
@@ -1068,11 +1094,24 @@ weekday = forecast_date.weekday()
 day_labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 current_day = day_labels[weekday]
 
-st.sidebar.info(f"📊 **{current_day}** Trading Session")
+# Create custom styled info box with proper spacing
+st.sidebar.markdown(f"""
+<div style="
+    background: var(--bg-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin: 1rem 0;
+    box-shadow: var(--neu-concave);
+    text-align: center;
+">
+    <div style="color: var(--text-primary); font-weight: 600;">📊 {current_day} Trading Session</div>
+</div>
+""", unsafe_allow_html=True)
 
 # Advanced slope controls
 with st.sidebar.expander("📈 Slope Adjustments", expanded=True):
     st.markdown("*Fine-tune your prediction slopes*")
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # Group slopes logically
     st.markdown("**📊 SPX Slopes**")
@@ -1087,6 +1126,7 @@ with st.sidebar.expander("📈 Slope Adjustments", expanded=True):
             key=f"slope_{key}"
         )
     
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("**🚀 Stock Slopes**")
     stock_keys = [k for k in st.session_state.slopes.keys() if k not in ["SPX_HIGH", "SPX_CLOSE", "SPX_LOW"]]
     for key in stock_keys:
@@ -1103,6 +1143,7 @@ with st.sidebar.expander("📈 Slope Adjustments", expanded=True):
 # Preset management
 with st.sidebar.expander("💾 Preset Manager"):
     st.markdown("*Save and load your favorite configurations*")
+    st.markdown("<br>", unsafe_allow_html=True)
     
     preset_name = st.text_input(
         "Preset Name", 
@@ -1133,6 +1174,9 @@ with st.sidebar.expander("💾 Preset Manager"):
 
 # Share configuration
 with st.sidebar.expander("🔗 Share Config"):
+    st.markdown("*Share your current slope configuration*")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     share_url = f"?s={base64.b64encode(json.dumps(st.session_state.slopes).encode()).decode()}"
     st.text_area(
         "Share URL Suffix",
@@ -1143,7 +1187,6 @@ with st.sidebar.expander("🔗 Share Config"):
     
     if st.button("📋 Copy to Clipboard", use_container_width=True):
         st.success("✅ URL suffix ready to copy!")
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🎨 MAIN HEADER
 # ═══════════════════════════════════════════════════════════════════════════════
