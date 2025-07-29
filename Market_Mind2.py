@@ -163,3 +163,39 @@ TIME_RULES = {
         "📊 **Daily anchor + intraday setup** = strongest edge"
     ]
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⚙️ SESSION STATE INITIALIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if "theme" not in st.session_state:
+    st.session_state.update(
+        theme="Dark",
+        slopes=deepcopy(BASE_SLOPES),
+        presets={},
+        contract_anchor=None,
+        contract_slope=None,
+        contract_price=None,
+        forecasts_generated=False,
+        selected_playbook=None
+    )
+
+# Load slopes from URL parameters if available
+if st.query_params.get("s"):
+    try:
+        st.session_state.slopes.update(
+            json.loads(base64.b64decode(st.query_params["s"][0]).decode())
+        )
+    except Exception:
+        pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎨 PAGE CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+st.set_page_config(
+    page_title=PAGE_TITLE,
+    page_icon=PAGE_ICON,
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
