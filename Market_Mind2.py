@@ -442,8 +442,40 @@ html, body {
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔧 HELPER FUNCTIONS
+# 🔧 HELPER FUNCTIONS (With Timezone Support)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def get_user_timezone():
+    """Get user's selected timezone from session state"""
+    if 'user_timezone' not in st.session_state:
+        st.session_state.user_timezone = DEFAULT_TIMEZONE
+    return st.session_state.user_timezone
+
+def get_current_time_in_timezone(timezone_str):
+    """Get current time in specified timezone"""
+    try:
+        tz = pytz.timezone(timezone_str)
+        utc_now = datetime.now(pytz.UTC)
+        local_time = utc_now.astimezone(tz)
+        return local_time
+    except:
+        # Fallback to system time if timezone fails
+        return datetime.now()
+
+def format_time_with_timezone(dt, timezone_str):
+    """Format datetime with timezone info"""
+    try:
+        tz = pytz.timezone(timezone_str)
+        if dt.tzinfo is None:
+            dt = tz.localize(dt)
+        else:
+            dt = dt.astimezone(tz)
+        
+        # Get timezone abbreviation
+        tz_abbrev = dt.strftime('%Z')
+        return f"{dt.strftime('%Y-%m-%d %H:%M:%S')} {tz_abbrev}"
+    except:
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
 
 def create_metric_card(card_type, icon, title, value):
     """Create a beautiful metric card with enhanced styling"""
