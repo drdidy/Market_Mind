@@ -1944,7 +1944,7 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Fibonacci input section
+         # Fibonacci input section
         fib_col1, fib_col2, fib_col3 = st.columns(3)
         
         with fib_col1:
@@ -1954,7 +1954,7 @@ else:
                 value=0.0,
                 min_value=0.0,
                 step=0.01,
-                key="fib_bounce_low",
+                key="contract_fib_bounce_low",  # ← Changed key to avoid conflict
                 help="Lowest price of the contract bounce"
             )
         
@@ -1965,18 +1965,18 @@ else:
                 value=0.0,
                 min_value=0.0,
                 step=0.01,
-                key="fib_bounce_high",
+                key="contract_fib_bounce_high",  # ← Changed key to avoid conflict
                 help="Highest price of the contract bounce"
             )
         
         with fib_col3:
             st.markdown("#### ⏰ **Next Hour Candle**")
             st.markdown("""
-            <div style="background: rgba(245, 158, 11, 0.1); border-radius: 12px; padding: 1rem; margin-top: 1.8rem; border: 1px solid rgba(245, 158, 11, 0.2);">
+            <div style="background: rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 1rem; margin-top: 1.8rem;">
                 <div style="text-align: center;">
                     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚠️</div>
-                    <div style="font-size: 1rem; font-weight: 600;">Watch Next Hour</div>
-                    <div style="font-size: 0.85rem; opacity: 0.8;">0.786 entry typically occurs</div>
+                    <div style="font-size: 0.9rem; font-weight: 600;">Watch Next Hour</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">0.786 entry typically occurs</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
