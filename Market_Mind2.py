@@ -885,15 +885,39 @@ def display_selected_playbook():
         display_stock_playbook(st.session_state.selected_playbook)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ⚙️ ENHANCED SIDEBAR
+# ⚙️ ENHANCED SIDEBAR (With Timezone Support)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# Get current time in user's timezone
+user_tz = get_user_timezone()
+current_time = get_current_time_in_timezone(user_tz)
+current_time_str = format_time_with_timezone(current_time, user_tz)
 
 st.sidebar.markdown(f"""
 <div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.5rem;">
     <h2 style="margin: 0; color: #667eea;">⚙️ Strategy Controls</h2>
     <p style="margin: 0.5rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">v{VERSION}</p>
+    <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+        <div style="font-size: 0.85rem; opacity: 0.8;">Current Time:</div>
+        <div style="font-size: 0.9rem; font-weight: 600;">{current_time_str}</div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
+
+# Timezone selection
+st.sidebar.markdown("### 🌍 Timezone Settings")
+selected_timezone_display = st.sidebar.selectbox(
+    "Select Your Timezone",
+    options=list(TIMEZONE_OPTIONS.keys()),
+    index=list(TIMEZONE_OPTIONS.values()).index(user_tz) if user_tz in TIMEZONE_OPTIONS.values() else 0,
+    help="Choose your local timezone for accurate time display"
+)
+
+# Update session state when timezone changes
+new_timezone = TIMEZONE_OPTIONS[selected_timezone_display]
+if new_timezone != st.session_state.get('user_timezone'):
+    st.session_state.user_timezone = new_timezone
+    st.rerun()
 
 # Theme selection
 st.session_state.theme = st.sidebar.selectbox(
@@ -1000,8 +1024,8 @@ st.markdown(f"""
     <div class="subtitle">Advanced Market Forecasting • {current_day} Session</div>
 </div>
 """, unsafe_allow_html=True)
-
-# ═══════════════════════════════════════════════════════════════════════════════
+#
+ ═══════════════════════════════════════════════════════════════════════════════
 # 🚀 MAIN NAVIGATION & TAB STRUCTURE
 # ═══════════════════════════════════════════════════════════════════════════════
 
