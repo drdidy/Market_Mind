@@ -1870,83 +1870,92 @@ else:
     with main_tabs[3]:
         create_playbook_navigation()
                 
-# ── PERFORMANCE ANALYSIS ──────────────────────────────────────────────
-            create_section_header("🎯", "Exit Strategy Performance Analysis")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔧 EXACT SPACING FIX - Count These Spaces Carefully
+# ═══════════════════════════════════════════════════════════════════════════════
 
-            # Calculate average profits across all anchors
-            all_entries = []
-            all_fan_profits = []
+# This should be at the SAME indentation level as your dataframe lines
+# Look for this pattern in your code:
+#     st.dataframe(low_forecast, use_container_width=True, hide_index=True)
+# The performance analysis should be at the SAME level as st.dataframe
 
-            for forecast in [high_forecast, close_forecast, low_forecast]:
-                all_entries.extend(forecast['Entry'].tolist())
-                all_fan_profits.extend(forecast['Fan Profit'].tolist())
+        # ── PERFORMANCE ANALYSIS ──────────────────────────────────────────────
+        create_section_header("🎯", "Exit Strategy Performance Analysis")
 
-            avg_entry = sum(all_entries) / len(all_entries)
-            avg_fan_profit = sum(all_fan_profits) / len(all_fan_profits)
-            total_sessions = len(SPX_SLOTS)
+        # Calculate average profits across all anchors
+        all_entries = []
+        all_fan_profits = []
 
-            col1, col2, col3, col4 = st.columns(4)
+        for forecast in [high_forecast, close_forecast, low_forecast]:
+            all_entries.extend(forecast['Entry'].tolist())
+            all_fan_profits.extend(forecast['Fan Profit'].tolist())
 
-            with col1:
-                st.markdown("""
-                <div style="background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #22c55e;">+9</div>
-                    <div style="font-size: 0.9rem;">First Exit Points</div>
-                    <div style="font-size: 0.8rem; opacity: 0.7;">High Probability</div>
-                </div>
-                """, unsafe_allow_html=True)
+        avg_entry = sum(all_entries) / len(all_entries)
+        avg_fan_profit = sum(all_fan_profits) / len(all_fan_profits)
+        total_sessions = len(SPX_SLOTS)
 
-            with col2:
-                st.markdown(f"""
-                <div style="background: rgba(59, 130, 246, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #3b82f6;">{avg_fan_profit:.1f}</div>
-                    <div style="font-size: 0.9rem;">Avg Fan Profit</div>
-                    <div style="font-size: 0.8rem; opacity: 0.7;">Remaining 50%</div>
-                </div>
-                """, unsafe_allow_html=True)
+        col1, col2, col3, col4 = st.columns(4)
 
-            with col3:
-                st.markdown(f"""
-                <div style="background: rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #f59e0b;">{total_sessions}</div>
-                    <div style="font-size: 0.9rem;">Time Slots</div>
-                    <div style="font-size: 0.8rem; opacity: 0.7;">Trading Windows</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col4:
-                blended_profit = (9 + avg_fan_profit) / 2
-                st.markdown(f"""
-                <div style="background: rgba(139, 92, 246, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #8b5cf6;">{blended_profit:.1f}</div>
-                    <div style="font-size: 0.9rem;">Blended Avg</div>
-                    <div style="font-size: 0.8rem; opacity: 0.7;">Per Trade</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Trading rules reminder
+        with col1:
             st.markdown("""
-            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 1.5rem; margin-top: 1rem;">
-                <h4 style="margin-top: 0;">⚠️ Two-Stage Exit Rules</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div>
-                        <strong>🎯 First Exit (50% position):</strong><br>
-                        • Target: +9 points<br>
-                        • Timing: Exit immediately when hit<br>
-                        • Logic: Secure reliable profit
-                    </div>
-                    <div>
-                        <strong>📊 Fan Exit (50% position):</strong><br>
-                        • Target: Fan model projection<br>
-                        • Timing: Based on time and price action<br>
-                        • Logic: Capture extended move
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(245, 158, 11, 0.2);">
-                    <strong>🛑 Risk Management:</strong> Never hold past 3:45 PM • Trail stop after first exit • Full exit if breaks below entry anchor
-                </div>
+            <div style="background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #22c55e;">+9</div>
+                <div style="font-size: 0.9rem;">First Exit Points</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">High Probability</div>
             </div>
             """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div style="background: rgba(59, 130, 246, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #3b82f6;">{avg_fan_profit:.1f}</div>
+                <div style="font-size: 0.9rem;">Avg Fan Profit</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">Remaining 50%</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div style="background: rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #f59e0b;">{total_sessions}</div>
+                <div style="font-size: 0.9rem;">Time Slots</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">Trading Windows</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col4:
+            blended_profit = (9 + avg_fan_profit) / 2
+            st.markdown(f"""
+            <div style="background: rgba(139, 92, 246, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #8b5cf6;">{blended_profit:.1f}</div>
+                <div style="font-size: 0.9rem;">Blended Avg</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">Per Trade</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Trading rules reminder
+        st.markdown("""
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 1.5rem; margin-top: 1rem;">
+            <h4 style="margin-top: 0;">⚠️ Two-Stage Exit Rules</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <strong>🎯 First Exit (50% position):</strong><br>
+                    • Target: +9 points<br>
+                    • Timing: Exit immediately when hit<br>
+                    • Logic: Secure reliable profit
+                </div>
+                <div>
+                    <strong>📊 Fan Exit (50% position):</strong><br>
+                    • Target: Fan model projection<br>
+                    • Timing: Based on time and price action<br>
+                    • Logic: Capture extended move
+                </div>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(245, 158, 11, 0.2);">
+                <strong>🛑 Risk Management:</strong> Never hold past 3:45 PM • Trail stop after first exit • Full exit if breaks below entry anchor
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 # ═══════════════════════════════════════════════════════════════════════════════
                 # 📏 CONTRACT LINE GENERATION & ANALYSIS
                 # ═══════════════════════════════════════════════════════════════════════════════
