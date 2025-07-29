@@ -837,3 +837,120 @@ def display_selected_playbook():
         display_spx_playbook()
     else:
         display_stock_playbook(st.session_state.selected_playbook)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⚙️ ENHANCED SIDEBAR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+st.sidebar.markdown(f"""
+<div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.5rem;">
+    <h2 style="margin: 0; color: #667eea;">⚙️ Strategy Controls</h2>
+    <p style="margin: 0.5rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">v{VERSION}</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Theme selection
+st.session_state.theme = st.sidebar.selectbox(
+    "🎨 Theme", 
+    ["Dark", "Light"], 
+    index=0 if st.session_state.theme == "Dark" else 1
+)
+
+# Forecast date selection
+st.sidebar.markdown("### 📅 Forecast Settings")
+forecast_date = st.sidebar.date_input(
+    "Target Date", 
+    value=date.today() + timedelta(days=1),
+    help="Select the date for your forecast analysis"
+)
+
+weekday = forecast_date.weekday()
+day_labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+current_day = day_labels[weekday]
+
+st.sidebar.info(f"📊 **{current_day}** Trading Session")
+
+# Advanced slope controls
+with st.sidebar.expander("📈 Slope Adjustments", expanded=True):
+    st.markdown("*Fine-tune your prediction slopes*")
+    
+    # Group slopes logically
+    st.markdown("**📊 SPX Slopes**")
+    for key in ["SPX_HIGH", "SPX_CLOSE", "SPX_LOW"]:
+        st.session_state.slopes[key] = st.slider(
+            key.replace("SPX_", "").title(),
+            min_value=-1.0,
+            max_value=1.0,
+            value=st.session_state.slopes[key],
+            step=0.0001,
+            format="%.4f",
+            key=f"slope_{key}"
+        )
+    
+    st.markdown("**🚀 Stock Slopes**")
+    stock_keys = [k for k in st.session_state.slopes.keys() if k not in ["SPX_HIGH", "SPX_CLOSE", "SPX_LOW"]]
+    for key in stock_keys:
+        st.session_state.slopes[key] = st.slider(
+            f"{ICONS.get(key, '📊')} {key}",
+            min_value=-1.0,
+            max_value=1.0,
+            value=st.session_state.slopes[key],
+            step=0.0001,
+            format="%.4f",
+            key=f"slope_{key}"
+        )
+
+# Preset management
+with st.sidebar.expander("💾 Preset Manager"):
+    st.markdown("*Save and load your favorite configurations*")
+    
+    preset_name = st.text_input(
+        "Preset Name", 
+        placeholder="Enter preset name...",
+        help="Give your preset a memorable name"
+    )
+    
+    col1, col2 = st.columns(2)
+    
+    if col1.button("💾 Save", use_container_width=True):
+        if preset_name.strip():
+            st.session_state.presets[preset_name.strip()] = deepcopy(st.session_state.slopes)
+            st.success(f"✅ Saved '{preset_name}'")
+        else:
+            st.error("❌ Please enter a preset name")
+    
+    if st.session_state.presets:
+        selected_preset = st.selectbox(
+            "Load Preset",
+            options=list(st.session_state.presets.keys()),
+            help="Select a preset to load"
+        )
+        
+        if col2.button("📂 Load", use_container_width=True):
+            st.session_state.slopes.update(st.session_state.presets[selected_preset])
+            st.success(f"✅ Loaded '{selected_preset}'")
+            st.rerun()
+
+# Share configuration
+with st.sidebar.expander("🔗 Share Config"):
+    share_url = f"?s={base64.b64encode(json.dumps(st.session_state.slopes).encode()).decode()}"
+    st.text_area(
+        "Share URL Suffix",
+        value=share_url,
+        height=100,
+        help="Append this to your URL to share your current slope configuration"
+    )
+    
+    if st.button("📋 Copy to Clipboard", use_container_width=True):
+        st.success("✅ URL suffix ready to copy!")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎨 MAIN HEADER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+st.markdown(f"""
+<div class="main-banner">
+    <h1>{PAGE_ICON} {PAGE_TITLE}</h1>
+    <div class="subtitle">Advanced Market Forecasting • {current_day} Session</div>
+</div>
+""", unsafe_allow_html=True)
