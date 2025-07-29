@@ -1299,8 +1299,7 @@ else:
                 key="spx_low_time",
                 help="Time when low occurred"
             )
-        
-        # ── MARKET ANALYSIS GENERATION ──────────────────────────────────────────
+            # ── MARKET ANALYSIS GENERATION ──────────────────────────────────────────
         create_section_header("📊", "Market Direction Analysis")
         
         analysis_button_col = st.columns([1, 2, 1])[1]
@@ -1311,7 +1310,8 @@ else:
                 type="primary",
                 help="Generate SPX market direction analysis with two-stage exits"
             )
-            if generate_analysis:
+        
+        if generate_analysis:
             st.session_state.forecasts_generated = True
             
             # ── ANCHOR METRICS CARDS ──────────────────────────────────────────────
