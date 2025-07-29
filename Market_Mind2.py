@@ -1865,12 +1865,6 @@ else:
         stock_tickers = list(ICONS.keys())[1:]
         for i, ticker in enumerate(stock_tickers):
             create_enhanced_stock_tab(i, ticker)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 🔧 WHAT CHANGED:
-# ═══════════════════════════════════════════════════════════════════════════════
-# Fixed: with forecast_tabs[tab_index]: → with stock_tabs[tab_index]:
-# This ensures the function uses the correct tab variable that's defined in scope
     
   # ═══════════════════════════════════════════════════════════════════════════════
     # 📚 STRATEGY PLAYBOOKS TAB - Trading Rules & Guides
@@ -1885,7 +1879,7 @@ else:
         
         def create_enhanced_stock_tab(tab_index, ticker):
             """Create enhanced stock tab with playbook integration and best trading days"""
-            with forecast_tabs[tab_index]:
+            with stock_tabs[tab_index]:
                 create_section_header(ICONS[ticker], f"{ticker} Analysis Center")
                 
                 # Enhanced best trading days display
