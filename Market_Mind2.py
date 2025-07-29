@@ -1621,6 +1621,11 @@ else:
                 """, unsafe_allow_html=True)
     
     # ═══════════════════════════════════════════════════════════════════════════════
+# 🔧 FIXED STOCK TABS SECTION - Replace in Part 7b
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎯 Find the Stock Analysis Tab section in Part 7b and replace with this fixed version
+
+    # ═══════════════════════════════════════════════════════════════════════════════
     # 📊 STOCK ANALYSIS TAB - Individual Stock Forecasts
     # ═══════════════════════════════════════════════════════════════════════════════
     
@@ -1634,7 +1639,7 @@ else:
         # Enhanced Stock Tabs with playbook integration
         def create_enhanced_stock_tab(tab_index, ticker):
             """Create stock tab with playbook integration"""
-            with stock_tabs[tab_index]:
+            with stock_tabs[tab_index]:  # ← Fixed: was forecast_tabs, now stock_tabs
                 create_section_header(ICONS[ticker], f"{ticker} Analysis Center")
                 
                 # Show best trading days for this stock with enhanced visibility
@@ -1861,6 +1866,12 @@ else:
         stock_tickers = list(ICONS.keys())[1:]
         for i, ticker in enumerate(stock_tickers):
             create_enhanced_stock_tab(i, ticker)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔧 WHAT CHANGED:
+# ═══════════════════════════════════════════════════════════════════════════════
+# Fixed: with forecast_tabs[tab_index]: → with stock_tabs[tab_index]:
+# This ensures the function uses the correct tab variable that's defined in scope
     
   # ═══════════════════════════════════════════════════════════════════════════════
     # 📚 STRATEGY PLAYBOOKS TAB - Trading Rules & Guides
