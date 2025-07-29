@@ -140,3 +140,290 @@ TIME_RULES = {
     ]
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⚙️ SESSION STATE INITIALIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if "theme" not in st.session_state:
+    st.session_state.update(
+        theme="Dark",
+        slopes=deepcopy(BASE_SLOPES),
+        presets={},
+        contract_anchor=None,
+        contract_slope=None,
+        contract_price=None,
+        forecasts_generated=False,
+        selected_playbook=None
+    )
+
+# Load slopes from URL parameters if available
+if st.query_params.get("s"):
+    try:
+        st.session_state.slopes.update(
+            json.loads(base64.b64decode(st.query_params["s"][0]).decode())
+        )
+    except Exception:
+        pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎨 PAGE CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+st.set_page_config(
+    page_title=PAGE_TITLE,
+    page_icon=PAGE_ICON,
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎨 ENHANCED CSS STYLING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+st.markdown("""
+<style>
+/* Import modern font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Root variables for theming */
+:root {
+    --border-radius: 16px;
+    --shadow-light: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.12);
+    --shadow-heavy: 0 16px 48px rgba(0, 0, 0, 0.16);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* Global styles */
+html, body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+/* Dark theme */
+.stApp {
+    background: linear-gradient(135deg, #0c1426 0%, #1a1f36 50%, #0f1419 100%);
+    color: #e2e8f0;
+}
+
+/* Hide Streamlit branding */
+#MainMenu, footer, .stDeployButton { display: none !important; }
+
+/* Enhanced banner */
+.main-banner {
+    background: var(--gradient-primary);
+    text-align: center;
+    color: white;
+    border-radius: var(--border-radius);
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-heavy);
+    position: relative;
+    overflow: hidden;
+}
+
+.main-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    z-index: 1;
+}
+
+.main-banner h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.main-banner .subtitle {
+    font-size: 1.1rem;
+    font-weight: 400;
+    opacity: 0.9;
+    position: relative;
+    z-index: 2;
+    margin-top: 0.5rem;
+}
+
+/* Enhanced cards container */
+.cards-container {
+    display: flex;
+    gap: 1.5rem;
+    margin: 2rem 0;
+    overflow-x: auto;
+    padding: 0.5rem 0;
+}
+
+.metric-card {
+    flex: 1;
+    min-width: 280px;
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-medium);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 1;
+}
+
+.metric-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: var(--shadow-heavy);
+}
+
+.metric-card.high {
+    background: rgba(34, 197, 94, 0.1);
+}
+.metric-card.high::before {
+    background: var(--gradient-success);
+}
+
+.metric-card.close {
+    background: rgba(59, 130, 246, 0.1);
+}
+.metric-card.close::before {
+    background: var(--gradient-info);
+}
+
+.metric-card.low {
+    background: rgba(239, 68, 68, 0.1);
+}
+.metric-card.low::before {
+    background: var(--gradient-warning);
+}
+
+.card-content {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.card-icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.card-icon.high { background: var(--gradient-success); }
+.card-icon.close { background: var(--gradient-info); }
+.card-icon.low { background: var(--gradient-warning); }
+
+.card-text {
+    flex: 1;
+}
+
+.card-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.card-value {
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+/* Section headers */
+.section-header {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--border-radius);
+    padding: 1.5rem 2rem;
+    margin: 2rem 0 1rem 0;
+    border-left: 4px solid var(--gradient-primary);
+    backdrop-filter: blur(10px);
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Enhanced tables */
+.dataframe {
+    border-radius: var(--border-radius) !important;
+    overflow: hidden;
+    box-shadow: var(--shadow-medium);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dataframe table {
+    font-family: 'Inter', sans-serif !important;
+}
+
+.dataframe th {
+    background: rgba(255, 255, 255, 0.1) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+}
+
+/* Info boxes */
+.info-box {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin: 1rem 0;
+    backdrop-filter: blur(10px);
+}
+
+.success-box {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.warning-box {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main-banner h1 { font-size: 2rem; }
+    .main-banner { padding: 1.5rem 1rem; }
+    .cards-container { flex-direction: column; }
+    .metric-card { min-width: auto; padding: 1.5rem; }
+    .card-icon { width: 3rem; height: 3rem; font-size: 1.5rem; }
+    .card-value { font-size: 1.8rem; }
+}
+</style>
+""", unsafe_allow_html=True)
+
