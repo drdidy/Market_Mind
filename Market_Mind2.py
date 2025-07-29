@@ -535,15 +535,15 @@ def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_sp
         if two_stage_exits:
             # SPX Two-Stage Exit System with 9 point target
             entry_price = round(price + slope * blocks, 2)
-            first_exit = round(entry_price + 9, 2)  # 8.5 point target
+            first_exit = round(entry_price + 9, 2)  # 9 point target
             fan_exit = round(price - slope * blocks, 2)  # Fan model exit
             
             rows.append({
                 "Time": slot,
                 "Entry": entry_price,
-                "Exit 1 (+9)": first_exit,
+                "Exit 1 (+ 9)": first_exit,
                 "Fan Exit": fan_exit,
-                "Profit 1": "+9",
+                "Profit 1": "+ 9",
                 "Fan Profit": round(abs(entry_price - fan_exit), 1)
             })
             
@@ -1262,7 +1262,7 @@ else:
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div>
                             <strong>🎯 Exit 1 (50% position):</strong><br>
-                            • Target: +8.5 points<br>
+                            • Target: +9 points<br>
                             • Logic: Secure reliable profit<br>
                             • Timing: Exit immediately when hit
                         </div>
@@ -1334,7 +1334,7 @@ else:
                 avg_entry = sum(all_entries) / len(all_entries)
                 avg_fan_profit = sum(all_fan_profits) / len(all_fan_profits)
                 total_sessions = len(SPX_SLOTS)
-                blended_profit = (8.5 + avg_fan_profit) / 2
+                blended_profit = (9 + avg_fan_profit) / 2
                 
                 # Performance metrics cards
                 col1, col2, col3, col4 = st.columns(4)
@@ -1382,7 +1382,7 @@ else:
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
                         <div>
                             <strong>🎯 First Exit (50% position):</strong><br>
-                            • Target: +8.5 points<br>
+                            • Target: +9 points<br>
                             • Timing: Exit immediately when hit<br>
                             • Logic: Secure reliable profit<br>
                             • Success Rate: ~95%+
