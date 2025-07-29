@@ -1953,23 +1953,23 @@ else:
         create_section_header("📏", "Contract Line Analysis")
             
             # Calculate contract line parameters
-            anchor_datetime = datetime.combine(forecast_date, low1_time)
-            time_diff_blocks = calculate_spx_blocks(
-                anchor_datetime, 
-                datetime.combine(forecast_date, low2_time)
+        anchor_datetime = datetime.combine(forecast_date, low1_time)
+        time_diff_blocks = calculate_spx_blocks(
+        anchor_datetime, 
+        datetime.combine(forecast_date, low2_time)
             )
             
-            # Prevent division by zero
-            if time_diff_blocks == 0:
-                contract_slope = 0
-                st.warning("⚠️ Low-1 and Low-2 times are too close. Adjust the time difference.")
-            else:
-                contract_slope = (low2_price - low1_price) / time_diff_blocks
+        # Prevent division by zero
+        if time_diff_blocks == 0:
+            contract_slope = 0
+            st.warning("⚠️ Low-1 and Low-2 times are too close. Adjust the time difference.")
+        else:
+            contract_slope = (low2_price - low1_price) / time_diff_blocks
             
-            # Store contract parameters in session state
-            st.session_state.contract_anchor = anchor_datetime
-            st.session_state.contract_slope = contract_slope
-            st.session_state.contract_price = low1_price
+        # Store contract parameters in session state
+        st.session_state.contract_anchor = anchor_datetime
+        st.session_state.contract_slope = contract_slope
+        st.session_state.contract_price = low1_price
             
             # Enhanced contract line metrics display
             st.markdown(f"""
