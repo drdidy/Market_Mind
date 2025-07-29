@@ -412,7 +412,7 @@ html, body {
     box-shadow: var(--neu-concave);
 }
 
-/* Neumorphic buttons */
+/* Enhanced neumorphic buttons with better sizing */
 .stButton > button {
     background: var(--bg-color) !important;
     color: var(--text-primary) !important;
@@ -421,7 +421,12 @@ html, body {
     box-shadow: var(--neu-convex) !important;
     transition: var(--transition) !important;
     font-weight: 600 !important;
-    padding: 0.75rem 1.5rem !important;
+    padding: 1rem 2rem !important;
+    min-height: 3rem !important;
+    width: 100% !important;
+    font-size: 0.95rem !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
 }
 
 .stButton > button:hover {
@@ -434,7 +439,7 @@ html, body {
     transform: translateY(1px) !important;
 }
 
-/* Neumorphic input fields */
+/* Enhanced neumorphic input fields with better sizing */
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input,
 .stSelectbox > div > div > div,
@@ -444,7 +449,20 @@ html, body {
     border: none !important;
     border-radius: var(--border-radius) !important;
     box-shadow: var(--neu-concave) !important;
-    padding: 0.75rem !important;
+    padding: 1rem !important;
+    min-height: 3rem !important;
+    font-size: 0.95rem !important;
+}
+
+/* Enhanced selectbox with proper sizing */
+.stSelectbox > div > div {
+    min-height: 3rem !important;
+}
+
+.stSelectbox > div > div > div {
+    min-height: 3rem !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
 }
 
 /* Neumorphic sliders */
@@ -454,82 +472,46 @@ html, body {
     border-radius: var(--border-radius) !important;
 }
 
-/* SIDEBAR FIXES FOR TEXT CUTOFF */
+/* Enhanced neumorphic sidebar with better sizing */
 .css-1d391kg {
     background: var(--bg-color) !important;
     border-right: none !important;
     box-shadow: var(--neu-flat) !important;
-    min-width: 320px !important;
-    width: 320px !important;
+    padding: 1rem !important;
 }
 
-/* Sidebar text visibility */
-.css-1d391kg .stSelectbox label,
-.css-1d391kg .stTextInput label,
-.css-1d391kg .stDateInput label,
-.css-1d391kg .stSlider label,
-.css-1d391kg .stTextArea label {
+/* Sidebar text and labels */
+.css-1d391kg .stMarkdown {
+    color: var(--text-primary) !important;
+}
+
+.css-1d391kg label {
     color: var(--text-primary) !important;
     font-weight: 600 !important;
-    font-size: 0.9rem !important;
+    font-size: 0.95rem !important;
+    margin-bottom: 0.5rem !important;
 }
 
-/* Sidebar selectbox width fixes */
-.css-1d391kg .stSelectbox > div {
-    width: 100% !important;
-}
-
+/* Sidebar selectbox improvements */
 .css-1d391kg .stSelectbox > div > div {
-    width: 100% !important;
-    min-width: 280px !important;
+    min-height: 3.5rem !important;
 }
 
 .css-1d391kg .stSelectbox > div > div > div {
+    padding: 1rem !important;
+    font-size: 0.95rem !important;
+    min-height: 3.5rem !important;
     background: var(--bg-color) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--shadow-dark) !important;
-    border-radius: var(--border-radius) !important;
     box-shadow: var(--neu-concave) !important;
-    width: 100% !important;
-    min-width: 280px !important;
-    padding: 0.75rem !important;
-    white-space: nowrap !important;
-    overflow: visible !important;
-}
-
-/* Sidebar input field width fixes */
-.css-1d391kg .stTextInput > div,
-.css-1d391kg .stDateInput > div,
-.css-1d391kg .stTextArea > div {
-    width: 100% !important;
-    min-width: 280px !important;
-}
-
-.css-1d391kg .stTextInput > div > div,
-.css-1d391kg .stDateInput > div > div,
-.css-1d391kg .stTextArea > div > div {
-    width: 100% !important;
-}
-
-.css-1d391kg input {
-    background: var(--bg-color) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--shadow-dark) !important;
     border-radius: var(--border-radius) !important;
-    box-shadow: var(--neu-concave) !important;
-    width: 100% !important;
-    padding: 0.75rem !important;
+    border: none !important;
 }
 
-/* Sidebar markdown text */
-.css-1d391kg .stMarkdown p,
-.css-1d391kg .stMarkdown h1,
-.css-1d391kg .stMarkdown h2,
-.css-1d391kg .stMarkdown h3,
-.css-1d391kg .stMarkdown h4,
-.css-1d391kg .stMarkdown h5,
-.css-1d391kg .stMarkdown h6 {
-    color: var(--text-primary) !important;
+/* Sidebar buttons improvements */
+.css-1d391kg .stButton > button {
+    min-height: 3.5rem !important;
+    padding: 1rem 1.5rem !important;
+    font-size: 0.9rem !important;
 }
 
 /* Neumorphic tabs */
@@ -546,6 +528,8 @@ html, body {
     border-radius: calc(var(--border-radius) - 5px) !important;
     border: none !important;
     transition: var(--transition) !important;
+    padding: 1rem 1.5rem !important;
+    min-height: 3rem !important;
 }
 
 .stTabs [aria-selected="true"] {
@@ -568,6 +552,22 @@ html, body {
     color: var(--text-primary) !important;
     border: none !important;
     border-radius: var(--border-radius) !important;
+    padding: 1rem 1.5rem !important;
+    min-height: 3rem !important;
+}
+
+/* Text input improvements */
+.stTextInput > div > div > input {
+    min-height: 3rem !important;
+}
+
+.stTextArea > div > div > textarea {
+    background: var(--bg-color) !important;
+    color: var(--text-primary) !important;
+    border: none !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--neu-concave) !important;
+    padding: 1rem !important;
 }
 
 /* Responsive design */
@@ -578,7 +578,6 @@ html, body {
     .metric-card { min-width: auto; padding: 1.5rem; }
     .card-icon { width: 3rem; height: 3rem; font-size: 1.5rem; }
     .card-value { font-size: 1.8rem; }
-    .css-1d391kg { min-width: 280px !important; width: 280px !important; }
 }
 
 /* Custom scrollbar for neumorphic feel */
@@ -604,6 +603,7 @@ html, body {
 }
 </style>
 """, unsafe_allow_html=True)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🔧 HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
