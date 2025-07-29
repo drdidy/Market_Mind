@@ -1948,66 +1948,66 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-    # ═══════════════════════════════════════════════════════════════════════════════
-    # 📏 CONTRACT LINE GENERATION & ANALYSIS
-    # ═══════════════════════════════════════════════════════════════════════════════
-            create_section_header("📏", "Contract Line Analysis")
-            
-            # Calculate contract line parameters
-            anchor_datetime = datetime.combine(forecast_date, low1_time)
-            time_diff_blocks = calculate_spx_blocks(
-                anchor_datetime, 
-                datetime.combine(forecast_date, low2_time)
-            )
-            
-            # Prevent division by zero
-            if time_diff_blocks == 0:
-                contract_slope = 0
-                st.warning("⚠️ Low-1 and Low-2 times are too close. Adjust the time difference.")
-            else:
-                contract_slope = (low2_price - low1_price) / time_diff_blocks
-            
-            # Store contract parameters in session state
-            st.session_state.contract_anchor = anchor_datetime
-            st.session_state.contract_slope = contract_slope
-            st.session_state.contract_price = low1_price
-            
-            # Enhanced contract line metrics display
-            st.markdown(f"""
-            <div class="success-box">
-                <h4 style="margin-top: 0;">📊 Contract Line Metrics</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                    <div>
-                        <strong>📍 Anchor Point:</strong><br>
-                        {low1_time.strftime('%H:%M')} @ ${low1_price:.2f}
-                    </div>
-                    <div>
-                        <strong>📈 Slope Rate:</strong><br>
-                        {contract_slope:.4f} per block
-                    </div>
-                    <div>
-                        <strong>📏 Time Span:</strong><br>
-                        {time_diff_blocks} blocks
-                    </div>
-                    <div>
-                        <strong>💰 Price Delta:</strong><br>
-                        ${abs(low2_price - low1_price):.2f}
-                    </div>
+        # ═══════════════════════════════════════════════════════════════════════════════
+# 📏 CONTRACT LINE GENERATION & ANALYSIS  
+# ═══════════════════════════════════════════════════════════════════════════════
+        create_section_header("📏", "Contract Line Analysis")
+        
+        # Calculate contract line parameters
+        anchor_datetime = datetime.combine(forecast_date, low1_time)
+        time_diff_blocks = calculate_spx_blocks(
+            anchor_datetime, 
+            datetime.combine(forecast_date, low2_time)
+        )
+        
+        # Prevent division by zero
+        if time_diff_blocks == 0:
+            contract_slope = 0
+            st.warning("⚠️ Low-1 and Low-2 times are too close. Adjust the time difference.")
+        else:
+            contract_slope = (low2_price - low1_price) / time_diff_blocks
+        
+        # Store contract parameters in session state
+        st.session_state.contract_anchor = anchor_datetime
+        st.session_state.contract_slope = contract_slope
+        st.session_state.contract_price = low1_price
+        
+        # Enhanced contract line metrics display
+        st.markdown(f"""
+        <div class="success-box">
+            <h4 style="margin-top: 0;">📊 Contract Line Metrics</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                <div>
+                    <strong>📍 Anchor Point:</strong><br>
+                    {low1_time.strftime('%H:%M')} @ ${low1_price:.2f}
+                </div>
+                <div>
+                    <strong>📈 Slope Rate:</strong><br>
+                    {contract_slope:.4f} per block
+                </div>
+                <div>
+                    <strong>📏 Time Span:</strong><br>
+                    {time_diff_blocks} blocks
+                </div>
+                <div>
+                    <strong>💰 Price Delta:</strong><br>
+                    ${abs(low2_price - low1_price):.2f}
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-            
-            # Generate contract line forecast table
-            contract_forecast = create_forecast_table(
-                low1_price, 
-                contract_slope, 
-                anchor_datetime, 
-                forecast_date, 
-                GENERAL_SLOTS, 
-                is_spx=True, 
-                fan_mode=False
-            )
-            st.dataframe(contract_forecast, use_container_width=True, hide_index=True)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Generate contract line forecast table
+        contract_forecast = create_forecast_table(
+            low1_price, 
+            contract_slope, 
+            anchor_datetime, 
+            forecast_date, 
+            GENERAL_SLOTS, 
+            is_spx=True, 
+            fan_mode=False
+        )
+        st.dataframe(contract_forecast, use_container_width=True, hide_index=True)
             # ═══════════════════════════════════════════════════════════════════════════════
             # 📈 FIBONACCI BOUNCE ANALYZER - Advanced Algorithmic Entry Detection
             # ═══════════════════════════════════════════════════════════════════════════════
