@@ -427,3 +427,131 @@ html, body {
 </style>
 """, unsafe_allow_html=True)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔧 HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def create_metric_card(card_type, icon, title, value):
+    """Create a beautiful metric card with enhanced styling"""
+    st.markdown(f"""
+    <div class="metric-card {card_type}">
+        <div class="card-content">
+            <div class="card-icon {card_type}">{icon}</div>
+            <div class="card-text">
+                <div class="card-title">{title}</div>
+                <div class="card-value">{value:.2f}</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def create_section_header(icon, title):
+    """Create a styled section header"""
+    st.markdown(f"""
+    <div class="section-header">
+        <h2>{icon} {title}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+def make_time_slots(start_time=time(7, 30)):
+    """Generate time slots for trading sessions"""
+    base = datetime(2025, 1, 1, start_time.hour, start_time.minute)
+    slot_count = 15 - (2 if start_time.hour == 8 and start_time.minute == 30 else 0)
+    return [(base + timedelta(minutes=30 * i)).strftime("%H:%M") for i in range(slot_count)]
+
+def calculate_spx_blocks(anchor_time, target_time):
+    """Calculate SPX blocks with market hours consideration"""
+    blocks = 0
+    current = anchor_time
+    while current < target_time:
+        if current.hour != 16:  # Skip 4 PM hour
+            blocks += 1
+        current += timedelta(minutes=30)
+    return blocks
+
+def calculate_stock_blocks(anchor_time, target_time):
+    """Calculate stock blocks (simple 30-minute intervals)"""
+    return max(0, int((target_time - anchor_time).total_seconds() // 1800))
+
+def create_forecast_table(price, slope, anchor, forecast_date, time_slots, is_spx=True, fan_mode=False, two_stage_exits=False):
+    """Create enhanced forecast table with projections and optional two-stage exits"""
+    rows = []
+    
+    for slot in time_slots:
+        hour, minute = map(int, slot.split(":"))
+        target_time = datetime.combine(forecast_date, time(hour, minute))
+        
+        if is_spx:
+            blocks = calculate_spx_blocks(anchor, target_time)
+        else:
+            blocks = calculate_stock_blocks(anchor, target_time)
+        
+        if two_stage_exits:
+            # SPX Two-Stage Exit System with 8.5 point target
+            entry_price = round(price + slope * blocks, 2)
+            first_exit = round(entry_price + 8.5, 2)  # 8.5 point target
+            fan_exit = round(price - slope * blocks, 2)  # Fan model exit
+            
+            rows.append({
+                "Time": slot,
+                "Entry": entry_price,
+                "Exit 1 (+8.5)": first_exit,
+                "Fan Exit": fan_exit,
+                "Profit 1": "+8.5",
+                "Fan Profit": round(abs(entry_price - fan_exit), 1)
+            })
+            
+        elif fan_mode:
+            # Regular fan mode (for stocks)
+            entry_price = round(price + slope * blocks, 2)
+            exit_price = round(price - slope * blocks, 2)
+            rows.append({
+                "Time": slot,
+                "Entry": entry_price,
+                "Exit": exit_price,
+                "Spread": round(abs(entry_price - exit_price), 2)
+            })
+        else:
+            # Regular projection mode
+            projected = round(price + slope * blocks, 2)
+            rows.append({
+                "Time": slot,
+                "Projected": projected,
+                "Change": round(slope * blocks, 2)
+            })
+    
+    return pd.DataFrame(rows)
+
+def calculate_fibonacci_levels(swing_low, swing_high):
+    """Calculate key Fibonacci retracement levels for bounce analysis"""
+    price_range = swing_high - swing_low
+    
+    fib_levels = {
+        "0.236": swing_high - (price_range * 0.236),
+        "0.382": swing_high - (price_range * 0.382),
+        "0.500": swing_high - (price_range * 0.500),
+        "0.618": swing_high - (price_range * 0.618),
+        "0.786": swing_high - (price_range * 0.786),  # 🎯 KEY ALGO ENTRY LEVEL
+        "1.000": swing_low
+    }
+    
+    return fib_levels
+
+def create_fibonacci_table(swing_low, swing_high):
+    """Create a formatted table showing Fibonacci levels"""
+    fib_levels = calculate_fibonacci_levels(swing_low, swing_high)
+    
+    fib_data = []
+    for level, price in fib_levels.items():
+        emphasis = "🎯 **ALGO ENTRY**" if level == "0.786" else ""
+        fib_data.append({
+            "Fibonacci Level": level,
+            "Price": f"${price:.2f}",
+            "Note": emphasis
+        })
+    
+    return pd.DataFrame(fib_data)
+
+# Define time slots
+SPX_SLOTS = make_time_slots(time(8, 30))
+GENERAL_SLOTS = make_time_slots(time(7, 30))
