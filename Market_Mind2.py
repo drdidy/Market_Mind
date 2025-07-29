@@ -1621,9 +1621,8 @@ else:
                 """, unsafe_allow_html=True)
     
     # ═══════════════════════════════════════════════════════════════════════════════
-# 🔧 FIXED STOCK TABS SECTION - Replace in Part 7b
+# 🔧 STOCK TABS SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🎯 Find the Stock Analysis Tab section in Part 7b and replace with this fixed version
 
     # ═══════════════════════════════════════════════════════════════════════════════
     # 📊 STOCK ANALYSIS TAB - Individual Stock Forecasts
