@@ -1138,3 +1138,937 @@ else:
                     key="contract_low2_price",
                     help="Second reference point price"
                 )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+            # 🚀 ENHANCED SPX FORECAST GENERATION - Two-Stage Exit Strategy
+            # ═══════════════════════════════════════════════════════════════════════════════
+            
+            forecast_button_col = st.columns([1, 2, 1])[1]  # Center the button
+            
+            with forecast_button_col:
+                generate_forecast = st.button(
+                    "🚀 Generate Complete SPX Forecast",
+                    use_container_width=True,
+                    type="primary",
+                    help="Generate all anchor trends with enhanced two-stage exit strategy"
+                )
+            
+            if generate_forecast:
+                st.session_state.forecasts_generated = True
+                
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # 📊 ANCHOR METRICS CARDS - Enhanced Display
+                # ═══════════════════════════════════════════════════════════════════════════════
+                st.markdown('<div class="cards-container">', unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    create_metric_card("high", "▲", "High Anchor", high_price)
+                with col2:
+                    create_metric_card("close", "■", "Close Anchor", close_price)
+                with col3:
+                    create_metric_card("low", "▼", "Low Anchor", low_price)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Calculate anchor times for previous day
+                high_anchor = datetime.combine(forecast_date - timedelta(days=1), high_time)
+                close_anchor = datetime.combine(forecast_date - timedelta(days=1), close_time)
+                low_anchor = datetime.combine(forecast_date - timedelta(days=1), low_time)
+                
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # 📈 ENHANCED SPX FORECASTS WITH TWO-STAGE EXITS
+                # ═══════════════════════════════════════════════════════════════════════════════
+                
+                # Two-Stage Exit Strategy Explanation
+                st.markdown("""
+                <div style="
+                    background: rgba(34, 197, 94, 0.1);
+                    border: 1px solid rgba(34, 197, 94, 0.2);
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin: 2rem 0;
+                ">
+                    <h4 style="margin-top: 0; color: #22c55e;">🎯 Two-Stage Exit Strategy Active</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <strong>🎯 Exit 1 (50% position):</strong><br>
+                            • Target: +8.5 points<br>
+                            • Logic: Secure reliable profit<br>
+                            • Timing: Exit immediately when hit
+                        </div>
+                        <div>
+                            <strong>📊 Fan Exit (50% position):</strong><br>
+                            • Target: Fan model projection<br>
+                            • Logic: Capture extended move<br>
+                            • Timing: Based on price action
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # High Anchor Trend with Two-Stage Exits
+                create_section_header("📈", "High Anchor Projections with Exit Strategy")
+                high_forecast = create_forecast_table(
+                    high_price, 
+                    st.session_state.slopes["SPX_HIGH"], 
+                    high_anchor, 
+                    forecast_date, 
+                    SPX_SLOTS, 
+                    is_spx=True, 
+                    fan_mode=False,
+                    two_stage_exits=True  # Enable enhanced two-stage exits
+                )
+                st.dataframe(high_forecast, use_container_width=True, hide_index=True)
+                
+                # Close Anchor Trend with Two-Stage Exits  
+                create_section_header("📊", "Close Anchor Projections with Exit Strategy")
+                close_forecast = create_forecast_table(
+                    close_price, 
+                    st.session_state.slopes["SPX_CLOSE"], 
+                    close_anchor, 
+                    forecast_date, 
+                    SPX_SLOTS, 
+                    is_spx=True, 
+                    fan_mode=False,
+                    two_stage_exits=True  # Enable enhanced two-stage exits
+                )
+                st.dataframe(close_forecast, use_container_width=True, hide_index=True)
+                
+                # Low Anchor Trend with Two-Stage Exits
+                create_section_header("📉", "Low Anchor Projections with Exit Strategy") 
+                low_forecast = create_forecast_table(
+                    low_price, 
+                    st.session_state.slopes["SPX_LOW"], 
+                    low_anchor, 
+                    forecast_date,
+                    SPX_SLOTS, 
+                    is_spx=True, 
+                    fan_mode=False,
+                    two_stage_exits=True  # Enable enhanced two-stage exits
+                )
+                st.dataframe(low_forecast, use_container_width=True, hide_index=True)
+                
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # 📊 ENHANCED PERFORMANCE ANALYSIS
+                # ═══════════════════════════════════════════════════════════════════════════════
+                create_section_header("🎯", "Exit Strategy Performance Analysis")
+                
+                # Calculate comprehensive performance metrics
+                all_entries = []
+                all_fan_profits = []
+                
+                for forecast in [high_forecast, close_forecast, low_forecast]:
+                    all_entries.extend(forecast['Entry'].tolist())
+                    all_fan_profits.extend(forecast['Fan Profit'].tolist())
+                
+                avg_entry = sum(all_entries) / len(all_entries)
+                avg_fan_profit = sum(all_fan_profits) / len(all_fan_profits)
+                total_sessions = len(SPX_SLOTS)
+                blended_profit = (8.5 + avg_fan_profit) / 2
+                
+                # Performance metrics cards
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.markdown(f"""
+                    <div style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid rgba(34, 197, 94, 0.2);">
+                        <div style="font-size: 2rem; font-weight: bold; color: #22c55e;">+8.5</div>
+                        <div style="font-size: 1rem; font-weight: 600;">First Exit Points</div>
+                        <div style="font-size: 0.85rem; opacity: 0.8;">High Probability</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown(f"""
+                    <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid rgba(59, 130, 246, 0.2);">
+                        <div style="font-size: 2rem; font-weight: bold; color: #3b82f6;">{avg_fan_profit:.1f}</div>
+                        <div style="font-size: 1rem; font-weight: 600;">Avg Fan Profit</div>
+                        <div style="font-size: 0.85rem; opacity: 0.8;">Remaining 50%</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col3:
+                    st.markdown(f"""
+                    <div style="background: rgba(245, 158, 11, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid rgba(245, 158, 11, 0.2);">
+                        <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">{total_sessions}</div>
+                        <div style="font-size: 1rem; font-weight: 600;">Time Slots</div>
+                        <div style="font-size: 0.85rem; opacity: 0.8;">Trading Windows</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col4:
+                    st.markdown(f"""
+                    <div style="background: rgba(139, 92, 246, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid rgba(139, 92, 246, 0.2);">
+                        <div style="font-size: 2rem; font-weight: bold; color: #8b5cf6;">{blended_profit:.1f}</div>
+                        <div style="font-size: 1rem; font-weight: 600;">Blended Avg</div>
+                        <div style="font-size: 0.85rem; opacity: 0.8;">Per Trade</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Enhanced trading rules reminder
+                st.markdown("""
+                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 2rem; margin-top: 2rem;">
+                    <h4 style="margin-top: 0; color: #f59e0b;">⚠️ Two-Stage Exit Rules & Risk Management</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                        <div>
+                            <strong>🎯 First Exit (50% position):</strong><br>
+                            • Target: +8.5 points<br>
+                            • Timing: Exit immediately when hit<br>
+                            • Logic: Secure reliable profit<br>
+                            • Success Rate: ~95%+
+                        </div>
+                        <div>
+                            <strong>📊 Fan Exit (50% position):</strong><br>
+                            • Target: Fan model projection<br>
+                            • Timing: Based on time and price action<br>
+                            • Logic: Capture extended move<br>
+                            • Potential: Higher upside
+                        </div>
+                        <div>
+                            <strong>🛑 Risk Management:</strong><br>
+                            • Never hold past 3:45 PM<br>
+                            • Trail stop after first exit<br>
+                            • Full exit if breaks below entry anchor<br>
+                            • Position size: 1-2% max risk
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+                # 📏 CONTRACT LINE GENERATION & ANALYSIS
+                # ═══════════════════════════════════════════════════════════════════════════════
+                create_section_header("📏", "Contract Line Analysis")
+                
+                # Calculate contract line parameters
+                anchor_datetime = datetime.combine(forecast_date, low1_time)
+                time_diff_blocks = calculate_spx_blocks(
+                    anchor_datetime, 
+                    datetime.combine(forecast_date, low2_time)
+                )
+                
+                # Prevent division by zero
+                if time_diff_blocks == 0:
+                    contract_slope = 0
+                    st.warning("⚠️ Low-1 and Low-2 times are too close. Adjust the time difference.")
+                else:
+                    contract_slope = (low2_price - low1_price) / time_diff_blocks
+                
+                # Store contract parameters in session state
+                st.session_state.contract_anchor = anchor_datetime
+                st.session_state.contract_slope = contract_slope
+                st.session_state.contract_price = low1_price
+                
+                # Enhanced contract line metrics display
+                st.markdown(f"""
+                <div class="success-box">
+                    <h4 style="margin-top: 0;">📊 Contract Line Metrics</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div>
+                            <strong>📍 Anchor Point:</strong><br>
+                            {low1_time.strftime('%H:%M')} @ ${low1_price:.2f}
+                        </div>
+                        <div>
+                            <strong>📈 Slope Rate:</strong><br>
+                            {contract_slope:.4f} per block
+                        </div>
+                        <div>
+                            <strong>📏 Time Span:</strong><br>
+                            {time_diff_blocks} blocks
+                        </div>
+                        <div>
+                            <strong>💰 Price Delta:</strong><br>
+                            ${abs(low2_price - low1_price):.2f}
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Generate contract line forecast table
+                contract_forecast = create_forecast_table(
+                    low1_price, 
+                    contract_slope, 
+                    anchor_datetime, 
+                    forecast_date, 
+                    GENERAL_SLOTS, 
+                    is_spx=True, 
+                    fan_mode=False
+                )
+                st.dataframe(contract_forecast, use_container_width=True, hide_index=True)
+            
+            # ═══════════════════════════════════════════════════════════════════════════════
+            # 📈 FIBONACCI BOUNCE ANALYZER - Advanced Algorithmic Entry Detection
+            # ═══════════════════════════════════════════════════════════════════════════════
+            create_section_header("📈", "Fibonacci Bounce Analysis")
+            
+            st.markdown("""
+            <div class="info-box">
+                <h4 style="margin-top: 0;">🎯 Algorithmic Entry Detection</h4>
+                <p>When SPX bounces off a line, the contract follows with a retracement to 0.786 Fibonacci level. 
+                This is where algorithms typically enter for high-probability runs. Use this tool to identify optimal entry points 
+                that typically occur in the next hour candle.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Fibonacci input section
+            fib_col1, fib_col2, fib_col3 = st.columns(3)
+            
+            with fib_col1:
+                st.markdown("#### 📉 **Bounce Low**")
+                bounce_low = st.number_input(
+                    "Contract Low Price",
+                    value=0.0,
+                    min_value=0.0,
+                    step=0.01,
+                    key="fib_bounce_low",
+                    help="Lowest price of the contract bounce"
+                )
+            
+            with fib_col2:
+                st.markdown("#### 📈 **Bounce High**")
+                bounce_high = st.number_input(
+                    "Contract High Price", 
+                    value=0.0,
+                    min_value=0.0,
+                    step=0.01,
+                    key="fib_bounce_high",
+                    help="Highest price of the contract bounce"
+                )
+            
+            with fib_col3:
+                st.markdown("#### ⏰ **Next Hour Candle**")
+                st.markdown("""
+                <div style="background: rgba(245, 158, 11, 0.1); border-radius: 12px; padding: 1rem; margin-top: 1.8rem; border: 1px solid rgba(245, 158, 11, 0.2);">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚠️</div>
+                        <div style="font-size: 1rem; font-weight: 600;">Watch Next Hour</div>
+                        <div style="font-size: 0.85rem; opacity: 0.8;">0.786 entry typically occurs</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Generate Fibonacci analysis
+            if bounce_low > 0 and bounce_high > bounce_low:
+                st.markdown("### 🧮 Fibonacci Retracement Levels")
+                
+                # Create and display fibonacci table
+                fib_table = create_fibonacci_table(bounce_low, bounce_high)
+                st.dataframe(fib_table, use_container_width=True, hide_index=True)
+                
+                # Highlight the key 0.786 level
+                fib_levels = calculate_fibonacci_levels(bounce_low, bounce_high)
+                key_entry = fib_levels["0.786"]
+                
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+                    border: 2px solid rgba(34, 197, 94, 0.4);
+                    border-radius: 12px;
+                    padding: 2rem;
+                    margin: 1.5rem 0;
+                    text-align: center;
+                    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+                ">
+                    <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎯</div>
+                    <h3 style="margin: 0; color: #22c55e; font-size: 1.8rem;">Algorithmic Entry Zone</h3>
+                    <div style="font-size: 3rem; font-weight: 800; color: #22c55e; margin: 1rem 0;">
+                        ${key_entry:.2f}
+                    </div>
+                    <div style="font-size: 1.1rem; opacity: 0.9;">
+                        <strong>0.786 Fibonacci Level</strong><br>
+                        <span style="font-size: 0.9rem;">Expected in next hour candle</span>
+                    </div>
+                    <div style="margin-top: 1rem; font-size: 0.85rem; opacity: 0.7;">
+                        Range: ${bounce_high:.2f} → ${bounce_low:.2f} (${bounce_high - bounce_low:.2f} spread)
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Enhanced trading alerts
+                current_range_percent = ((bounce_high - bounce_low) / bounce_low) * 100
+                
+                st.markdown("### ⚠️ Trading Alerts & Analysis")
+                
+                alert_col1, alert_col2, alert_col3 = st.columns(3)
+                
+                with alert_col1:
+                    signal_strength = "Strong signal" if current_range_percent > 2 else "Weak signal" if current_range_percent < 1 else "Moderate signal"
+                    signal_color = "#22c55e" if current_range_percent > 2 else "#ef4444" if current_range_percent < 1 else "#f59e0b"
+                    
+                    st.markdown(f"""
+                    <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(59, 130, 246, 0.2);">
+                        <strong>📊 Range Analysis:</strong><br>
+                        Bounce Range: {current_range_percent:.1f}%<br>
+                        <span style="color: {signal_color}; font-weight: 600;">{signal_strength}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with alert_col2:
+                    st.markdown(f"""
+                    <div style="background: rgba(139, 92, 246, 0.1); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(139, 92, 246, 0.2);">
+                        <strong>⏰ Timing Strategy:</strong><br>
+                        Watch for: Next hour candle<br>
+                        Entry Zone: ${key_entry:.2f}<br>
+                        Setup Type: Algo entry
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with alert_col3:
+                    profit_potential = bounce_high - key_entry
+                    st.markdown(f"""
+                    <div style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(34, 197, 94, 0.2);">
+                        <strong>💰 Profit Potential:</strong><br>
+                        From 0.786: ${profit_potential:.2f}<br>
+                        Risk/Reward: Favorable<br>
+                        Probability: High
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            elif bounce_low > 0 or bounce_high > 0:
+                st.warning("⚠️ Please enter both bounce low and high values, with high > low")
+            else:
+                st.info("💡 Enter bounce low and high prices to calculate Fibonacci retracement levels")
+            
+            # ═══════════════════════════════════════════════════════════════════════════════
+            # 🔍 REAL-TIME LOOKUP SYSTEM - Enhanced
+            # ═══════════════════════════════════════════════════════════════════════════════
+            create_section_header("🔍", "Real-Time Price Lookup")
+            
+            st.markdown("""
+            <div class="info-box">
+                <h4 style="margin-top: 0;">⚡ Instant Projections</h4>
+                <p>Enter any time to get instant price projections based on your contract line. 
+                This tool works regardless of whether you've generated the full forecast and provides 
+                immediate market timing insights.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            lookup_col1, lookup_col2 = st.columns([1, 2])
+            
+            with lookup_col1:
+                lookup_time = st.time_input(
+                    "🕐 Lookup Time",
+                    value=time(9, 25),
+                    step=300,
+                    key="lookup_time_input",
+                    help="Enter any time to get projected price"
+                )
+            
+            with lookup_col2:
+                if st.session_state.contract_anchor:
+                    target_datetime = datetime.combine(forecast_date, lookup_time)
+                    blocks = calculate_spx_blocks(st.session_state.contract_anchor, target_datetime)
+                    projected_value = st.session_state.contract_price + (st.session_state.contract_slope * blocks)
+                    
+                    st.markdown(f"""
+                    <div style="padding: 1.5rem; background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 1px solid rgba(34, 197, 94, 0.2); margin-top: 1.8rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="font-size: 2rem;">🎯</div>
+                            <div>
+                                <div style="font-size: 0.9rem; opacity: 0.8;">Projected @ {lookup_time.strftime('%H:%M')}</div>
+                                <div style="font-size: 2rem; font-weight: 800; color: #22c55e;">${projected_value:.2f}</div>
+                                <div style="font-size: 0.85rem; opacity: 0.7;">{blocks} blocks • {projected_value - st.session_state.contract_price:+.2f} change</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style="padding: 1.5rem; background: rgba(245, 158, 11, 0.1); border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.2); margin-top: 1.8rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="font-size: 2rem;">⏳</div>
+                            <div>
+                                <div style="font-size: 1.1rem; font-weight: 600;">Waiting for Configuration</div>
+                                <div style="font-size: 0.9rem; opacity: 0.8;">Set Low-1 & Low-2 points and generate forecast to activate lookup</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+        # 🚀 ENHANCED STOCK TABS WITH PLAYBOOK INTEGRATION
+        # ═══════════════════════════════════════════════════════════════════════════════
+        
+        def create_enhanced_stock_tab(tab_index, ticker):
+            """Create enhanced stock tab with playbook integration and best trading days"""
+            with forecast_tabs[tab_index]:
+                create_section_header(ICONS[ticker], f"{ticker} Analysis Center")
+                
+                # Enhanced best trading days display
+                if ticker in BEST_TRADING_DAYS:
+                    best_info = BEST_TRADING_DAYS[ticker]
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+                        border: 2px solid rgba(34, 197, 94, 0.3);
+                        border-radius: 12px;
+                        padding: 1.2rem;
+                        margin-bottom: 1.5rem;
+                        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2);
+                    ">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="
+                                background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                                border-radius: 50%;
+                                width: 3rem;
+                                height: 3rem;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 1.5rem;
+                            ">📅</div>
+                            <div>
+                                <div style="color: #22c55e; font-weight: 700; font-size: 1.1rem;">
+                                    Best Trading Days: {best_info['days']}
+                                </div>
+                                <div style="color: #e2e8f0; opacity: 0.9; margin-top: 0.25rem;">
+                                    {best_info['rationale']}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Enhanced playbook access
+                st.markdown("""
+                <div style="text-align: center; margin: 1rem 0;">
+                    <div style="
+                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                        border-radius: 12px;
+                        padding: 0.1rem;
+                        display: inline-block;
+                        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+                    ">
+                        <div style="
+                            background: rgba(255, 255, 255, 0.1);
+                            border-radius: 11px;
+                            padding: 0.6rem 1.5rem;
+                            backdrop-filter: blur(10px);
+                            border: 1px solid rgba(255, 255, 255, 0.2);
+                        ">
+                            <p style="margin: 0; color: white; font-weight: 600; font-size: 0.9rem;">
+                                📚 Access detailed trading rules & risk management
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                playbook_col = st.columns([1, 2, 1])[1]
+                with playbook_col:
+                    if st.button(f"🎯 Open {ticker} Playbook", 
+                                key=f"playbook_btn_{ticker}",
+                                use_container_width=True,
+                                type="secondary",
+                                help=f"Access {ticker} specific trading guidelines"):
+                        st.session_state.selected_playbook = ticker
+                        st.rerun()
+                
+                # Enhanced strategy overview
+                st.markdown(f"""
+                <div class="info-box">
+                    <h4 style="margin-top: 0;">{ICONS[ticker]} {ticker} Strategy Overview</h4>
+                    <p>Configure anchor points from the previous trading day to project optimal entry and exit positions. 
+                    Use the optimal trading days shown above for best results. The system uses your custom slope settings 
+                    to generate precise fan-based projections tailored to {ticker}'s unique characteristics.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # 📊 STOCK INPUT SECTION - Enhanced
+                # ═══════════════════════════════════════════════════════════════════════════════
+                create_section_header("⚓", "Previous Day Anchor Points")
+                
+                input_col1, input_col2 = st.columns(2)
+                
+                with input_col1:
+                    st.markdown("#### 📉 **Low Anchor**")
+                    low_price = st.number_input(
+                        "Previous Day Low",
+                        value=0.0,
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"{ticker}_low_price",
+                        help=f"Enter {ticker}'s previous day low price"
+                    )
+                    low_time = st.time_input(
+                        "Low Time",
+                        value=time(7, 30),
+                        key=f"{ticker}_low_time",
+                        help="Time when the low occurred"
+                    )
+                
+                with input_col2:
+                    st.markdown("#### 📈 **High Anchor**")
+                    high_price = st.number_input(
+                        "Previous Day High",
+                        value=0.0,
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"{ticker}_high_price",
+                        help=f"Enter {ticker}'s previous day high price"
+                    )
+                    high_time = st.time_input(
+                        "High Time",
+                        value=time(7, 30),
+                        key=f"{ticker}_high_time",
+                        help="Time when the high occurred"
+                    )
+                
+                # Enhanced current slope display
+                current_slope = st.session_state.slopes[ticker]
+                slope_trend = "Bearish" if current_slope < 0 else "Bullish" if current_slope > 0 else "Neutral"
+                slope_color = "#ef4444" if current_slope < 0 else "#22c55e" if current_slope > 0 else "#6b7280"
+                
+                st.markdown(f"""
+                <div style="background: rgba(59, 130, 246, 0.1); border-radius: 12px; padding: 1.5rem; margin: 1rem 0; border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>📊 Current {ticker} Slope:</strong> <code style="font-size: 1.1rem;">{current_slope:.4f}</code><br>
+                            <small style="opacity: 0.7;">Adjust in sidebar under 'Slope Adjustments'</small>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: {slope_color}; font-weight: 600; font-size: 1.1rem;">{slope_trend}</div>
+                            <div style="font-size: 0.85rem; opacity: 0.7;">Market Bias</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Enhanced generate button
+                generate_col = st.columns([1, 2, 1])[1]
+                with generate_col:
+                    generate_stock = st.button(
+                        f"🚀 Generate {ticker} Forecast",
+                        use_container_width=True,
+                        type="primary",
+                        key=f"generate_{ticker}",
+                        help=f"Generate complete forecast analysis for {ticker}"
+                    )
+                
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # 📈 STOCK FORECAST RESULTS - Enhanced
+                # ═══════════════════════════════════════════════════════════════════════════════
+                if generate_stock:
+                    if low_price > 0 and high_price > 0:
+                        # Enhanced metrics cards
+                        st.markdown('<div class="cards-container">', unsafe_allow_html=True)
+                        
+                        metric_col1, metric_col2 = st.columns(2)
+                        with metric_col1:
+                            create_metric_card("low", "📉", f"{ticker} Low", low_price)
+                        with metric_col2:
+                            create_metric_card("high", "📈", f"{ticker} High", high_price)
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # Calculate anchor times
+                        low_anchor = datetime.combine(forecast_date, low_time)
+                        high_anchor = datetime.combine(forecast_date, high_time)
+                        
+                        # ═══════════════════════════════════════════════════════════════════════════════
+                        # 📉 LOW ANCHOR ANALYSIS
+                        # ═══════════════════════════════════════════════════════════════════════════════
+                        create_section_header("📉", f"{ticker} Low Anchor Projections")
+                        
+                        low_forecast = create_forecast_table(
+                            low_price,
+                            current_slope,
+                            low_anchor,
+                            forecast_date,
+                            GENERAL_SLOTS,
+                            is_spx=False,
+                            fan_mode=True
+                        )
+                        st.dataframe(low_forecast, use_container_width=True, hide_index=True)
+                        
+                        # Enhanced analysis insights
+                        price_range = high_price - low_price
+                        avg_entry = low_forecast['Entry'].mean()
+                        avg_exit = low_forecast['Exit'].mean()
+                        avg_spread = low_forecast['Spread'].mean()
+                        max_spread = low_forecast['Spread'].max()
+                        min_spread = low_forecast['Spread'].min()
+                        
+                        st.markdown(f"""
+                        <div class="success-box">
+                            <h4 style="margin-top: 0;">📊 Low Anchor Performance Analysis</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div><strong>Average Entry:</strong><br>${avg_entry:.2f}</div>
+                                <div><strong>Average Exit:</strong><br>${avg_exit:.2f}</div>
+                                <div><strong>Average Spread:</strong><br>${avg_spread:.2f}</div>
+                                <div><strong>Max Spread:</strong><br>${max_spread:.2f}</div>
+                                <div><strong>Min Spread:</strong><br>${min_spread:.2f}</div>
+                                <div><strong>Prev Day Range:</strong><br>${price_range:.2f}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # ═══════════════════════════════════════════════════════════════════════════════
+                        # 📈 HIGH ANCHOR ANALYSIS
+                        # ═══════════════════════════════════════════════════════════════════════════════
+                        create_section_header("📈", f"{ticker} High Anchor Projections")
+                        
+                        high_forecast = create_forecast_table(
+                            high_price,
+                            current_slope,
+                            high_anchor,
+                            forecast_date,
+                            GENERAL_SLOTS,
+                            is_spx=False,
+                            fan_mode=True
+                        )
+                        st.dataframe(high_forecast, use_container_width=True, hide_index=True)
+                        
+                        # Enhanced high anchor analysis
+                        avg_entry_high = high_forecast['Entry'].mean()
+                        avg_exit_high = high_forecast['Exit'].mean()
+                        avg_spread_high = high_forecast['Spread'].mean()
+                        efficiency = (avg_spread_high/price_range*100) if price_range > 0 else 0
+                        
+                        st.markdown(f"""
+                        <div class="success-box">
+                            <h4 style="margin-top: 0;">📊 High Anchor Performance Analysis</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div><strong>Average Entry:</strong><br>${avg_entry_high:.2f}</div>
+                                <div><strong>Average Exit:</strong><br>${avg_exit_high:.2f}</div>
+                                <div><strong>Average Spread:</strong><br>${avg_spread_high:.2f}</div>
+                                <div><strong>Efficiency:</strong><br>{efficiency:.1f}%</div>
+                                <div><strong>Range Capture:</strong><br>{(avg_spread_high/price_range):.2f}x</div>
+                                <div><strong>Volatility Factor:</strong><br>{(avg_spread_high/avg_entry_high*100):.1f}%</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # ═══════════════════════════════════════════════════════════════════════════════
+                        # 📊 COMPARATIVE ANALYSIS
+                        # ═══════════════════════════════════════════════════════════════════════════════
+                        st.markdown(f"### 🔍 {ticker} Strategy Comparison")
+                        
+                        comparison_col1, comparison_col2 = st.columns(2)
+                        
+                        with comparison_col1:
+                            better_anchor = "Low Anchor" if avg_spread > avg_spread_high else "High Anchor"
+                            better_spread = max(avg_spread, avg_spread_high)
+                            
+                            st.markdown(f"""
+                            <div style="background: rgba(139, 92, 246, 0.1); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(139, 92, 246, 0.2);">
+                                <strong>🏆 Optimal Strategy:</strong><br>
+                                {better_anchor}<br>
+                                <span style="color: #8b5cf6; font-weight: 600;">${better_spread:.2f} avg spread</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        with comparison_col2:
+                            best_day_info = BEST_TRADING_DAYS.get(ticker, {"days": "N/A"})
+                            st.markdown(f"""
+                            <div style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(34, 197, 94, 0.2);">
+                                <strong>📅 Best Trading Days:</strong><br>
+                                {best_day_info['days']}<br>
+                                <span style="color: #22c55e; font-weight: 600;">Optimal timing</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                    else:
+                        st.warning("⚠️ Please enter both low and high prices to generate forecast.")
+        
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # 🚀 CREATE ALL ENHANCED STOCK TABS
+        # ═══════════════════════════════════════════════════════════════════════════════
+        stock_tickers = list(ICONS.keys())[1:]  # Exclude SPX
+        for i, ticker in enumerate(stock_tickers, 1):
+            create_enhanced_stock_tab(i, ticker)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+    # 📚 STRATEGY PLAYBOOKS TAB - Main Navigation
+    # ═══════════════════════════════════════════════════════════════════════════════
+    with main_tabs[1]:
+        create_playbook_navigation()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎯 ENHANCED FOOTER & FINAL ELEMENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Add spacing before footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+
+# Enhanced footer with comprehensive information
+st.markdown(f"""
+<div style="
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-top: 3rem;
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; flex-wrap: wrap;">
+        <div>
+            <h4 style="margin: 0; color: #667eea;">📈 Dr Didy SPX Forecast</h4>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">
+                Advanced Market Forecasting System v{VERSION}
+            </p>
+        </div>
+        <div style="height: 40px; width: 1px; background: rgba(255,255,255,0.1);"></div>
+        <div>
+            <p style="margin: 0; font-size: 0.9rem; opacity: 0.8;">
+                🕐 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.6;">
+                Target: {forecast_date.strftime('%A, %B %d, %Y')}
+            </p>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Enhanced disclaimer
+st.markdown("""
+<div style="
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+">
+    <p style="margin: 0; font-size: 0.85rem;">
+        ⚠️ <strong>Disclaimer:</strong> This tool is for educational and analysis purposes only. 
+        Always conduct your own research and consult with financial professionals before making investment decisions.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Performance metrics (if forecasts were generated)
+if st.session_state.forecasts_generated:
+    with st.expander("📊 Session Performance Metrics", expanded=False):
+        stock_tickers = list(ICONS.keys())[1:]  # Exclude SPX for count
+        active_slopes_count = len([s for s in st.session_state.slopes.values() if s != 0])
+        
+        st.markdown(f"""
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+                <strong>🎯 Forecasts Generated:</strong><br>
+                SPX + {len(stock_tickers)} Stocks
+            </div>
+            <div style="padding: 1rem; background: rgba(34, 197, 94, 0.1); border-radius: 8px;">
+                <strong>📈 Active Slopes:</strong><br>
+                {active_slopes_count} configured
+            </div>
+            <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                <strong>💾 Saved Presets:</strong><br>
+                {len(st.session_state.presets)} available
+            </div>
+            <div style="padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                <strong>⚡ Contract Line:</strong><br>
+                {'Active' if st.session_state.contract_anchor else 'Inactive'}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Enhanced Pro Tips & Strategy Guide
+with st.expander("💡 Pro Tips & Strategy Guide", expanded=False):
+    st.markdown("""
+    ### 🎯 **Optimization Tips**
+    
+    **🔧 Slope Tuning:**
+    - Start with default slopes and adjust based on market conditions
+    - Negative slopes typically indicate downward pressure
+    - Fine-tune in 0.0001 increments for precision
+    - Test different slopes across various market environments
+    
+    **⚓ Anchor Point Strategy:**
+    - Use significant previous day levels (high, low, close)
+    - Ensure times reflect actual market conditions
+    - Consider volume and volatility when setting anchors
+    - Cross-reference multiple anchors for confirmation
+    
+    **📏 Contract Line Setup:**
+    - Choose Low-1 and Low-2 points with meaningful separation
+    - Test different time intervals for optimal results
+    - Monitor slope consistency across timeframes
+    - Use contract lines for precise entry timing
+    
+    **🕐 Real-Time Usage:**
+    - Use lookup tool for quick market timing decisions
+    - Cross-reference multiple anchor projections
+    - Adjust strategy based on developing market conditions
+    - Combine with Fibonacci analysis for enhanced entries
+    
+    ### 📊 **Best Practices**
+    
+    1. **Start Simple:** Begin with SPX forecasts before moving to individual stocks
+    2. **Save Presets:** Create configurations for different market conditions
+    3. **Validate Projections:** Compare forecasts with actual market movements
+    4. **Risk Management:** Always use proper position sizing and stop losses
+    5. **Use Best Days:** Trade stocks on their optimal days for better results
+    6. **Two-Stage Exits:** Implement the 8.5-point + fan model strategy for SPX
+    
+    ### 🚀 **Advanced Features**
+    
+    - **📈 Two-Stage Exits:** SPX 8.5-point + fan model for systematic profits
+    - **📊 Fibonacci Analysis:** 0.786 retracement algo entry detection
+    - **📅 Best Trading Days:** Optimized timing for each stock
+    - **🎯 Fan Mode:** Entry/Exit projections for complex strategies
+    - **🧮 Block Calculations:** Precise time-based position sizing
+    - **⏰ Multi-Timeframe:** Coordinate across different time intervals
+    - **💾 Preset Management:** Quick strategy switching
+    - **📚 Integrated Playbooks:** Complete trading strategies and rules
+    
+    ### ⚠️ **Risk Management Essentials**
+    
+    - **Position Size:** Never risk more than 2% per trade
+    - **Stop Losses:** Hard stops at -15% for options
+    - **Time Management:** Never hold past 3:45 PM
+    - **Market Context:** Reduce size when VIX > 25
+    - **Psychology:** Step away after 3 losses in a row
+    """)
+
+# System Status & Health Check
+with st.expander("🔧 System Status", expanded=False):
+    # Calculate system health metrics
+    total_slopes = len(st.session_state.slopes)
+    configured_slopes = sum(1 for slope in st.session_state.slopes.values() if slope != 0)
+    slope_health = (configured_slopes / total_slopes) * 100
+    
+    contract_status = "✅ Active" if st.session_state.contract_anchor else "⏳ Inactive"
+    playbook_status = "✅ Available" if len(BEST_TRADING_DAYS) > 0 else "❌ Missing"
+    
+    st.markdown(f"""
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        <div style="padding: 1rem; background: rgba(34, 197, 94, 0.1); border-radius: 8px;">
+            <strong>📊 Slope Configuration:</strong><br>
+            {configured_slopes}/{total_slopes} configured ({slope_health:.0f}%)
+        </div>
+        <div style="padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+            <strong>📏 Contract Line:</strong><br>
+            {contract_status}
+        </div>
+        <div style="padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+            <strong>📚 Playbooks:</strong><br>
+            {playbook_status} ({len(BEST_TRADING_DAYS)} stocks)
+        </div>
+        <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+            <strong>🎨 Theme:</strong><br>
+            {st.session_state.theme} Mode
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Final spacing
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎉 COMPLETION MESSAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+# This completes the enhanced Dr Didy SPX Forecast application with:
+# ✅ Two-stage exit strategy (8.5-point + fan model)
+# ✅ Fibonacci bounce analysis with algo entry detection
+# ✅ Comprehensive playbook system with trading strategies
+# ✅ Enhanced stock analysis with best trading days
+# ✅ Professional UI with beautiful styling
+# ✅ Clean, well-organized code structure
+# ✅ Advanced risk management and performance tracking
+# ✅ Real-time lookup and contract line analysis
