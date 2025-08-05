@@ -100,6 +100,7 @@ SPX_ANCHOR_RULES = {
     "extended_hours": [
         "🌙 **Extended session weakness + recovery**: Use recovered anchor as buy signal in RTH",
         "📈 **Extended session anchors carry forward momentum** into regular trading hours",
+        "📈 **Extended bounce of anchors carry forward momentum** into regular trading hours",
         "🎯 **Overnight anchor recovery**: Strong setup for next day strength"
     ],
     "mon_wed_fri": [
