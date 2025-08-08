@@ -1,11 +1,10 @@
-# Dr Didy Market Mind — Single-File Streamlit App
+# Dr Didy Market Mind — Single-File Streamlit App (No Plotly)
 # Run: streamlit run app.py
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta, time as dtime
-import plotly.graph_objects as go
 
 # ===============================
 # THEME / CSS
@@ -57,14 +56,6 @@ h1, h2, h3, h4, h5, h6, label, p, span, div {
 .dd-metric .label { color: var(--muted); font-size: 0.9rem; }
 .dd-metric .value { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.3px; }
 .dd-metric .status { font-size: 0.9rem; opacity: 0.9; }
-
-.dd-table table { width: 100%; border-collapse: collapse; }
-.dd-table th, .dd-table td {
-  padding: 10px 12px; 
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-.dd-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 0.92rem; }
-.dd-table tr:hover { background: rgba(255,255,255,0.03); }
 
 button[kind="primary"], .stButton>button {
   background: linear-gradient(90deg, var(--accent), #6ee7ff);
@@ -220,15 +211,15 @@ def table(df, use_container_width=True):
     st.dataframe(df, use_container_width=use_container_width, hide_index=True)
 
 def line_chart(df, x, y, name="Projection", anchors=None):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df[x], y=df[y], mode="lines+markers", name=name))
+    # Streamlit's built-in chart (no Plotly)
+    # Ensure the x column is the index for correct ordering
+    df_plot = df[[x, y]].copy()
+    df_plot = df_plot.set_index(x)
+    st.line_chart(df_plot, height=380)
+    # Show anchors context below as text since we can't annotate
     if anchors:
-        for a in anchors:
-            fig.add_trace(go.Scatter(x=[a["time"]], y=[a["price"]], mode="markers+text",
-                                     name=a["label"], text=a["label"], textposition="top center"))
-    fig.update_layout(margin=dict(l=10,r=10,t=30,b=10), height=380,
-                      xaxis_title="Time", yaxis_title="Price")
-    st.plotly_chart(fig, use_container_width=True)
+        desc = "; ".join([f"{a['label']} @ {a['time']} = {a['price']}" for a in anchors])
+        st.caption(f"Anchors: {desc}")
 
 # ===============================
 # SIDEBAR
@@ -337,8 +328,11 @@ def render_ticker_page(ticker, state):
             df_low = project_from_anchor(spx_low, spx_low_t, state.slopes["SPX_LOW"], slots, skip_maintenance=True)
 
             st.markdown("**Projected Lines (30-min blocks; 16:00-17:00 maintenance skipped)**")
+            st.write("From High")
             line_chart(df_high, "time", "price", name="From High", anchors=anchors)
+            st.write("From Close")
             line_chart(df_close, "time", "price", name="From Close", anchors=anchors)
+            st.write("From Low")
             line_chart(df_low, "time", "price", name="From Low", anchors=anchors)
 
             st.markdown("##### Projection Table (From Close Anchor)")
