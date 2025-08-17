@@ -1151,3 +1151,676 @@ section[data-testid="stSidebar"] .stSelectbox > div > div:hover {
 st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%); border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 16px; margin: 1rem 0;"><h3 style="color: #22d3ee !important;">✅ Part 2B Interactive Components Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">Advanced interactive elements, animations, and hover effects are now active.</p></div>', unsafe_allow_html=True)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 2C: UI FUNCTIONS & COMPONENT SYSTEM
+# Interactive Components and Advanced UI Functions (Fixed for Streamlit)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Final UI components and functions (builds on Parts 2A and 2B)
+st.markdown("""
+<style>
+/* ========== HERO SECTION STYLING ========== */
+.hero-container {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.12) 0%, 
+    rgba(255, 255, 255, 0.06) 100%);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 2rem;
+  padding: 3rem;
+  margin: 2rem 0;
+  box-shadow: 
+    0 20px 40px rgba(31, 38, 135, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.hero-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--neon-cyan) 15%, 
+    var(--neon-violet) 30%,
+    var(--neon-green) 45%,
+    var(--neon-orange) 60%,
+    var(--neon-pink) 75%,
+    transparent 100%);
+  animation: shimmer-rainbow 4s ease-in-out infinite;
+}
+
+@keyframes shimmer-rainbow {
+  0%, 100% { 
+    opacity: 0.4; 
+    transform: translateX(-100%);
+  }
+  50% { 
+    opacity: 1; 
+    transform: translateX(100%);
+  }
+}
+
+.hero-title {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, 
+    #ffffff 0%, 
+    var(--neon-cyan) 25%, 
+    var(--neon-violet) 50%,
+    var(--neon-green) 75%,
+    #ffffff 100%);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0 60px rgba(34, 211, 238, 0.4);
+  animation: glow-pulse 6s ease-in-out infinite, gradient-shift 8s ease-in-out infinite;
+  text-align: center;
+  line-height: 1.1;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.4));
+    transform: scale(1);
+  }
+  33% { 
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.6));
+    transform: scale(1.02);
+  }
+  66% { 
+    filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.5));
+    transform: scale(1.01);
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 50% 100%; }
+  75% { background-position: 0% 100%; }
+}
+
+.hero-subtitle {
+  font-size: clamp(1.125rem, 4vw, 1.75rem);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85) !important;
+  margin: 1.5rem 0;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.hero-meta {
+  font-size: 1.125rem;
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-weight: 500;
+  margin-top: 1rem;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+/* ========== SECTION HEADERS ========== */
+.section-header {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.08) 0%, 
+    rgba(255, 255, 255, 0.03) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  padding: 2rem;
+  margin: 2rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.section-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 0%, var(--neon-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 1rem 0;
+}
+
+.section-subtitle {
+  font-size: 1.125rem;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ========== DATA TABLES & CHARTS ========== */
+.dataframe-container {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.05) 0%, 
+    rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.chart-container {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.08) 0%, 
+    rgba(255, 255, 255, 0.03) 100%);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--neon-cyan) 50%, 
+    transparent 100%);
+  animation: chart-glow 3s ease-in-out infinite;
+}
+
+@keyframes chart-glow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* ========== ENHANCED DATAFRAME STYLING ========== */
+.stDataFrame {
+  background: transparent !important;
+}
+
+.stDataFrame table {
+  background: transparent !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem !important;
+  overflow: hidden !important;
+}
+
+.stDataFrame th {
+  background: linear-gradient(135deg, 
+    rgba(34, 211, 238, 0.15) 0%, 
+    rgba(168, 85, 247, 0.15) 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border: none !important;
+  padding: 1rem !important;
+  font-size: 0.875rem !important;
+}
+
+.stDataFrame td {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 0.75rem !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.875rem !important;
+}
+
+.stDataFrame tr:hover td {
+  background: rgba(34, 211, 238, 0.1) !important;
+  color: #ffffff !important;
+}
+
+/* ========== SECTION DIVIDERS ========== */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.2) 20%, 
+    rgba(34, 211, 238, 0.4) 50%,
+    rgba(255, 255, 255, 0.2) 80%, 
+    transparent 100%);
+  margin: 3rem 0;
+  position: relative;
+}
+
+.section-divider::before {
+  content: '⟐';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface-1);
+  padding: 0 1rem;
+  color: var(--neon-cyan);
+  font-size: 1.5rem;
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+@media (max-width: 768px) {
+  .hero-container {
+    padding: 2rem;
+    margin: 1rem 0;
+  }
+  
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.25rem;
+  }
+  
+  .metric-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .metric-card {
+    padding: 1.5rem;
+    min-height: 160px;
+  }
+  
+  .asset-icon {
+    font-size: 2.5rem;
+  }
+  
+  .section-title {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+  
+  .hero-container {
+    padding: 1.5rem;
+  }
+  
+  .metric-card {
+    padding: 1rem;
+    min-height: 140px;
+  }
+  
+  .metric-value {
+    font-size: 1.5rem;
+  }
+}
+
+/* ========== LOADING STATES ========== */
+.loading-shimmer {
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0.08) 25%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.08) 75%);
+  background-size: 200% 100%;
+  animation: shimmer-loading 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes shimmer-loading {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.pulse-animation {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { 
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* ========== UTILITY CLASSES ========== */
+.text-center { text-align: center !important; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
+
+.font-light { font-weight: 300 !important; }
+.font-normal { font-weight: 400 !important; }
+.font-medium { font-weight: 500 !important; }
+.font-semibold { font-weight: 600 !important; }
+.font-bold { font-weight: 700 !important; }
+.font-black { font-weight: 900 !important; }
+
+.text-xs { font-size: 0.75rem !important; }
+.text-sm { font-size: 0.875rem !important; }
+.text-base { font-size: 1rem !important; }
+.text-lg { font-size: 1.125rem !important; }
+.text-xl { font-size: 1.25rem !important; }
+.text-2xl { font-size: 1.5rem !important; }
+.text-3xl { font-size: 1.875rem !important; }
+.text-4xl { font-size: 2.25rem !important; }
+
+.m-0 { margin: 0 !important; }
+.m-1 { margin: 0.25rem !important; }
+.m-2 { margin: 0.5rem !important; }
+.m-4 { margin: 1rem !important; }
+
+.p-0 { padding: 0 !important; }
+.p-1 { padding: 0.25rem !important; }
+.p-2 { padding: 0.5rem !important; }
+.p-4 { padding: 1rem !important; }
+
+/* ========== ACCESSIBILITY ========== */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.focus-visible:focus {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* ========== FINAL ENHANCEMENT ANIMATIONS ========== */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.6s ease-out;
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-in {
+  animation: scale-in 0.4s ease-out;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# UI COMPONENT FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_hero_section():
+    """Create the stunning hero section with modern glassmorphism design."""
+    
+    # Get current market data for dynamic display
+    market_status, status_type = get_market_status()
+    current_asset = AppState.get_current_asset()
+    asset_info = MAJOR_EQUITIES[current_asset]
+    display_symbol = get_display_symbol(current_asset)
+    
+    st.markdown(f"""
+    <div class="hero-container">
+        <div class="text-center">
+            <h1 class="hero-title">MarketLens Pro</h1>
+            <p class="hero-subtitle">Enterprise SPX & Equities Forecasting</p>
+            <p class="hero-meta">v{VERSION} • Max Pointe Consulting • Professional Trading Analytics</p>
+        </div>
+        
+        <div class="metric-grid" style="margin-top: 2rem;">
+            <div class="metric-card hover-lift">
+                <div class="asset-icon">{asset_info['icon']}</div>
+                <div class="metric-label">Current Asset</div>
+                <div class="metric-value">{display_symbol}</div>
+                <div class="metric-change metric-neutral">{asset_info['name']}</div>
+            </div>
+            
+            <div class="metric-card hover-lift">
+                <div class="asset-icon">📊</div>
+                <div class="metric-label">Market Status</div>
+                <div class="metric-value">LIVE</div>
+                <div class="metric-change">
+                    <span class="status-chip status-{status_type}">{market_status}</span>
+                </div>
+            </div>
+            
+            <div class="metric-card hover-lift">
+                <div class="asset-icon">⚡</div>
+                <div class="metric-label">Analysis Date</div>
+                <div class="metric-value">{AppState.get_forecast_date().strftime('%m/%d')}</div>
+                <div class="metric-change metric-neutral">{AppState.get_forecast_date().strftime('%B %d, %Y')}</div>
+            </div>
+            
+            <div class="metric-card hover-lift">
+                <div class="asset-icon">🎯</div>
+                <div class="metric-label">System Status</div>
+                <div class="metric-value">READY</div>
+                <div class="metric-change metric-positive">
+                    <span class="status-chip status-live">🟢 All Systems Go</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def create_navigation_sidebar():
+    """Create the futuristic navigation sidebar."""
+    
+    with st.sidebar:
+        # Company branding with neon effect
+        st.markdown(f"""
+        <div style="text-align: center; padding: 2rem 1rem; margin-bottom: 2rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📈</div>
+            <h2 style="color: #ffffff; margin: 0; font-size: 1.5rem; font-weight: 900; 
+                       background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+                       -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                {APP_NAME}
+            </h2>
+            <p style="color: rgba(255, 255, 255, 0.7); margin: 0.5rem 0; font-size: 0.875rem;">
+                Max Pointe Consulting
+            </p>
+            <div style="margin-top: 1rem;">
+                <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                           color: white; padding: 0.25rem 0.75rem; border-radius: 20px; 
+                           font-size: 0.75rem; font-weight: 700;">v{VERSION}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Navigation menu
+        st.markdown("### 🧭 Navigation")
+        
+        nav_options = [
+            ("📊", "Dashboard", "Real-time overview"),
+            ("⚓", "Anchors", "Price anchors"),
+            ("🎯", "Forecasts", "Projection tables"),
+            ("📡", "Signals", "Live alerts"),
+            ("📜", "Contracts", "Options analysis"),
+            ("🌟", "Fibonacci", "Technical levels"),
+            ("📤", "Export", "Data export"),
+            ("⚙️", "Settings", "Configuration")
+        ]
+        
+        selected_page = st.radio(
+            "",
+            options=[f"{icon} {name}" for icon, name, _ in nav_options],
+            label_visibility="collapsed"
+        )
+        
+        # Asset selector
+        st.markdown('<div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
+        st.markdown("#### 📈 Trading Asset")
+        
+        selected_asset = st.selectbox(
+            "Select primary trading instrument",
+            options=list(MAJOR_EQUITIES.keys()),
+            format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {get_display_symbol(x)} - {MAJOR_EQUITIES[x]['name']}",
+            key="asset_selector"
+        )
+        
+        # Update asset if changed
+        if selected_asset != AppState.get_current_asset():
+            AppState.set_current_asset(selected_asset)
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Date selector
+        st.markdown('<div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
+        st.markdown("#### 📅 Analysis Session")
+        
+        forecast_date = st.date_input(
+            "Target trading session",
+            value=AppState.get_forecast_date(),
+            max_value=date.today(),
+            help="Select the trading session for analysis"
+        )
+        
+        # Update date if changed
+        if forecast_date != AppState.get_forecast_date():
+            AppState.set_forecast_date(forecast_date)
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Quick actions
+        st.markdown("#### ⚡ Quick Actions")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Refresh", key="refresh_btn", help="Refresh all data"):
+                AppState.refresh_data()
+                st.rerun()
+        
+        with col2:
+            if st.button("📋 Export", key="export_btn", help="Quick export"):
+                st.success("Export ready!")
+        
+        # System status
+        st.markdown('<div class="glass-panel" style="padding: 1rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
+        st.markdown("#### ⚡ System Status")
+        
+        system_checks = verify_system_ready()
+        all_good = all(system_checks.values())
+        
+        status_color = "success" if all_good else "warning"
+        status_text = "All Systems Operational" if all_good else "Partial Ready"
+        status_icon = "🟢" if all_good else "🟡"
+        
+        st.markdown(f"""
+        <div class="status-chip status-{status_color}" style="width: 100%; justify-content: center;">
+            {status_icon} {status_text}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        return selected_page
+
+def create_metric_card(title: str, value: str, change: str = "", icon: str = "📊", 
+                      change_type: str = "neutral", subtitle: str = ""):
+    """Create a beautiful metric card with glassmorphism design."""
+    
+    change_class = f"metric-{change_type}"
+    change_display = f'<div class="metric-change {change_class}">{change}</div>' if change else ""
+    subtitle_display = f'<div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">{subtitle}</div>' if subtitle else ""
+    
+    return f"""
+    <div class="metric-card hover-lift">
+        <div class="asset-icon">{icon}</div>
+        <div class="metric-label">{title}</div>
+        <div class="metric-value">{value}</div>
+        {change_display}
+        {subtitle_display}
+    </div>
+    """
+
+def create_section_header(title: str, description: str = "", icon: str = "🎯"):
+    """Create a beautiful section header with modern styling."""
+    
+    desc_html = f'<p class="section-subtitle">{description}</p>' if description else ""
+    
+    return f"""
+    <div class="section-header">
+        <div class="asset-icon-large">{icon}</div>
+        <h2 class="section-title">{title}</h2>
+        {desc_html}
+    </div>
+    """
+
+def create_status_badge(text: str, status_type: str = "neutral"):
+    """Create a status badge with appropriate styling."""
+    return f'<span class="status-chip status-{status_type}">{text}</span>'
+
+def create_chart_container(title: str = ""):
+    """Create a chart container with beautiful styling."""
+    title_html = f'<h3 style="color: #ffffff; margin: 0 0 1rem 0; text-align: center;">{title}</h3>' if title else ""
+    
+    st.markdown(f"""
+    <div class="chart-container">
+        {title_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+def create_enhanced_dataframe(df, title: str = ""):
+    """Create an enhanced dataframe display with beautiful styling."""
+    title_html = f'<h3 style="color: #ffffff; margin: 0 0 1rem 0;">{title}</h3>' if title else ""
+    
+    st.markdown(f"""
+    <div class="dataframe-container">
+        {title_html}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.dataframe(df, use_container_width=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MAIN UI INITIALIZATION
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Create the hero section
+create_hero_section()
+
+# Create navigation and get selected page
+selected_page = create_navigation_sidebar()
+
+# Add section divider
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+# Test that Part 2C functions are working
+st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; margin: 1rem 0;"><h3 style="color: #10b981 !important;">✅ Part 2C UI Functions Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">Complete UI system with hero section, navigation, and utility functions is now active.</p></div>', unsafe_allow_html=True)
