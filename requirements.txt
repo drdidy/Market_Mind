@@ -1,24 +1,29 @@
-# Market Lens - Essential Requirements Only
-# Minimal dependencies for enterprise trading platform
+# Market Lens - Enterprise Trading Platform
 
 # Core Framework
 streamlit==1.39.0
 
-# Financial Data Source
+# Financial Data
 yfinance==0.2.38
 
 # Data Processing
 pandas==2.2.3
 numpy==1.26.4
 
-# Timezone Handling
+# Time Management
 pytz==2024.2
 
-# Retry Logic for Reliability
+# Reliability
 tenacity==9.0.0
 
-# Charts & Visualization
+# Visualization & Charts
 plotly==5.24.1
 
-# File Export
+# UI Enhancement
+streamlit-option-menu==0.4.0
+
+# File Operations
 openpyxl==3.1.5
+
+# Additional Calculations
+scipy==1.14.1
