@@ -4,7 +4,6 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import pytz
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
@@ -27,22 +26,97 @@ class DataInfrastructure:
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=8))
     def fetch_data(self, symbol, period="5d", interval="1m"):
-        ticker = yf.Ticker(symbol)
-        data = ticker.history(period=period, interval=interval, prepost=True)
+        try:
+            ticker = yf.Ticker(symbol)
+            
+            # Primary: Try intraday data with prepost=True for extended hours
+            data = ticker.history(period=period, interval=interval, prepost=True)
+            
+            if data.empty:
+                # Fallback: Try daily data
+                data = ticker.history(period="5d", interval="1d")
+                
+            if data.empty:
+                raise ValueError(f"No data for {symbol}")
+            
+            # Timezone handling
+            if data.index.tz is None:
+                data.index = data.index.tz_localize('UTC')
+            data.index = data.index.tz_convert(self.timezone)
+            
+            return data
+            
+        except Exception as e:
+            logger.error(f"Error fetching {symbol}: {e}")
+            raise
+    
+    def get_live_quote(self, symbol):
+        """Get real-time quote with fallback strategy like your working app"""
+        try:
+            ticker = yf.Ticker(symbol)
+            
+            # Primary: Try 1-minute intraday data
+            try:
+                intraday = ticker.history(period="1d", interval="1m", prepost=True)
+                if not intraday.empty and "Close" in intraday.columns:
+                    current_price = float(intraday['Close'].iloc[-1])
+                    
+                    # Calculate change
+                    if len(intraday) > 1:
+                        prev_price = float(intraday['Close'].iloc[-2])
+                        change = (current_price - prev_price) / prev_price
+                    else:
+                        change = 0.0
+                    
+                    return {
+                        'price': current_price,
+                        'change': change,
+                        'status': 'live'
+                    }
+            except Exception:
+                pass
+            
+            # Fallback: Daily data
+            try:
+                daily = ticker.history(period="5d", interval="1d")
+                if not daily.empty and "Close" in daily.columns:
+                    current_price = float(daily['Close'].iloc[-1])
+                    
+                    if len(daily) > 1:
+                        prev_price = float(daily['Close'].iloc[-2])
+                        change = (current_price - prev_price) / prev_price
+                    else:
+                        change = 0.0
+                    
+                    return {
+                        'price': current_price,
+                        'change': change,
+                        'status': 'delayed'
+                    }
+            except Exception:
+                pass
+                
+        except Exception as e:
+            logger.error(f"Error getting live quote for {symbol}: {e}")
         
-        if data.empty:
-            raise ValueError(f"No data for {symbol}")
-        
-        if data.index.tz is None:
-            data.index = data.index.tz_localize('UTC')
-        data.index = data.index.tz_convert(self.timezone)
-        
-        return data
+        return {'price': None, 'change': 0.0, 'status': 'error'}
     
     def get_data(self, symbol):
         try:
+            # Try to get live quote first for current price
+            live_quote = self.get_live_quote(symbol)
+            
+            # Get historical data for resampling
             raw_data = self.fetch_data(symbol)
             resampled = self.resample_30min(raw_data)
+            
+            # Update with live price if available
+            if live_quote['price'] and not resampled.empty:
+                # Update the latest close with live price
+                resampled.iloc[-1, resampled.columns.get_loc('Close')] = live_quote['price']
+                # Recalculate change
+                resampled['Change'] = resampled['Close'].pct_change()
+            
             self.status['last_update'] = datetime.now(self.timezone)
             return resampled
         except Exception as e:
