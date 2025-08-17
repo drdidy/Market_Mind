@@ -416,3 +416,179 @@ class SPXDataModule:
 def get_spx_module():
     infrastructure = get_infrastructure()
     return SPXDataModule(infrastructure)
+
+# Market Lens - Part 4: Stock Data Module
+
+class StockDataModule:
+    def __init__(self, infrastructure):
+        self.infrastructure = infrastructure
+        self.stocks = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'TSLA', 'META']
+        
+    def get_stock_data(self, symbol):
+        return self.infrastructure.get_data(symbol)
+    
+    def get_all_stocks_data(self):
+        stock_data = {}
+        for symbol in self.stocks:
+            stock_data[symbol] = self.get_stock_data(symbol)
+        return stock_data
+    
+    def get_stock_price(self, symbol):
+        try:
+            data = self.get_stock_data(symbol)
+            if not data.empty:
+                return data['Close'].iloc[-1]
+            return None
+        except Exception:
+            return None
+    
+    def get_stock_change(self, symbol):
+        try:
+            data = self.get_stock_data(symbol)
+            if not data.empty and 'Change' in data.columns:
+                return data['Change'].iloc[-1]
+            return 0.0
+        except Exception:
+            return 0.0
+    
+    def get_stock_volume(self, symbol):
+        try:
+            data = self.get_stock_data(symbol)
+            if not data.empty:
+                return data['Volume'].iloc[-1]
+            return 0
+        except Exception:
+            return 0
+    
+    def get_stock_high_low(self, symbol):
+        try:
+            data = self.get_stock_data(symbol)
+            if not data.empty:
+                return {
+                    'high': data['High'].iloc[-1],
+                    'low': data['Low'].iloc[-1]
+                }
+            return {'high': None, 'low': None}
+        except Exception:
+            return {'high': None, 'low': None}
+    
+    def filter_session_data(self, data, start_hour=3, end_hour=18, end_minute=30):
+        try:
+            if data.empty:
+                return data
+            
+            session_data = data[
+                (data.index.hour >= start_hour) & 
+                ((data.index.hour < end_hour) | 
+                 ((data.index.hour == end_hour) & (data.index.minute <= end_minute)))
+            ]
+            return session_data
+        except Exception:
+            return data
+    
+    def get_monday_tuesday_data(self, symbol):
+        try:
+            data = self.get_stock_data(symbol)
+            if data.empty:
+                return pd.DataFrame()
+            
+            now = datetime.now(self.infrastructure.timezone)
+            week_start = now - timedelta(days=now.weekday())
+            
+            monday = week_start
+            tuesday = week_start + timedelta(days=1)
+            
+            monday_data = data[data.index.date == monday.date()]
+            tuesday_data = data[data.index.date == tuesday.date()]
+            
+            combined = pd.concat([monday_data, tuesday_data])
+            return self.filter_session_data(combined)
+            
+        except Exception:
+            return pd.DataFrame()
+    
+    def find_weekly_anchors(self, symbol):
+        try:
+            mon_tue_data = self.get_monday_tuesday_data(symbol)
+            if mon_tue_data.empty:
+                return {'skyline': None, 'baseline': None}
+            
+            session_data = self.filter_session_data(mon_tue_data)
+            if session_data.empty:
+                return {'skyline': None, 'baseline': None}
+            
+            skyline_price = session_data['Close'].max()
+            baseline_price = session_data['Close'].min()
+            
+            skyline_time = session_data[session_data['Close'] == skyline_price].index[0]
+            baseline_time = session_data[session_data['Close'] == baseline_price].index[0]
+            
+            return {
+                'skyline': {
+                    'price': float(skyline_price),
+                    'timestamp': skyline_time.isoformat()
+                },
+                'baseline': {
+                    'price': float(baseline_price),
+                    'timestamp': baseline_time.isoformat()
+                }
+            }
+            
+        except Exception:
+            return {'skyline': None, 'baseline': None}
+    
+    def get_all_weekly_anchors(self):
+        anchors = {}
+        for symbol in self.stocks:
+            anchors[symbol] = self.find_weekly_anchors(symbol)
+        return anchors
+    
+    def is_stock_data_fresh(self, symbol, max_age_minutes=5):
+        try:
+            data = self.get_stock_data(symbol)
+            if data.empty:
+                return False
+            
+            last_timestamp = data.index[-1]
+            now = datetime.now(self.infrastructure.timezone)
+            age = (now - last_timestamp).total_seconds() / 60
+            
+            return age <= max_age_minutes
+        except Exception:
+            return False
+    
+    def count_blocks_in_session(self, start_time, end_time):
+        try:
+            if isinstance(start_time, str):
+                start_time = datetime.fromisoformat(start_time.replace('Z', ''))
+            if isinstance(end_time, str):
+                end_time = datetime.fromisoformat(end_time.replace('Z', ''))
+            
+            if start_time.tzinfo is None:
+                start_time = self.infrastructure.timezone.localize(start_time)
+            if end_time.tzinfo is None:
+                end_time = self.infrastructure.timezone.localize(end_time)
+            
+            start_time = start_time.astimezone(self.infrastructure.timezone)
+            end_time = end_time.astimezone(self.infrastructure.timezone)
+            
+            total_blocks = 0
+            current_time = start_time
+            
+            while current_time < end_time:
+                next_time = current_time + timedelta(minutes=30)
+                
+                if (3 <= current_time.hour < 18) or (current_time.hour == 18 and current_time.minute <= 30):
+                    total_blocks += 1
+                
+                current_time = next_time
+            
+            return total_blocks
+            
+        except Exception:
+            return 0
+
+@st.cache_resource  
+def get_stock_module():
+    infrastructure = get_infrastructure()
+    return StockDataModule(infrastructure)
