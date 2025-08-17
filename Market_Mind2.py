@@ -312,7 +312,8 @@ with col2:
     st.metric("Current Time", current_time)
 
 with col3:
-    st.metric("Company", COMPANY)
+    st.metric("Company", "Max Pointe")
+    st.caption("Consulting")
 
 # Sidebar controls
 with st.sidebar:
