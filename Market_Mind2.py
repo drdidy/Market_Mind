@@ -460,9 +460,12 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-# Update session state
+# Update session state and get slope info
 AppState.set_current_asset(selected_asset)
 AppState.set_forecast_date(forecast_date)
+
+# Get slope information for display
+slope_info = get_slope_info_display()
 
 # Asset information display
 asset_info = MAJOR_EQUITIES[selected_asset]
@@ -485,7 +488,7 @@ st.markdown(f"""
         </div>
         <div>
             <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Slopes Configuration</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{get_slope_info_display()}</p>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{slope_info}</p>
         </div>
     </div>
 </div>
@@ -504,7 +507,6 @@ st.markdown(f"""
     <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
 </div>
 """, unsafe_allow_html=True)
-
 
 
 
