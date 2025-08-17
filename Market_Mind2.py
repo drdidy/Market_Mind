@@ -1433,14 +1433,15 @@ enhanced_stats = [
     }
 ]
 
-# Display the enhanced stats grid
-st.markdown(create_quick_stats_grid(enhanced_stats), unsafe_allow_html=True)
+# Generate and display the enhanced stats grid with proper HTML rendering
+stats_html = create_quick_stats_grid(enhanced_stats)
+st.markdown(stats_html, unsafe_allow_html=True)
 
 # Add a section for displaying selected page navigation
 current_page = st.session_state.get('selected_page', 'Dashboard')
 clean_page = current_page.split(' ', 1)[1] if ' ' in current_page else current_page
 
-# Page indicator
+# Page indicator with proper HTML rendering
 st.markdown(f"""
 <div class="glass-panel" style="padding: 1rem; text-align: center; margin: 2rem 0;">
     <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">CURRENT PAGE</div>
