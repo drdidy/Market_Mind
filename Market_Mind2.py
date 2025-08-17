@@ -400,10 +400,3 @@ def main():
         Price trading between Skyline and Baseline - neutral zone
     </div>
     """, unsafe_allow_html=True)
-    
-    # Next session preview
-    st.markdown("""
-    ---
-
-if __name__ == "__main__":
-    main()
