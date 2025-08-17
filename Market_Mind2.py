@@ -518,5 +518,3 @@ st.markdown(f"""
     <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
 </div>
 """, unsafe_allow_html=True)
-
-
