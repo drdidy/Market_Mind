@@ -603,21 +603,21 @@ def main():
     # Next session preview
     st.markdown("""
     <div class="feature-showcase fade-in">
-    <h3 style="color: #1e293b; margin-top: 0;">🚀 Ready for Session 2?</h3>
+    <h3 style="color: #1e293b; margin-top: 0;">🚀 Ready for Session 2A?</h3>
     
-    <h4 style="color: #2563eb;">Next: Data Infrastructure & Real-Time Feeds</h4>
+    <h4 style="color: #2563eb;">Next: Data Infrastructure Foundation</h4>
     <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #2563eb;">
         <ul style="margin: 0; color: #64748b; line-height: 1.8;">
-            <li><strong>Real-time data fetching</strong> with bulletproof error handling</li>
-            <li><strong>SPX (^GSPC) and ES Futures (ES=F)</strong> integration</li>
-            <li><strong>30-minute resampling</strong> and CT timezone handling</li>
-            <li><strong>Intelligent caching</strong> with retry mechanisms</li>
-            <li><strong>Data validation</strong> and fallback strategies</li>
+            <li><strong>Enterprise Caching</strong> with 100MB disk cache & 5-min TTL</li>
+            <li><strong>Intelligent Retry Logic</strong> with exponential backoff</li>
+            <li><strong>Data Validation</strong> for price ranges & freshness</li>
+            <li><strong>Error Handling</strong> with graceful degradation</li>
+            <li><strong>Timezone Management</strong> auto-converts to Chicago time</li>
         </ul>
     </div>
     
     <p style="margin: 1.5rem 0 0 0; font-size: 1.2rem; font-weight: 600; color: #2563eb;">
-    Type "2" when you're ready to add the data engine! 🔥
+    Type "2A" when you're ready to add the data infrastructure! 🔧
     </p>
     </div>
     """, unsafe_allow_html=True)
