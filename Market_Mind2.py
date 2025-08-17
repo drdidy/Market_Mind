@@ -74,7 +74,9 @@ class DataInfrastructure:
         }
 
 def get_infrastructure():
+    return DataInfrastructure()
 
+# Market Lens - Part 2: UI Foundation
 # Market Lens - Part 2: UI Foundation
 
 import streamlit as st
@@ -1158,3 +1160,985 @@ def get_stock_channel_engine():
 
 
     return DataInfrastructure()
+
+# Market Lens - Part 7: Trade Entry Signals
+
+import json
+import pandas as pd
+from datetime import datetime
+
+class TradeEntrySignals:
+    def __init__(self, spx_channel_engine, stock_channel_engine):
+        self.spx_engine = spx_channel_engine
+        self.stock_engine = stock_channel_engine
+        self.signal_cache = self.spx_engine.spx_module.infrastructure.cache_dir / 'trade_signals.json'
+        
+    def check_spx_entry_signals(self):
+        try:
+            current_levels = self.spx_engine.get_current_levels()
+            current_price = current_levels['current_price']
+            skyline = current_levels['skyline']
+            baseline = current_levels['baseline']
+            
+            if current_price is None or skyline is None or baseline is None:
+                return {'signal': None, 'type': None, 'confidence': 0}
+            
+            signals = []
+            
+            # Primary short signal - touch of Skyline
+            if abs(current_price - skyline) <= 2.0:
+                signals.append({
+                    'signal': 'SHORT',
+                    'type': 'Primary',
+                    'entry_level': skyline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - skyline),
+                    'confidence': self._calculate_confidence(current_price, skyline, 'short')
+                })
+            
+            # Primary long signal - touch of Baseline
+            if abs(current_price - baseline) <= 2.0:
+                signals.append({
+                    'signal': 'LONG',
+                    'type': 'Primary',
+                    'entry_level': baseline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - baseline),
+                    'confidence': self._calculate_confidence(current_price, baseline, 'long')
+                })
+            
+            # Retest signals
+            retest_signal = self._check_retest_signal(current_price, skyline, baseline)
+            if retest_signal:
+                signals.append(retest_signal)
+            
+            # Traversal signals
+            traversal_signal = self._check_traversal_signal(current_price, skyline, baseline)
+            if traversal_signal:
+                signals.append(traversal_signal)
+            
+            return self._prioritize_signals(signals)
+            
+        except Exception:
+            return {'signal': None, 'type': None, 'confidence': 0}
+    
+    def _calculate_confidence(self, current_price, target_level, direction):
+        try:
+            distance = abs(current_price - target_level)
+            
+            # Base confidence on proximity
+            if distance <= 0.5:
+                base_confidence = 95
+            elif distance <= 1.0:
+                base_confidence = 85
+            elif distance <= 2.0:
+                base_confidence = 75
+            else:
+                base_confidence = 50
+            
+            # Volume confirmation
+            volume_boost = self._check_volume_confirmation()
+            
+            # RTH session boost
+            rth_boost = self._check_rth_session()
+            
+            total_confidence = min(100, base_confidence + volume_boost + rth_boost)
+            return total_confidence
+            
+        except Exception:
+            return 50
+    
+    def _check_volume_confirmation(self):
+        try:
+            spx_volume = self.spx_engine.spx_module.get_spx_volume()
+            es_volume = self.spx_engine.spx_module.get_es_volume()
+            
+            # Simple volume check - above average
+            if spx_volume > 1000000 or es_volume > 500000:
+                return 10
+            return 0
+        except Exception:
+            return 0
+    
+    def _check_rth_session(self):
+        try:
+            market_hours = self.spx_engine.spx_module.infrastructure.market_hours()
+            if market_hours['is_rth']:
+                return 15
+            return 0
+        except Exception:
+            return 0
+    
+    def _check_retest_signal(self, current_price, skyline, baseline):
+        try:
+            # Check if price broke and reclaimed a level
+            recent_data = self.spx_engine.spx_module.get_spx_data()
+            if recent_data.empty or len(recent_data) < 10:
+                return None
+            
+            recent_prices = recent_data['Close'].tail(10)
+            
+            # Skyline retest (broke above, now back at level)
+            if any(price > skyline + 3 for price in recent_prices) and abs(current_price - skyline) <= 2:
+                return {
+                    'signal': 'SHORT',
+                    'type': 'Retest',
+                    'entry_level': skyline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - skyline),
+                    'confidence': 80
+                }
+            
+            # Baseline retest (broke below, now back at level)
+            if any(price < baseline - 3 for price in recent_prices) and abs(current_price - baseline) <= 2:
+                return {
+                    'signal': 'LONG',
+                    'type': 'Retest',
+                    'entry_level': baseline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - baseline),
+                    'confidence': 80
+                }
+            
+            return None
+        except Exception:
+            return None
+    
+    def _check_traversal_signal(self, current_price, skyline, baseline):
+        try:
+            # Check for channel traversal (moving from one extreme to the other)
+            recent_data = self.spx_engine.spx_module.get_spx_data()
+            if recent_data.empty or len(recent_data) < 20:
+                return None
+            
+            recent_prices = recent_data['Close'].tail(20)
+            
+            # Traversal from Baseline to Skyline
+            if any(price <= baseline + 2 for price in recent_prices[:10]) and abs(current_price - skyline) <= 3:
+                return {
+                    'signal': 'SHORT',
+                    'type': 'Traversal',
+                    'entry_level': skyline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - skyline),
+                    'confidence': 70
+                }
+            
+            # Traversal from Skyline to Baseline
+            if any(price >= skyline - 2 for price in recent_prices[:10]) and abs(current_price - baseline) <= 3:
+                return {
+                    'signal': 'LONG',
+                    'type': 'Traversal',
+                    'entry_level': baseline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - baseline),
+                    'confidence': 70
+                }
+            
+            return None
+        except Exception:
+            return None
+    
+    def _prioritize_signals(self, signals):
+        if not signals:
+            return {'signal': None, 'type': None, 'confidence': 0}
+        
+        # Priority: Primary > Retest > Traversal
+        priority_order = {'Primary': 3, 'Retest': 2, 'Traversal': 1}
+        
+        # Sort by type priority, then by confidence
+        sorted_signals = sorted(signals, 
+                              key=lambda x: (priority_order.get(x['type'], 0), x['confidence']), 
+                              reverse=True)
+        
+        return sorted_signals[0]
+    
+    def check_stock_entry_signals(self, symbol):
+        try:
+            current_levels = self.stock_engine.get_current_stock_levels(symbol)
+            current_price = current_levels['current_price']
+            skyline = current_levels['skyline']
+            baseline = current_levels['baseline']
+            
+            if current_price is None or skyline is None or baseline is None:
+                return {'signal': None, 'type': None, 'confidence': 0}
+            
+            # Use stock-specific tolerance (smaller than SPX)
+            tolerance = current_price * 0.005  # 0.5% tolerance
+            
+            signals = []
+            
+            # Primary short signal
+            if abs(current_price - skyline) <= tolerance:
+                signals.append({
+                    'signal': 'SHORT',
+                    'type': 'Primary',
+                    'entry_level': skyline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - skyline),
+                    'confidence': self._calculate_stock_confidence(symbol, current_price, skyline, 'short')
+                })
+            
+            # Primary long signal
+            if abs(current_price - baseline) <= tolerance:
+                signals.append({
+                    'signal': 'LONG',
+                    'type': 'Primary',
+                    'entry_level': baseline,
+                    'current_price': current_price,
+                    'distance': abs(current_price - baseline),
+                    'confidence': self._calculate_stock_confidence(symbol, current_price, baseline, 'long')
+                })
+            
+            return self._prioritize_signals(signals)
+            
+        except Exception:
+            return {'signal': None, 'type': None, 'confidence': 0}
+    
+    def _calculate_stock_confidence(self, symbol, current_price, target_level, direction):
+        try:
+            distance_pct = abs(current_price - target_level) / current_price
+            
+            if distance_pct <= 0.002:  # 0.2%
+                base_confidence = 90
+            elif distance_pct <= 0.005:  # 0.5%
+                base_confidence = 80
+            else:
+                base_confidence = 60
+            
+            # Stock volume confirmation
+            stock_volume = self.stock_engine.stock_module.get_stock_volume(symbol)
+            if stock_volume > 1000000:
+                volume_boost = 10
+            else:
+                volume_boost = 0
+            
+            # Session boost
+            rth_boost = self._check_rth_session()
+            
+            return min(100, base_confidence + volume_boost + rth_boost)
+            
+        except Exception:
+            return 50
+    
+    def get_all_active_signals(self):
+        try:
+            all_signals = {}
+            
+            # SPX signals
+            spx_signal = self.check_spx_entry_signals()
+            if spx_signal['signal']:
+                all_signals['SPX'] = spx_signal
+            
+            # Stock signals
+            for symbol in self.stock_engine.stock_module.stocks:
+                stock_signal = self.check_stock_entry_signals(symbol)
+                if stock_signal['signal']:
+                    all_signals[symbol] = stock_signal
+            
+            return all_signals
+            
+        except Exception:
+            return {}
+    
+    def save_signals(self, signals):
+        try:
+            signal_data = {
+                'signals': signals,
+                'timestamp': datetime.now().isoformat()
+            }
+            with open(self.signal_cache, 'w') as f:
+                json.dump(signal_data, f)
+        except Exception:
+            pass
+    
+    def get_signal_strength(self, signal_data):
+        if not signal_data or signal_data['signal'] is None:
+            return "None"
+        
+        confidence = signal_data.get('confidence', 0)
+        
+        if confidence >= 90:
+            return "Very Strong"
+        elif confidence >= 80:
+            return "Strong"
+        elif confidence >= 70:
+            return "Moderate"
+        elif confidence >= 60:
+            return "Weak"
+        else:
+            return "Very Weak"
+    
+    def format_signal_for_display(self, symbol, signal_data):
+        if not signal_data or signal_data['signal'] is None:
+            return None
+        
+        return {
+            'symbol': symbol,
+            'direction': signal_data['signal'],
+            'type': signal_data['type'],
+            'entry_level': signal_data.get('entry_level'),
+            'current_price': signal_data.get('current_price'),
+            'distance': signal_data.get('distance', 0),
+            'confidence': signal_data.get('confidence', 0),
+            'strength': self.get_signal_strength(signal_data)
+        }
+
+def get_trade_signals():
+    spx_engine = get_spx_channel_engine()
+    stock_engine = get_stock_channel_engine()
+    return TradeEntrySignals(spx_engine, stock_engine)
+
+# Market Lens - Part 8: Trade Management
+
+import json
+from datetime import datetime
+
+class TradeManagement:
+    def __init__(self, spx_channel_engine, stock_channel_engine):
+        self.spx_engine = spx_channel_engine
+        self.stock_engine = stock_channel_engine
+        self.trades_cache = self.spx_engine.spx_module.infrastructure.cache_dir / 'active_trades.json'
+        
+    def calculate_spx_tp_levels(self, entry_price, direction, entry_type='Primary'):
+        try:
+            current_levels = self.spx_engine.get_current_levels()
+            skyline = current_levels['skyline']
+            baseline = current_levels['baseline']
+            
+            if direction.upper() == 'SHORT':
+                # Short from Skyline
+                channel_distance = skyline - baseline
+                
+                if entry_type == 'Primary':
+                    tp1 = entry_price - (channel_distance * 0.382)  # 38.2% of channel
+                    tp2 = entry_price - (channel_distance * 0.618)  # 61.8% of channel
+                elif entry_type == 'Retest':
+                    tp1 = entry_price - (channel_distance * 0.5)    # 50% of channel
+                    tp2 = baseline  # Full channel traversal
+                else:  # Traversal
+                    tp1 = entry_price - (channel_distance * 0.25)   # 25% of channel
+                    tp2 = entry_price - (channel_distance * 0.5)    # 50% of channel
+                
+                stop_loss = entry_price + (channel_distance * 0.1)  # 10% above entry
+                
+            else:  # LONG
+                # Long from Baseline
+                channel_distance = skyline - baseline
+                
+                if entry_type == 'Primary':
+                    tp1 = entry_price + (channel_distance * 0.382)  # 38.2% of channel
+                    tp2 = entry_price + (channel_distance * 0.618)  # 61.8% of channel
+                elif entry_type == 'Retest':
+                    tp1 = entry_price + (channel_distance * 0.5)    # 50% of channel
+                    tp2 = skyline  # Full channel traversal
+                else:  # Traversal
+                    tp1 = entry_price + (channel_distance * 0.25)   # 25% of channel
+                    tp2 = entry_price + (channel_distance * 0.5)    # 50% of channel
+                
+                stop_loss = entry_price - (channel_distance * 0.1)  # 10% below entry
+            
+            return {
+                'tp1': round(tp1, 2),
+                'tp2': round(tp2, 2),
+                'stop_loss': round(stop_loss, 2),
+                'risk_reward_tp1': self._calculate_risk_reward(entry_price, tp1, stop_loss),
+                'risk_reward_tp2': self._calculate_risk_reward(entry_price, tp2, stop_loss)
+            }
+            
+        except Exception:
+            return self._get_fallback_tp_levels(entry_price, direction)
+    
+    def calculate_stock_tp_levels(self, symbol, entry_price, direction, entry_type='Primary'):
+        try:
+            current_levels = self.stock_engine.get_current_stock_levels(symbol)
+            skyline = current_levels['skyline']
+            baseline = current_levels['baseline']
+            
+            channel_distance = skyline - baseline
+            
+            if direction.upper() == 'SHORT':
+                if entry_type == 'Primary':
+                    tp1 = entry_price - (channel_distance * 0.4)    # 40% for stocks
+                    tp2 = entry_price - (channel_distance * 0.7)    # 70% for stocks
+                else:
+                    tp1 = entry_price - (channel_distance * 0.3)
+                    tp2 = entry_price - (channel_distance * 0.6)
+                
+                stop_loss = entry_price + (channel_distance * 0.15)  # 15% above for stocks
+                
+            else:  # LONG
+                if entry_type == 'Primary':
+                    tp1 = entry_price + (channel_distance * 0.4)    # 40% for stocks
+                    tp2 = entry_price + (channel_distance * 0.7)    # 70% for stocks
+                else:
+                    tp1 = entry_price + (channel_distance * 0.3)
+                    tp2 = entry_price + (channel_distance * 0.6)
+                
+                stop_loss = entry_price - (channel_distance * 0.15)  # 15% below for stocks
+            
+            return {
+                'tp1': round(tp1, 2),
+                'tp2': round(tp2, 2),
+                'stop_loss': round(stop_loss, 2),
+                'risk_reward_tp1': self._calculate_risk_reward(entry_price, tp1, stop_loss),
+                'risk_reward_tp2': self._calculate_risk_reward(entry_price, tp2, stop_loss)
+            }
+            
+        except Exception:
+            return self._get_fallback_tp_levels(entry_price, direction)
+    
+    def _calculate_risk_reward(self, entry, target, stop):
+        try:
+            risk = abs(entry - stop)
+            reward = abs(target - entry)
+            if risk == 0:
+                return 0
+            return round(reward / risk, 2)
+        except Exception:
+            return 0
+    
+    def _get_fallback_tp_levels(self, entry_price, direction):
+        if direction.upper() == 'SHORT':
+            tp1 = entry_price * 0.995  # 0.5% down
+            tp2 = entry_price * 0.985  # 1.5% down
+            stop_loss = entry_price * 1.005  # 0.5% up
+        else:
+            tp1 = entry_price * 1.005  # 0.5% up
+            tp2 = entry_price * 1.015  # 1.5% up
+            stop_loss = entry_price * 0.995  # 0.5% down
+        
+        return {
+            'tp1': round(tp1, 2),
+            'tp2': round(tp2, 2),
+            'stop_loss': round(stop_loss, 2),
+            'risk_reward_tp1': 1.0,
+            'risk_reward_tp2': 3.0
+        }
+    
+    def create_trade_plan(self, symbol, signal_data):
+        try:
+            if not signal_data or signal_data['signal'] is None:
+                return None
+            
+            entry_price = signal_data.get('current_price')
+            direction = signal_data.get('signal')
+            entry_type = signal_data.get('type', 'Primary')
+            
+            if symbol == 'SPX':
+                tp_levels = self.calculate_spx_tp_levels(entry_price, direction, entry_type)
+            else:
+                tp_levels = self.calculate_stock_tp_levels(symbol, entry_price, direction, entry_type)
+            
+            trade_plan = {
+                'symbol': symbol,
+                'direction': direction,
+                'entry_type': entry_type,
+                'entry_price': entry_price,
+                'tp1': tp_levels['tp1'],
+                'tp2': tp_levels['tp2'],
+                'stop_loss': tp_levels['stop_loss'],
+                'risk_reward_tp1': tp_levels['risk_reward_tp1'],
+                'risk_reward_tp2': tp_levels['risk_reward_tp2'],
+                'confidence': signal_data.get('confidence', 0),
+                'created_time': datetime.now().isoformat()
+            }
+            
+            return trade_plan
+            
+        except Exception:
+            return None
+    
+    def calculate_position_size(self, account_balance, risk_percentage, entry_price, stop_loss):
+        try:
+            risk_amount = account_balance * (risk_percentage / 100)
+            price_risk = abs(entry_price - stop_loss)
+            
+            if price_risk == 0:
+                return 0
+            
+            position_size = risk_amount / price_risk
+            return round(position_size, 0)
+            
+        except Exception:
+            return 0
+    
+    def check_tp_hit(self, symbol, trade_plan):
+        try:
+            if symbol == 'SPX':
+                current_price = self.spx_engine.spx_module.get_current_spx_price()
+            else:
+                current_price = self.stock_engine.stock_module.get_stock_price(symbol)
+            
+            if current_price is None:
+                return {'tp1_hit': False, 'tp2_hit': False, 'stop_hit': False}
+            
+            direction = trade_plan['direction'].upper()
+            tp1 = trade_plan['tp1']
+            tp2 = trade_plan['tp2']
+            stop_loss = trade_plan['stop_loss']
+            
+            if direction == 'LONG':
+                tp1_hit = current_price >= tp1
+                tp2_hit = current_price >= tp2
+                stop_hit = current_price <= stop_loss
+            else:  # SHORT
+                tp1_hit = current_price <= tp1
+                tp2_hit = current_price <= tp2
+                stop_hit = current_price >= stop_loss
+            
+            return {
+                'tp1_hit': tp1_hit,
+                'tp2_hit': tp2_hit,
+                'stop_hit': stop_hit,
+                'current_price': current_price
+            }
+            
+        except Exception:
+            return {'tp1_hit': False, 'tp2_hit': False, 'stop_hit': False}
+    
+    def calculate_trailing_stop(self, symbol, trade_plan, tp1_hit=False):
+        try:
+            if not tp1_hit:
+                return trade_plan['stop_loss']
+            
+            # After TP1 hit, move stop to breakeven + small buffer
+            entry_price = trade_plan['entry_price']
+            direction = trade_plan['direction'].upper()
+            
+            if direction == 'LONG':
+                trailing_stop = entry_price + (entry_price * 0.001)  # BE + 0.1%
+            else:  # SHORT
+                trailing_stop = entry_price - (entry_price * 0.001)  # BE - 0.1%
+            
+            return round(trailing_stop, 2)
+            
+        except Exception:
+            return trade_plan.get('stop_loss', 0)
+    
+    def get_exit_recommendation(self, symbol, trade_plan):
+        try:
+            tp_status = self.check_tp_hit(symbol, trade_plan)
+            
+            if tp_status['stop_hit']:
+                return {
+                    'action': 'EXIT_STOP',
+                    'reason': 'Stop loss hit',
+                    'current_price': tp_status['current_price']
+                }
+            
+            if tp_status['tp2_hit']:
+                return {
+                    'action': 'EXIT_TP2',
+                    'reason': 'TP2 achieved - full exit',
+                    'current_price': tp_status['current_price']
+                }
+            
+            if tp_status['tp1_hit']:
+                trailing_stop = self.calculate_trailing_stop(symbol, trade_plan, True)
+                return {
+                    'action': 'PARTIAL_EXIT',
+                    'reason': 'TP1 achieved - take partial profit, trail stop',
+                    'new_stop': trailing_stop,
+                    'current_price': tp_status['current_price']
+                }
+            
+            return {
+                'action': 'HOLD',
+                'reason': 'Targets not reached',
+                'current_price': tp_status['current_price']
+            }
+            
+        except Exception:
+            return {
+                'action': 'HOLD',
+                'reason': 'Unable to determine status',
+                'current_price': None
+            }
+    
+    def save_active_trades(self, trades):
+        try:
+            trade_data = {
+                'trades': trades,
+                'last_updated': datetime.now().isoformat()
+            }
+            with open(self.trades_cache, 'w') as f:
+                json.dump(trade_data, f)
+        except Exception:
+            pass
+    
+    def load_active_trades(self):
+        try:
+            if self.trades_cache.exists():
+                with open(self.trades_cache, 'r') as f:
+                    data = json.load(f)
+                return data.get('trades', [])
+        except Exception:
+            pass
+        return []
+    
+    def format_trade_plan_for_display(self, trade_plan):
+        if not trade_plan:
+            return None
+        
+        return {
+            'Symbol': trade_plan['symbol'],
+            'Direction': trade_plan['direction'],
+            'Entry': f"${trade_plan['entry_price']:.2f}",
+            'TP1': f"${trade_plan['tp1']:.2f}",
+            'TP2': f"${trade_plan['tp2']:.2f}",
+            'Stop': f"${trade_plan['stop_loss']:.2f}",
+            'R:R TP1': f"1:{trade_plan['risk_reward_tp1']:.1f}",
+            'R:R TP2': f"1:{trade_plan['risk_reward_tp2']:.1f}",
+            'Confidence': f"{trade_plan['confidence']}%"
+        }
+
+def get_trade_management():
+    spx_engine = get_spx_channel_engine()
+    stock_engine = get_stock_channel_engine()
+    return TradeManagement(spx_engine, stock_engine)
+
+# Market Lens - Part 9: Risk Management
+
+import json
+import numpy as np
+from datetime import datetime
+
+class RiskManagement:
+    def __init__(self, trade_management):
+        self.trade_management = trade_management
+        self.risk_cache = self.trade_management.spx_engine.spx_module.infrastructure.cache_dir / 'risk_settings.json'
+        
+        self.default_settings = {
+            'max_risk_per_trade': 2.0,
+            'max_daily_risk': 6.0,
+            'max_concurrent_trades': 3,
+            'max_correlation_exposure': 50.0,
+            'account_balance': 100000.0,
+            'risk_multiplier_high_confidence': 1.5,
+            'risk_multiplier_low_confidence': 0.5
+        }
+    
+    def load_risk_settings(self):
+        try:
+            if self.risk_cache.exists():
+                with open(self.risk_cache, 'r') as f:
+                    settings = json.load(f)
+                return {**self.default_settings, **settings}
+        except Exception:
+            pass
+        return self.default_settings
+    
+    def save_risk_settings(self, settings):
+        try:
+            with open(self.risk_cache, 'w') as f:
+                json.dump(settings, f)
+        except Exception:
+            pass
+    
+    def calculate_position_size(self, trade_plan, account_balance=None):
+        try:
+            settings = self.load_risk_settings()
+            
+            if account_balance is None:
+                account_balance = settings['account_balance']
+            
+            # Base risk percentage
+            base_risk = settings['max_risk_per_trade']
+            
+            # Adjust risk based on confidence
+            confidence = trade_plan.get('confidence', 50)
+            if confidence >= 90:
+                risk_multiplier = settings['risk_multiplier_high_confidence']
+            elif confidence < 70:
+                risk_multiplier = settings['risk_multiplier_low_confidence']
+            else:
+                risk_multiplier = 1.0
+            
+            adjusted_risk = base_risk * risk_multiplier
+            
+            # Calculate position size
+            entry_price = trade_plan['entry_price']
+            stop_loss = trade_plan['stop_loss']
+            
+            position_size = self.trade_management.calculate_position_size(
+                account_balance, adjusted_risk, entry_price, stop_loss
+            )
+            
+            return {
+                'shares': int(position_size),
+                'risk_amount': account_balance * (adjusted_risk / 100),
+                'risk_percentage': adjusted_risk,
+                'confidence_multiplier': risk_multiplier
+            }
+            
+        except Exception:
+            return {
+                'shares': 0,
+                'risk_amount': 0,
+                'risk_percentage': 0,
+                'confidence_multiplier': 1.0
+            }
+    
+    def check_risk_limits(self, new_trade_plan, active_trades=None):
+        try:
+            settings = self.load_risk_settings()
+            
+            if active_trades is None:
+                active_trades = self.trade_management.load_active_trades()
+            
+            violations = []
+            
+            # Check max concurrent trades
+            if len(active_trades) >= settings['max_concurrent_trades']:
+                violations.append({
+                    'type': 'MAX_TRADES',
+                    'message': f"Maximum {settings['max_concurrent_trades']} concurrent trades exceeded"
+                })
+            
+            # Check daily risk exposure
+            daily_risk = self._calculate_daily_risk_exposure(active_trades, new_trade_plan)
+            if daily_risk > settings['max_daily_risk']:
+                violations.append({
+                    'type': 'DAILY_RISK',
+                    'message': f"Daily risk {daily_risk:.1f}% exceeds limit of {settings['max_daily_risk']}%"
+                })
+            
+            # Check correlation exposure
+            correlation_risk = self._calculate_correlation_exposure(active_trades, new_trade_plan)
+            if correlation_risk > settings['max_correlation_exposure']:
+                violations.append({
+                    'type': 'CORRELATION',
+                    'message': f"Correlation exposure {correlation_risk:.1f}% exceeds limit of {settings['max_correlation_exposure']}%"
+                })
+            
+            return {
+                'approved': len(violations) == 0,
+                'violations': violations,
+                'risk_score': self._calculate_overall_risk_score(daily_risk, correlation_risk, len(active_trades))
+            }
+            
+        except Exception:
+            return {
+                'approved': False,
+                'violations': [{'type': 'ERROR', 'message': 'Unable to assess risk'}],
+                'risk_score': 100
+            }
+    
+    def _calculate_daily_risk_exposure(self, active_trades, new_trade):
+        try:
+            settings = self.load_risk_settings()
+            account_balance = settings['account_balance']
+            
+            total_risk = 0
+            
+            # Risk from active trades
+            for trade in active_trades:
+                trade_risk = abs(trade['entry_price'] - trade['stop_loss'])
+                position_size = trade.get('position_size', 0)
+                risk_amount = position_size * trade_risk
+                risk_pct = (risk_amount / account_balance) * 100
+                total_risk += risk_pct
+            
+            # Risk from new trade
+            if new_trade:
+                new_risk = abs(new_trade['entry_price'] - new_trade['stop_loss'])
+                position_size = self.calculate_position_size(new_trade)['shares']
+                new_risk_amount = position_size * new_risk
+                new_risk_pct = (new_risk_amount / account_balance) * 100
+                total_risk += new_risk_pct
+            
+            return total_risk
+            
+        except Exception:
+            return 0
+    
+    def _calculate_correlation_exposure(self, active_trades, new_trade):
+        try:
+            # Group trades by symbol type
+            spx_exposure = 0
+            stock_exposure = 0
+            
+            all_trades = active_trades.copy()
+            if new_trade:
+                all_trades.append(new_trade)
+            
+            for trade in all_trades:
+                symbol = trade.get('symbol', '')
+                
+                if symbol in ['SPX', '^GSPC', 'ES=F']:
+                    spx_exposure += 1
+                else:
+                    stock_exposure += 1
+            
+            total_trades = len(all_trades)
+            if total_trades == 0:
+                return 0
+            
+            # Calculate concentration risk
+            max_exposure = max(spx_exposure, stock_exposure)
+            concentration_pct = (max_exposure / total_trades) * 100
+            
+            return concentration_pct
+            
+        except Exception:
+            return 0
+    
+    def _calculate_overall_risk_score(self, daily_risk, correlation_risk, num_trades):
+        try:
+            # Risk score from 0-100 (higher = more risky)
+            risk_score = 0
+            
+            # Daily risk component (0-40 points)
+            risk_score += min(40, daily_risk * 6.67)  # 6% daily risk = 40 points
+            
+            # Correlation component (0-30 points)
+            risk_score += min(30, correlation_risk * 0.6)  # 50% correlation = 30 points
+            
+            # Trade count component (0-30 points)
+            risk_score += min(30, num_trades * 10)  # 3 trades = 30 points
+            
+            return min(100, risk_score)
+            
+        except Exception:
+            return 50
+    
+    def get_risk_recommendation(self, trade_plan):
+        try:
+            risk_check = self.check_risk_limits(trade_plan)
+            
+            if not risk_check['approved']:
+                return {
+                    'recommendation': 'REJECT',
+                    'reason': 'Risk limits exceeded',
+                    'violations': risk_check['violations']
+                }
+            
+            risk_score = risk_check['risk_score']
+            
+            if risk_score <= 30:
+                return {
+                    'recommendation': 'FULL_SIZE',
+                    'reason': 'Low risk environment',
+                    'suggested_multiplier': 1.0
+                }
+            elif risk_score <= 60:
+                return {
+                    'recommendation': 'REDUCED_SIZE',
+                    'reason': 'Moderate risk - reduce position',
+                    'suggested_multiplier': 0.75
+                }
+            else:
+                return {
+                    'recommendation': 'MINIMAL_SIZE',
+                    'reason': 'High risk - minimal position only',
+                    'suggested_multiplier': 0.5
+                }
+                
+        except Exception:
+            return {
+                'recommendation': 'REJECT',
+                'reason': 'Unable to assess risk',
+                'violations': []
+            }
+    
+    def calculate_portfolio_risk_metrics(self, active_trades=None):
+        try:
+            if active_trades is None:
+                active_trades = self.trade_management.load_active_trades()
+            
+            settings = self.load_risk_settings()
+            account_balance = settings['account_balance']
+            
+            if not active_trades:
+                return {
+                    'total_exposure': 0,
+                    'daily_risk': 0,
+                    'correlation_risk': 0,
+                    'active_trades': 0,
+                    'risk_score': 0
+                }
+            
+            # Calculate total portfolio exposure
+            total_exposure = 0
+            for trade in active_trades:
+                position_size = trade.get('position_size', 0)
+                entry_price = trade.get('entry_price', 0)
+                exposure = position_size * entry_price
+                total_exposure += exposure
+            
+            exposure_pct = (total_exposure / account_balance) * 100
+            
+            daily_risk = self._calculate_daily_risk_exposure(active_trades, None)
+            correlation_risk = self._calculate_correlation_exposure(active_trades, None)
+            risk_score = self._calculate_overall_risk_score(daily_risk, correlation_risk, len(active_trades))
+            
+            return {
+                'total_exposure': exposure_pct,
+                'daily_risk': daily_risk,
+                'correlation_risk': correlation_risk,
+                'active_trades': len(active_trades),
+                'risk_score': risk_score,
+                'risk_level': self._get_risk_level(risk_score)
+            }
+            
+        except Exception:
+            return {
+                'total_exposure': 0,
+                'daily_risk': 0,
+                'correlation_risk': 0,
+                'active_trades': 0,
+                'risk_score': 0,
+                'risk_level': 'Unknown'
+            }
+    
+    def _get_risk_level(self, risk_score):
+        if risk_score <= 25:
+            return "Low"
+        elif risk_score <= 50:
+            return "Moderate"
+        elif risk_score <= 75:
+            return "High"
+        else:
+            return "Very High"
+    
+    def get_max_position_size(self, symbol, entry_price, stop_loss):
+        try:
+            settings = self.load_risk_settings()
+            account_balance = settings['account_balance']
+            max_risk = settings['max_risk_per_trade']
+            
+            max_shares = self.trade_management.calculate_position_size(
+                account_balance, max_risk, entry_price, stop_loss
+            )
+            
+            return {
+                'max_shares': int(max_shares),
+                'max_value': max_shares * entry_price,
+                'max_risk_amount': account_balance * (max_risk / 100)
+            }
+            
+        except Exception:
+            return {
+                'max_shares': 0,
+                'max_value': 0,
+                'max_risk_amount': 0
+            }
+    
+    def format_risk_summary(self, risk_metrics):
+        try:
+            return {
+                'Portfolio Exposure': f"{risk_metrics['total_exposure']:.1f}%",
+                'Daily Risk': f"{risk_metrics['daily_risk']:.1f}%",
+                'Correlation Risk': f"{risk_metrics['correlation_risk']:.1f}%",
+                'Active Trades': risk_metrics['active_trades'],
+                'Risk Level': risk_metrics['risk_level'],
+                'Risk Score': f"{risk_metrics['risk_score']:.0f}/100"
+            }
+        except Exception:
+            return {}
+
+def get_risk_management():
+    trade_management = get_trade_management()
+    return RiskManagement(trade_management)
+
