@@ -1366,80 +1366,109 @@ def add_sidebar_quick_actions():
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# EXECUTE PART 2B COMPONENTS
+# EXECUTE PART 2B COMPONENTS - USING DIRECT STREAMLIT RENDERING
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 # Add quick actions to sidebar
 add_sidebar_quick_actions()
 
 # Display section header for main content
-st.markdown(create_section_header(
-    "Trading Analytics Dashboard",
-    "Real-time market analysis with advanced forecasting capabilities",
-    "🚀"
-), unsafe_allow_html=True)
+st.markdown(f"""
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">🚀</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Trading Analytics Dashboard
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Real-time market analysis with advanced forecasting capabilities</p>
+</div>
+<div class="section-divider"></div>
+""", unsafe_allow_html=True)
 
-# Create enhanced stats using the existing asset and market data
+# Create enhanced stats using existing data - DIRECT RENDERING
 current_asset = AppState.get_current_asset()
 asset_info = MAJOR_EQUITIES[current_asset]
 market_status, status_type = get_market_status()
 
-enhanced_stats = [
-    {
-        "title": "Current Asset",
-        "value": get_display_symbol(current_asset),
-        "icon": asset_info['icon'],
-        "subtitle": asset_info['name'],
-        "change_type": "neutral"
-    },
-    {
-        "title": "Market Status", 
-        "value": "LIVE",
-        "icon": "📡",
-        "change": market_status,
-        "change_type": "positive" if "Open" in market_status else "warning",
-        "subtitle": "Real-time Data"
-    },
-    {
-        "title": "Analysis Date",
-        "value": AppState.get_forecast_date().strftime("%m/%d"),
-        "icon": "📅",
-        "subtitle": AppState.get_forecast_date().strftime("%B %d, %Y"),
-        "change_type": "neutral"
-    },
-    {
-        "title": "System Ready",
-        "value": "100%",
-        "icon": "⚡",
-        "change": "+Ready",
-        "change_type": "positive",
-        "subtitle": "All modules active"
-    },
-    {
-        "title": "Data Feed",
-        "value": "LIVE",
-        "icon": "📊",
-        "change": "Connected",
-        "change_type": "positive",
-        "subtitle": "Yahoo Finance"
-    },
-    {
-        "title": "Session Time",
-        "value": datetime.now(CT).strftime("%H:%M"),
-        "icon": "🕐",
-        "change": "CT",
-        "change_type": "neutral",
-        "subtitle": "Central Time"
-    }
-]
+# Enhanced stats grid with direct Streamlit components
+st.markdown('<div class="metric-grid">', unsafe_allow_html=True)
 
-# Generate and display the enhanced stats grid with proper HTML rendering
-stats_html = create_quick_stats_grid(enhanced_stats)
-st.markdown(stats_html, unsafe_allow_html=True)
+# Create individual metric cards using columns
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="asset-icon">{asset_info['icon']}</div>
+        <div class="metric-label">Current Asset</div>
+        <div class="metric-value">{get_display_symbol(current_asset)}</div>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">{asset_info['name']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    status_color = "#00ff88" if "Open" in market_status else "#ff6b35"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="asset-icon">📡</div>
+        <div class="metric-label">Market Status</div>
+        <div class="metric-value">LIVE</div>
+        <div class="metric-change" style="color: {status_color};">{market_status}</div>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">Real-time Data</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="asset-icon">📅</div>
+        <div class="metric-label">Analysis Date</div>
+        <div class="metric-value">{AppState.get_forecast_date().strftime("%m/%d")}</div>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">{AppState.get_forecast_date().strftime("%B %d, %Y")}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Second row
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="asset-icon">⚡</div>
+        <div class="metric-label">System Ready</div>
+        <div class="metric-value">100%</div>
+        <div class="metric-change metric-positive">+Ready</div>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">All modules active</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col5:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="asset-icon">📊</div>
+        <div class="metric-label">Data Feed</div>
+        <div class="metric-value">LIVE</div>
+        <div class="metric-change metric-positive">Connected</div>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">Yahoo Finance</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col6:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="asset-icon">🕐</div>
+        <div class="metric-label">Session Time</div>
+        <div class="metric-value">{datetime.now(CT).strftime("%H:%M")}</div>
+        <div class="metric-change metric-neutral">CT</div>
+        <div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">Central Time</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Add a section for displaying selected page navigation
 current_page = st.session_state.get('selected_page', 'Dashboard')
-clean_page = current_page.split(' ', 1)[1] if ' ' in current_page else current_page
 
 # Page indicator with proper HTML rendering
 st.markdown(f"""
