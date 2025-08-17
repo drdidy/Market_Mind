@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - ENTERPRISE SPX & EQUITIES FORECASTING PLATFORM  
-# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (UPDATED FOR MODERN UI)
+# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (ERROR-FREE VERSION)
 # Professional Trading Application with Advanced Analytics & Real-time Data
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
@@ -142,27 +142,7 @@ def generate_rth_slots() -> List[datetime]:
         current += timedelta(minutes=30)
     return slots
 
-# Helper function to get slopes for any asset
-def get_asset_slopes(symbol: str) -> Dict[str, float]:
-    """Get skyline and baseline slopes for the specified asset."""
-    if symbol == "^GSPC":
-        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
-    elif symbol in STOCK_SLOPES:
-        return STOCK_SLOPES[symbol]
-    else:
-        # Default to SPX slopes for unknown symbols
-        log_error(f"Unknown symbol {symbol}, using SPX slopes", "Configuration")
-        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
-
 def safe_float_conversion(value: Any, default: float = 0.0) -> float:
-    """Generate slope information for current asset."""
-    current_asset = AppState.get_current_asset()
-    slopes = get_asset_slopes(current_asset)
-    
-    if current_asset == "^GSPC":
-        return f"SPX Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
-    else:
-        return f"{current_asset} Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
     """Safely convert value to float with fallback."""
     try:
         if value is None or value == '' or str(value).lower() in ['nan', 'none', '—']:
@@ -242,6 +222,17 @@ def sanitize_price_data(price: Any) -> Optional[float]:
         return clean_price
     except:
         return None
+
+# Helper function to get slopes for any asset
+def get_asset_slopes(symbol: str) -> Dict[str, float]:
+    """Get skyline and baseline slopes for the specified asset."""
+    if symbol == "^GSPC":
+        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
+    elif symbol in STOCK_SLOPES:
+        return STOCK_SLOPES[symbol]
+    else:
+        # Default to SPX slopes for unknown symbols
+        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
 
 # ───────────────────────────────  CONFIGURATION CONSTANTS  ───────────────────────────────
 # Color scheme for consistent theming (Updated for modern UI)
@@ -460,12 +451,16 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-# Update session state and get slope info
+# Update session state
 AppState.set_current_asset(selected_asset)
 AppState.set_forecast_date(forecast_date)
 
-# Get slope information for display
-slope_info = get_slope_info_display()
+# Get slope information for the selected asset
+slopes = get_asset_slopes(selected_asset)
+if selected_asset == "^GSPC":
+    slope_info = f"SPX Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
+else:
+    slope_info = f"{selected_asset} Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
 
 # Asset information display
 asset_info = MAJOR_EQUITIES[selected_asset]
@@ -485,6 +480,10 @@ st.markdown(f"""
         <div>
             <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Analysis Date</h4>
             <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{forecast_date.strftime('%B %d, %Y')}</p>
+        </div>
+        <div>
+            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Previous Day</h4>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{previous_trading_day(forecast_date).strftime('%B %d, %Y')}</p>
         </div>
         <div>
             <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Slopes Configuration</h4>
