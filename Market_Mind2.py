@@ -649,20 +649,78 @@ section[data-testid="stSidebar"] .stDateInput > div > div,
   color: var(--text-primary) !important;
 }
 
-/* ========== PROFESSIONAL SIDEBAR ========== */
+/* ========== PROFESSIONAL SIDEBAR WITH BETTER VISIBILITY ========== */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, 
+    rgba(248, 250, 252, 0.95) 0%, 
+    rgba(241, 245, 249, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(203, 213, 225, 0.5);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
 section[data-testid="stSidebar"] > div {
   padding-top: 1rem;
   background: transparent;
 }
 
+/* SIDEBAR TEXT - DARK FOR PERFECT VISIBILITY */
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3,
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span,
 section[data-testid="stSidebar"] div,
-section[data-testid="stSidebar"] label {
-  color: var(--text-primary) !important;
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] .stMarkdown * {
+  color: #1e293b !important;
+}
+
+/* PERFECT FORM VISIBILITY IN SIDEBAR */
+section[data-testid="stSidebar"] .stSelectbox > div > div,
+section[data-testid="stSidebar"] .stSelectbox input,
+section[data-testid="stSidebar"] .stDateInput input,
+section[data-testid="stSidebar"] .stDateInput > div > div {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* SIDEBAR DROPDOWN OPTIONS */
+section[data-testid="stSidebar"] .stSelectbox [role="listbox"],
+section[data-testid="stSidebar"] .stSelectbox [role="option"],
+section[data-testid="stSidebar"] .stSelectbox ul,
+section[data-testid="stSidebar"] .stSelectbox li {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+section[data-testid="stSidebar"] .stSelectbox [role="option"]:hover {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+/* SIDEBAR CALENDAR */
+section[data-testid="stSidebar"] .stDateInput .stCalendar,
+section[data-testid="stSidebar"] .stDateInput .stCalendar * {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* SIDEBAR BUTTONS */
+section[data-testid="stSidebar"] .stButton > button {
+  background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
+  border: none;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
 }
 
 /* ========== RESPONSIVE DESIGN ========== */
