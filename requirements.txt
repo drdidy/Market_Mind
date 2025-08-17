@@ -1,0 +1,48 @@
+# Market Lens - Complete Enterprise Requirements
+# Professional Market Forecasting Platform - All 8 Sessions
+
+# Core Framework
+streamlit==1.30.0
+
+# Data Processing & Analysis
+pandas==2.1.4
+numpy==1.24.3
+
+# Market Data Source
+yfinance==0.2.25
+
+# Date/Time Handling
+pytz==2023.3
+python-dateutil==2.8.2
+
+# Data Visualization & Charting
+plotly==5.17.0
+
+# File I/O & Export Capabilities
+openpyxl==3.1.2
+
+# HTTP Requests & API Handling
+requests==2.31.0
+urllib3==2.0.7
+
+# Mathematical Operations
+scipy==1.11.4
+
+# Additional Data Utilities
+xlsxwriter==3.1.9
+
+# Caching & Performance
+diskcache==5.6.3
+
+# Retry Logic & Error Handling
+tenacity==8.2.3
+
+# JSON Handling (built-in but explicit)
+# json - built-in
+
+# System & OS Operations (built-in)
+# os - built-in
+# sys - built-in
+# time - built-in
+# datetime - built-in
+# typing - built-in
