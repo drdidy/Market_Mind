@@ -521,6 +521,7 @@ st.markdown(f"""
 
 
 
+
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FOR STREAMLIT)
 # Next-Generation Trading Interface - Foundation Layer
@@ -1696,3 +1697,4 @@ st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
 # Test that Part 2C functions are working
 st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; margin: 1rem 0;"><h3 style="color: #10b981 !important;">✅ Part 2C UI Functions Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">Complete UI system with hero section, navigation, and utility functions is now active.</p></div>', unsafe_allow_html=True)
+
