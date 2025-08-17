@@ -414,7 +414,7 @@ with col1:
     """, unsafe_allow_html=True)
 
 with col2:
-    current_time = datetime.now(ET).strftime("%I:%M:%S %p ET")
+    current_time = datetime.now(CT).strftime("%I:%M:%S %p CT")
     st.markdown(f"""
     <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
         <h3 style="color: #ffffff !important; margin: 0;">Current Time</h3>
@@ -518,6 +518,7 @@ st.markdown(f"""
     <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
 </div>
 """, unsafe_allow_html=True)
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
