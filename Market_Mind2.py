@@ -371,21 +371,16 @@ with st.sidebar:
 AppState.set_current_asset(selected_asset)
 AppState.set_forecast_date(forecast_date)
 
-# Get slope information for the selected asset
+# Get slope information for the selected asset (INTERNAL ONLY - NOT DISPLAYED)
 slopes = get_asset_slopes(selected_asset)
 display_symbol = get_display_symbol(selected_asset)
 
-if selected_asset == "^GSPC":
-    slope_info = f"SPX Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
-else:
-    slope_info = f"{display_symbol} Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
-
-# Asset information display
+# Asset information display (PROFESSIONAL - NO SLOPES SHOWN)
 asset_info = MAJOR_EQUITIES[selected_asset]
 
 st.subheader(f"{asset_info['icon']} {display_symbol} Analysis")
 
-# Simple grid layout
+# Professional grid layout
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -398,25 +393,29 @@ with col3:
     st.metric("Sector", asset_info['type'])
 
 with col4:
-    st.metric("Analysis Date", forecast_date.strftime('%B %d, %Y'))
+    st.metric("Analysis Date", forecast_date.strftime('%b %d, %Y'))
 
-# Second row
-col1, col2 = st.columns(2)
+# Second row - Professional trading information
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Previous Day", previous_trading_day(forecast_date).strftime('%B %d, %Y'))
+    st.metric("Previous Session", previous_trading_day(forecast_date).strftime('%b %d, %Y'))
 
 with col2:
-    st.metric("Slopes Config", slope_info)
+    st.metric("Market Session", "Regular Trading Hours")
+
+with col3:
+    st.metric("Time Zone", "Central Time (CT)")
 
 # System status display
 system_checks = verify_system_ready()
 all_ready = all(system_checks.values())
 
-st.subheader("System Status")
 if all_ready:
-    st.success("🟢 All Systems Ready - Ready for Part 2A")
+    st.success("🟢 System Operational")
 else:
-    st.warning("🟡 Partial Ready - Some components need attention")
+    st.warning("🟡 System Initializing")
 
-st.info("This is Part 1 with simple, clean interface. Form elements use default Streamlit styling for maximum visibility.")
+# Professional footer
+st.markdown("---")
+st.markdown(f"**{APP_NAME}** v{VERSION} | {COMPANY} | Professional Trading Analytics Platform")
