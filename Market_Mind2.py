@@ -218,7 +218,6 @@ class UIFoundation:
 
 # Market Lens - Part 2: UI Foundation
 
-import streamlit as st
 from streamlit_option_menu import option_menu
 
 class UIFoundation:
@@ -392,6 +391,9 @@ class UIFoundation:
 @st.cache_resource
 def get_ui():
     return UIFoundation()
+
+
+
 
 # Market Lens - Part 3: SPX Data Module
 
