@@ -508,3 +508,270 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FOR STREAMLIT)
+# Next-Generation Trading Interface - Foundation Layer
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Foundation CSS styling that works with Streamlit
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ========== CORE FOUNDATION & MODERN VARIABLES ========== */
+:root {
+  /* Glassmorphism System */
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+  --glass-hover: rgba(255, 255, 255, 0.12);
+  
+  /* Neon Color Palette */
+  --neon-blue: #00d4ff;
+  --neon-purple: #8b5cf6;
+  --neon-green: #00ff88;
+  --neon-orange: #ff6b35;
+  --neon-pink: #ff006e;
+  --neon-cyan: #22d3ee;
+  --neon-violet: #a855f7;
+  
+  /* Surface Colors */
+  --surface-1: #0f0f23;
+  --surface-2: #1a1a2e;
+  --surface-3: #16213e;
+  --surface-4: #0f172a;
+  --surface-5: #1e1b4b;
+  
+  /* Accent Colors */
+  --accent-cyan: #22d3ee;
+  --accent-violet: #a855f7;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  
+  /* Animation Timing */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.3s;
+  --transition-slow: 0.5s;
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========== GLOBAL RESET & BASE STYLES ========== */
+html, body, .stApp {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-4) 75%, var(--surface-5) 100%);
+  background-attachment: fixed;
+  color: #ffffff;
+  overflow-x: hidden;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.stApp {
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+    linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ========== ANIMATED BACKGROUND PARTICLES ========== */
+.stApp::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: 
+    radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.08), transparent),
+    radial-gradient(2px 2px at 160px 30px, rgba(255, 255, 255, 0.12), transparent);
+  background-repeat: repeat;
+  background-size: 300px 400px;
+  animation: sparkle 25s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.8;
+}
+
+@keyframes sparkle {
+  from { background-position: 0% 0%; }
+  to { background-position: 300px 400px; }
+}
+
+/* ========== TEXT VISIBILITY FIXES FOR STREAMLIT ========== */
+/* Force white text for ALL Streamlit components */
+.stApp, .stApp *, .main *, .block-container *, 
+.stMarkdown, .stMarkdown *, .css-1d391kg *, 
+.css-12oz5g7 *, .css-1ekf893 *, .css-16idsys *,
+h1, h2, h3, h4, h5, h6, p, span, div, label {
+  color: #ffffff !important;
+}
+
+/* Specific Streamlit component fixes */
+.stSelectbox label, 
+.stDateInput label,
+.stButton > button,
+.stRadio label,
+.stMetric label,
+.stMetric div,
+.stText,
+.stCaption,
+[data-testid="metric-container"],
+[data-testid="metric-container"] > div,
+[data-testid="stMetricLabel"],
+[data-testid="stMetricValue"] {
+  color: #ffffff !important;
+}
+
+/* Sidebar text fixes */
+section[data-testid="stSidebar"] *, 
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] label {
+  color: #ffffff !important;
+}
+
+/* Form element base styling */
+.stSelectbox > div > div,
+.stDateInput > div > div > input,
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Alert styling */
+.stAlert, .stInfo, .stSuccess, .stWarning, .stError {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.stSuccess {
+  border-left: 4px solid var(--neon-green) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%) !important;
+}
+
+.stWarning {
+  border-left: 4px solid var(--neon-orange) !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%) !important;
+}
+
+.stError {
+  border-left: 4px solid var(--neon-pink) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%) !important;
+}
+
+.stInfo {
+  border-left: 4px solid var(--neon-cyan) !important;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%) !important;
+}
+
+/* ========== SIDEBAR FOUNDATION ========== */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, 
+    rgba(15, 15, 35, 0.98) 0%, 
+    rgba(26, 26, 46, 0.95) 50%,
+    rgba(15, 23, 42, 0.98) 100%);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-right: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.6);
+}
+
+section[data-testid="stSidebar"] > div {
+  background: transparent;
+  padding-top: 1rem;
+}
+
+/* ========== BUTTON FOUNDATION ========== */
+.stButton > button {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+  border: 2px solid rgba(34, 211, 238, 0.5);
+  border-radius: 12px;
+  color: #ffffff !important;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.stButton > button:hover {
+  border-color: var(--neon-cyan);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.35) 0%, rgba(168, 85, 247, 0.35) 100%);
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.5);
+  transform: translateY(-2px);
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+@media (max-width: 768px) {
+  .stApp {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stApp {
+    font-size: 13px;
+  }
+}
+
+/* ========== UTILITIES ========== */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+}
+
+.text-center { text-align: center; }
+.text-white { color: #ffffff !important; }
+
+/* ========== FIX FOR STREAMLIT MARKDOWN ========== */
+.stMarkdown > div {
+  color: #ffffff !important;
+}
+
+/* Fix for expander content */
+.streamlit-expanderContent,
+.streamlit-expanderContent *,
+details[data-testid="stExpander"] *,
+div[data-testid="stExpander"] * {
+  color: #ffffff !important;
+}
+
+/* Fix for tabs */
+.stTabs [data-baseweb="tab-list"] *,
+.stTabs [data-baseweb="tab-panel"] * {
+  color: #ffffff !important;
+}
+
+/* Fix for columns */
+.css-12oz5g7 *, .css-1d391kg *, .css-16idsys * {
+  color: #ffffff !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Test that the CSS is working
+st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 12px; margin: 1rem 0;"><h3 style="color: #22d3ee !important;">✅ Part 2A Foundation CSS Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">The foundation styling is now active. You should see this text in white with a glass background.</p></div>', unsafe_allow_html=True)
+
