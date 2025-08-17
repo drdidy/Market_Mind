@@ -428,18 +428,17 @@ st.markdown(f"**{APP_NAME}** v{VERSION} | {COMPANY} | Professional Trading Analy
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (CONSUMER READY)
+# MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FORMS)
 # Professional Trading Interface - Visual Foundation
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Professional UI styling foundation
+# Professional UI styling foundation with WORKING FORMS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ========== PROFESSIONAL DESIGN SYSTEM ========== */
 :root {
-  /* Professional Color Palette */
   --primary-blue: #0ea5e9;
   --primary-purple: #8b5cf6;
   --success-green: #10b981;
@@ -447,23 +446,20 @@ st.markdown("""
   --error-red: #ef4444;
   --neutral-gray: #64748b;
   
-  /* Glass Effect System */
   --glass-light: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.2);
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
   
-  /* Professional Surfaces */
   --surface-dark: #0f172a;
   --surface-medium: #1e293b;
   --surface-light: #334155;
   
-  /* Typography */
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.8);
   --text-muted: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== GLOBAL STYLING ========== */
+/* ========== MAIN CONTENT STYLING ========== */
 html, body, .stApp {
   font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
@@ -503,82 +499,87 @@ html, body, .stApp {
   to { background-position: 200px 250px; }
 }
 
-/* ========== TEXT VISIBILITY SYSTEM ========== */
-/* Ensure all text is properly visible */
-.stApp, .stApp *, .main *, .block-container *,
+/* ========== MAIN CONTENT TEXT - WHITE ========== */
+.main .block-container,
+.main .block-container *,
 h1, h2, h3, h4, h5, h6, p, span, div, label,
 .stMarkdown, .stMarkdown * {
   color: var(--text-primary) !important;
 }
 
-/* Headers with professional styling */
-h1 {
-  font-size: 2.5rem !important;
-  font-weight: 800 !important;
-  color: var(--text-primary) !important;
-  margin-bottom: 1rem !important;
-}
-
-h2 {
-  font-size: 1.875rem !important;
-  font-weight: 700 !important;
-  color: var(--text-primary) !important;
-  margin-bottom: 0.75rem !important;
-}
-
-h3 {
-  font-size: 1.5rem !important;
-  font-weight: 600 !important;
-  color: var(--text-primary) !important;
-  margin-bottom: 0.5rem !important;
-}
-
-/* ========== PROFESSIONAL FORM ELEMENTS ========== */
-/* Sidebar form elements with perfect visibility */
+/* ========== SIDEBAR - LIGHT BACKGROUND, DARK TEXT ========== */
 section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, 
-    rgba(15, 23, 42, 0.95) 0%, 
-    rgba(30, 41, 59, 0.95) 100%);
-  backdrop-filter: blur(20px);
-  border-right: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border-right: 1px solid #e2e8f0 !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* PERFECT FORM VISIBILITY - Consumer Ready */
-section[data-testid="stSidebar"] .stSelectbox > div > div,
-section[data-testid="stSidebar"] .stSelectbox input,
-section[data-testid="stSidebar"] .stDateInput input,
-section[data-testid="stSidebar"] .stDateInput > div > div,
+/* ALL SIDEBAR TEXT - DARK */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] *,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] .stMarkdown * {
+  color: #1f2937 !important;
+}
+
+/* ========== PERFECT FORM VISIBILITY ========== */
+/* SELECTBOX - DARK TEXT ON WHITE BACKGROUND */
 .stSelectbox > div > div,
 .stSelectbox input,
-.stDateInput input,
-.stDateInput > div > div {
+.stSelectbox span,
+.stSelectbox div[role="combobox"],
+.stSelectbox div[role="button"] {
   background: #ffffff !important;
-  color: #000000 !important;
-  border: 1px solid #cccccc !important;
-  border-radius: 8px !important;
+  color: #1f2937 !important;
+  border: 2px solid #d1d5db !important;
+  border-radius: 6px !important;
   font-weight: 500 !important;
 }
 
-/* Dropdown options visibility */
+/* DROPDOWN OPTIONS - DARK TEXT ON WHITE */
 .stSelectbox [role="listbox"],
 .stSelectbox [role="option"],
 .stSelectbox ul,
-.stSelectbox li {
+.stSelectbox li,
+.stSelectbox div[data-baseweb="menu"],
+.stSelectbox div[data-baseweb="option"] {
   background: #ffffff !important;
-  color: #000000 !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
 }
 
-.stSelectbox [role="option"]:hover {
-  background: #f0f9ff !important;
-  color: #000000 !important;
+.stSelectbox [role="option"]:hover,
+.stSelectbox li:hover {
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
 }
 
-/* Calendar popup visibility */
+/* DATE INPUT - DARK TEXT ON WHITE BACKGROUND */
+.stDateInput input,
+.stDateInput > div > div,
+.stDateInput > div > div > input {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border: 2px solid #d1d5db !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+}
+
+/* CALENDAR POPUP - DARK TEXT ON WHITE */
 .stDateInput .stCalendar,
-.stDateInput .stCalendar * {
+.stDateInput .stCalendar *,
+.stDateInput div[data-baseweb="calendar"],
+.stDateInput div[data-baseweb="calendar"] * {
   background: #ffffff !important;
-  color: #000000 !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
 }
 
 /* ========== PROFESSIONAL METRICS ========== */
@@ -595,10 +596,6 @@ section[data-testid="stSidebar"] .stDateInput > div > div,
 [data-testid="metric-container"]:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-}
-
-[data-testid="metric-container"] > div {
-  color: var(--text-primary) !important;
 }
 
 /* ========== PROFESSIONAL BUTTONS ========== */
@@ -649,80 +646,6 @@ section[data-testid="stSidebar"] .stDateInput > div > div,
   color: var(--text-primary) !important;
 }
 
-/* ========== PROFESSIONAL SIDEBAR WITH BETTER VISIBILITY ========== */
-section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, 
-    rgba(248, 250, 252, 0.95) 0%, 
-    rgba(241, 245, 249, 0.95) 100%);
-  backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(203, 213, 225, 0.5);
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-}
-
-section[data-testid="stSidebar"] > div {
-  padding-top: 1rem;
-  background: transparent;
-}
-
-/* SIDEBAR TEXT - DARK FOR PERFECT VISIBILITY */
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] div,
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] .stMarkdown,
-section[data-testid="stSidebar"] .stMarkdown * {
-  color: #1e293b !important;
-}
-
-/* PERFECT FORM VISIBILITY IN SIDEBAR */
-section[data-testid="stSidebar"] .stSelectbox > div > div,
-section[data-testid="stSidebar"] .stSelectbox input,
-section[data-testid="stSidebar"] .stDateInput input,
-section[data-testid="stSidebar"] .stDateInput > div > div {
-  background: #ffffff !important;
-  color: #1e293b !important;
-  border: 2px solid #e2e8f0 !important;
-  border-radius: 8px !important;
-  font-weight: 500 !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* SIDEBAR DROPDOWN OPTIONS */
-section[data-testid="stSidebar"] .stSelectbox [role="listbox"],
-section[data-testid="stSidebar"] .stSelectbox [role="option"],
-section[data-testid="stSidebar"] .stSelectbox ul,
-section[data-testid="stSidebar"] .stSelectbox li {
-  background: #ffffff !important;
-  color: #1e293b !important;
-  border: 1px solid #e2e8f0 !important;
-}
-
-section[data-testid="stSidebar"] .stSelectbox [role="option"]:hover {
-  background: #f1f5f9 !important;
-  color: #1e293b !important;
-}
-
-/* SIDEBAR CALENDAR */
-section[data-testid="stSidebar"] .stDateInput .stCalendar,
-section[data-testid="stSidebar"] .stDateInput .stCalendar * {
-  background: #ffffff !important;
-  color: #1e293b !important;
-  border: 1px solid #e2e8f0 !important;
-}
-
-/* SIDEBAR BUTTONS */
-section[data-testid="stSidebar"] .stButton > button {
-  background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
-  border: none;
-  color: #ffffff !important;
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-}
-
 /* ========== RESPONSIVE DESIGN ========== */
 @media (max-width: 768px) {
   h1 { font-size: 2rem !important; }
@@ -734,22 +657,7 @@ section[data-testid="stSidebar"] .stButton > button {
   }
 }
 
-@media (max-width: 480px) {
-  h1 { font-size: 1.75rem !important; }
-  h2 { font-size: 1.25rem !important; }
-  
-  .stButton > button {
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-  }
-}
-
 /* ========== PROFESSIONAL POLISH ========== */
-.stMarkdown > div {
-  color: var(--text-primary) !important;
-}
-
-/* Clean scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -764,26 +672,10 @@ section[data-testid="stSidebar"] .stButton > button {
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--glass-border);
-}
-
-/* ========== ACCESSIBILITY ========== */
-.stApp *:focus {
-  outline: 2px solid var(--primary-blue);
-  outline-offset: 2px;
-}
-
-/* ========== PROFESSIONAL SPACING ========== */
 .block-container {
   padding-top: 2rem;
   padding-bottom: 2rem;
   max-width: 1200px;
-}
-
-/* ========== FINAL POLISH ========== */
-.stApp .main .block-container {
-  background: transparent;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -801,7 +693,7 @@ st.markdown("""
 ">
   <h3 style="color: #0ea5e9 !important; margin: 0 0 0.5rem 0;">Professional Interface Active</h3>
   <p style="color: rgba(255, 255, 255, 0.8) !important; margin: 0;">
-    Visual foundation loaded with professional styling and optimal form visibility.
+    Visual foundation with perfect form visibility and professional styling.
   </p>
 </div>
 """, unsafe_allow_html=True)
