@@ -521,6 +521,12 @@ st.markdown(f"""
 
 
 
+
+
+
+
+
+
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FOR STREAMLIT)
 # Next-Generation Trading Interface - Foundation Layer
@@ -710,6 +716,30 @@ section[data-testid="stSidebar"] {
 section[data-testid="stSidebar"] > div {
   background: transparent;
   padding-top: 1rem;
+}
+
+/* FORCE DARK TEXT IN SIDEBAR FORM ELEMENTS */
+section[data-testid="stSidebar"] .stSelectbox > div > div,
+section[data-testid="stSidebar"] .stSelectbox > div > div > div,
+section[data-testid="stSidebar"] .stSelectbox input,
+section[data-testid="stSidebar"] .stSelectbox span,
+section[data-testid="stSidebar"] .stSelectbox div[role="button"],
+section[data-testid="stSidebar"] .stSelectbox div[role="option"],
+section[data-testid="stSidebar"] .stDateInput input,
+section[data-testid="stSidebar"] .stDateInput > div > div,
+section[data-testid="stSidebar"] .stDateInput span {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #cccccc !important;
+}
+
+/* Force dropdown options to be dark */
+section[data-testid="stSidebar"] [role="listbox"],
+section[data-testid="stSidebar"] [role="option"],
+section[data-testid="stSidebar"] .stSelectbox ul,
+section[data-testid="stSidebar"] .stSelectbox li {
+  background: #ffffff !important;
+  color: #000000 !important;
 }
 
 /* ========== BUTTON FOUNDATION ========== */
