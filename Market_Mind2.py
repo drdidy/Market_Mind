@@ -4,6 +4,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import pytz
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
@@ -77,11 +78,9 @@ def get_infrastructure():
     return DataInfrastructure()
 
 # Market Lens - Part 2: UI Foundation
-# Market Lens - Part 2: UI Foundation
 
 import streamlit as st
 from streamlit_option_menu import option_menu
-import pandas as pd
 
 class UIFoundation:
     def __init__(self):
@@ -410,7 +409,6 @@ def get_spx_module():
 
 # Market Lens - Part 4: Stock Data Module
 
-import pandas as pd
 from datetime import datetime, timedelta
 
 class StockDataModule:
@@ -2141,4 +2139,456 @@ class RiskManagement:
 def get_risk_management():
     trade_management = get_trade_management()
     return RiskManagement(trade_management)
+
+# Market Lens - Part 10: Dashboard Interface
+
+def main():
+    # Initialize all modules
+    ui = get_ui()
+    ui.setup_page()
+    
+    infrastructure = get_infrastructure()
+    spx_module = get_spx_module()
+    stock_module = get_stock_module()
+    spx_engine = get_spx_channel_engine()
+    stock_engine = get_stock_channel_engine()
+    signals = get_trade_signals()
+    trade_mgmt = get_trade_management()
+    risk_mgmt = get_risk_management()
+    
+    # Main navigation
+    selected = ui.main_navigation()
+    
+    if selected == "Dashboard":
+        show_dashboard(ui, infrastructure, spx_module, stock_module, signals)
+    elif selected == "SPX":
+        show_spx_page(ui, spx_module, spx_engine, signals, trade_mgmt)
+    elif selected == "Stocks":
+        show_stocks_page(ui, stock_module, stock_engine, signals, trade_mgmt)
+    elif selected == "Trades":
+        show_trades_page(ui, trade_mgmt, risk_mgmt, signals)
+    elif selected == "Analytics":
+        show_analytics_page(ui, infrastructure, spx_module, stock_module)
+
+def show_dashboard(ui, infrastructure, spx_module, stock_module, signals):
+    st.title("Market Lens Dashboard")
+    
+    # Status bar
+    market_hours = infrastructure.market_hours()
+    status_data = {
+        'live': infrastructure.status['live'],
+        'session': market_hours['session'],
+        'last_update': infrastructure.status.get('last_update'),
+        'error_count': infrastructure.status['error_count']
+    }
+    ui.status_bar(status_data)
+    
+    st.markdown("---")
+    
+    # SPX and ES section
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        spx_data = spx_module.get_spx_data()
+        if not spx_data.empty:
+            current_price = spx_data['Close'].iloc[-1]
+            change = spx_data['Change'].iloc[-1] if 'Change' in spx_data.columns else 0
+            ui.display_large_symbol('^GSPC', current_price, change)
+        else:
+            ui.display_large_symbol('^GSPC')
+            st.error("SPX data unavailable")
+    
+    with col2:
+        es_data = spx_module.get_es_data()
+        if not es_data.empty:
+            current_price = es_data['Close'].iloc[-1]
+            change = es_data['Change'].iloc[-1] if 'Change' in es_data.columns else 0
+            ui.display_large_symbol('ES=F', current_price, change)
+            
+            # Show ES to SPX conversion
+            offset = spx_module.calculate_es_spx_offset()
+            spx_equivalent = current_price + offset
+            st.info(f"SPX Equivalent: {ui.format_price(spx_equivalent)}")
+        else:
+            ui.display_large_symbol('ES=F')
+            st.error("ES data unavailable")
+    
+    st.markdown("---")
+    
+    # Active signals section
+    st.subheader("🚨 Active Trading Signals")
+    
+    active_signals = signals.get_all_active_signals()
+    
+    if active_signals:
+        signal_cols = st.columns(len(active_signals))
+        
+        for i, (symbol, signal_data) in enumerate(active_signals.items()):
+            with signal_cols[i]:
+                formatted_signal = signals.format_signal_for_display(symbol, signal_data)
+                if formatted_signal:
+                    direction_color = "🟢" if formatted_signal['direction'] == 'LONG' else "🔴"
+                    
+                    st.markdown(f"""
+                    **{direction_color} {formatted_signal['symbol']} {formatted_signal['direction']}**
+                    
+                    Entry: {ui.format_price(formatted_signal['entry_level'])}
+                    
+                    Type: {formatted_signal['type']}
+                    
+                    Strength: {formatted_signal['strength']}
+                    
+                    Confidence: {formatted_signal['confidence']}%
+                    """)
+    else:
+        st.info("No active trading signals at this time")
+    
+    st.markdown("---")
+    
+    # Stock grid
+    st.subheader("📊 Big 7 Technology Stocks")
+    
+    cols = st.columns(4)
+    for i, symbol in enumerate(stock_module.stocks):
+        with cols[i % 4]:
+            stock_price = stock_module.get_stock_price(symbol)
+            stock_change = stock_module.get_stock_change(symbol)
+            
+            if stock_price:
+                ui.display_medium_symbol(symbol, stock_price, stock_change)
+                
+                # Show if there's a signal for this stock
+                if symbol in active_signals:
+                    signal_data = active_signals[symbol]
+                    direction = signal_data.get('signal', '')
+                    signal_color = "🟢" if direction == 'LONG' else "🔴"
+                    st.markdown(f"**{signal_color} {direction} Signal**")
+            else:
+                ui.display_medium_symbol(symbol)
+                st.error("No data")
+
+def show_spx_page(ui, spx_module, spx_engine, signals, trade_mgmt):
+    st.title("📈 SPX Analysis")
+    
+    # Current levels
+    current_levels = spx_engine.get_current_levels()
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if current_levels['anchors']:
+            skyline_price = current_levels['anchors']['skyline']['price']
+            st.metric("🔴 Skyline Anchor", ui.format_price(skyline_price))
+            st.caption("Sell Zone Entry")
+    
+    with col2:
+        if current_levels['anchors']:
+            baseline_price = current_levels['anchors']['baseline']['price']
+            st.metric("🟢 Baseline Anchor", ui.format_price(baseline_price))
+            st.caption("Buy Zone Entry")
+    
+    with col3:
+        if current_levels['current_price']:
+            st.metric("Current SPX", ui.format_price(current_levels['current_price']))
+            zone_color = {"Sell Zone": "🔴", "Buy Zone": "🟢", "Between": "🟡"}.get(current_levels['zone'], "⚪")
+            st.caption(f"{zone_color} {current_levels['zone']}")
+    
+    st.markdown("---")
+    
+    # RTH Forecast
+    st.subheader("⏰ RTH Forecast Table")
+    
+    rth_levels = spx_engine.generate_rth_levels()
+    
+    if rth_levels:
+        df = pd.DataFrame(rth_levels)
+        
+        # Format the dataframe for display
+        df_display = df.copy()
+        df_display['Skyline'] = df_display['skyline'].apply(lambda x: ui.format_price(x))
+        df_display['Baseline'] = df_display['baseline'].apply(lambda x: ui.format_price(x))
+        df_display['Distance to Skyline'] = df_display['skyline_distance'].apply(lambda x: f"{x:.1f} pts")
+        df_display['Distance to Baseline'] = df_display['baseline_distance'].apply(lambda x: f"{x:.1f} pts")
+        
+        # Color code zones
+        def color_zone(zone):
+            if "Sell" in zone:
+                return "background-color: #ffebee"
+            elif "Buy" in zone:
+                return "background-color: #e8f5e8"
+            else:
+                return "background-color: #fff9c4"
+        
+        styled_df = df_display[['time', 'Skyline', 'Baseline', 'zone', 'Distance to Skyline', 'Distance to Baseline']].style.apply(
+            lambda x: [color_zone(x['zone'])] * len(x), axis=1
+        )
+        
+        st.dataframe(styled_df, use_container_width=True)
+    else:
+        st.warning("Unable to generate RTH forecast")
+    
+    # Signal analysis
+    st.markdown("---")
+    st.subheader("🎯 Signal Analysis")
+    
+    spx_signal = signals.check_spx_entry_signals()
+    
+    if spx_signal['signal']:
+        # Create trade plan
+        trade_plan = trade_mgmt.create_trade_plan('SPX', spx_signal)
+        
+        if trade_plan:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**📋 Trade Plan**")
+                plan_display = trade_mgmt.format_trade_plan_for_display(trade_plan)
+                if plan_display:
+                    for key, value in plan_display.items():
+                        st.text(f"{key}: {value}")
+            
+            with col2:
+                st.markdown("**📊 Risk Analysis**")
+                position_info = trade_mgmt.calculate_position_size(
+                    100000, 2.0, trade_plan['entry_price'], trade_plan['stop_loss']
+                )
+                st.text(f"Suggested Position: {position_info} shares")
+                st.text(f"Risk Amount: ${abs(trade_plan['entry_price'] - trade_plan['stop_loss']) * position_info:.0f}")
+    else:
+        st.info("No SPX signals detected")
+
+def show_stocks_page(ui, stock_module, stock_engine, signals, trade_mgmt):
+    st.title("🏢 Stock Analysis")
+    
+    # Stock selector
+    selected_stock = st.selectbox("Select Stock", stock_module.stocks)
+    
+    if selected_stock:
+        # Current stock levels
+        current_levels = stock_engine.get_current_stock_levels(selected_stock)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            ui.display_large_symbol(selected_stock, 
+                                  current_levels.get('current_price'), 
+                                  stock_module.get_stock_change(selected_stock))
+        
+        with col2:
+            if current_levels['anchors'] and current_levels['anchors']['skyline']:
+                skyline_price = current_levels['anchors']['skyline']['price']
+                st.metric("🔴 Weekly Skyline", ui.format_price(skyline_price))
+        
+        with col3:
+            if current_levels['anchors'] and current_levels['anchors']['baseline']:
+                baseline_price = current_levels['anchors']['baseline']['price']
+                st.metric("🟢 Weekly Baseline", ui.format_price(baseline_price))
+        
+        st.markdown("---")
+        
+        # Weekly forecast
+        st.subheader("📅 Weekly Forecast (Wed/Thu)")
+        
+        weekly_forecast = stock_engine.generate_weekly_forecast(selected_stock)
+        
+        if weekly_forecast:
+            df = pd.DataFrame(weekly_forecast)
+            
+            # Group by day
+            for day in ['Wednesday', 'Thursday']:
+                day_data = df[df['day'] == day]
+                if not day_data.empty:
+                    st.markdown(f"**{day}**")
+                    
+                    display_df = day_data.copy()
+                    display_df['Skyline'] = display_df['skyline'].apply(lambda x: ui.format_price(x))
+                    display_df['Baseline'] = display_df['baseline'].apply(lambda x: ui.format_price(x))
+                    
+                    st.dataframe(display_df[['time', 'Skyline', 'Baseline', 'zone']], use_container_width=True)
+        
+        # Stock signal
+        st.markdown("---")
+        st.subheader("🎯 Stock Signal")
+        
+        stock_signal = signals.check_stock_entry_signals(selected_stock)
+        
+        if stock_signal['signal']:
+            trade_plan = trade_mgmt.create_trade_plan(selected_stock, stock_signal)
+            if trade_plan:
+                plan_display = trade_mgmt.format_trade_plan_for_display(trade_plan)
+                if plan_display:
+                    for key, value in plan_display.items():
+                        st.text(f"{key}: {value}")
+        else:
+            st.info(f"No signals for {selected_stock}")
+
+def show_trades_page(ui, trade_mgmt, risk_mgmt, signals):
+    st.title("💼 Trade Management")
+    
+    # Risk overview
+    st.subheader("⚖️ Risk Overview")
+    
+    risk_metrics = risk_mgmt.calculate_portfolio_risk_metrics()
+    risk_summary = risk_mgmt.format_risk_summary(risk_metrics)
+    
+    cols = st.columns(len(risk_summary))
+    for i, (key, value) in enumerate(risk_summary.items()):
+        with cols[i]:
+            st.metric(key, value)
+    
+    st.markdown("---")
+    
+    # Active trades
+    st.subheader("📋 Active Trades")
+    
+    active_trades = trade_mgmt.load_active_trades()
+    
+    if active_trades:
+        for trade in active_trades:
+            with st.expander(f"{trade.get('symbol', 'Unknown')} - {trade.get('direction', 'Unknown')}"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.text(f"Entry: {ui.format_price(trade.get('entry_price', 0))}")
+                    st.text(f"TP1: {ui.format_price(trade.get('tp1', 0))}")
+                    st.text(f"TP2: {ui.format_price(trade.get('tp2', 0))}")
+                    st.text(f"Stop: {ui.format_price(trade.get('stop_loss', 0))}")
+                
+                with col2:
+                    # Check current status
+                    exit_rec = trade_mgmt.get_exit_recommendation(trade.get('symbol'), trade)
+                    st.text(f"Status: {exit_rec.get('action', 'Unknown')}")
+                    st.text(f"Reason: {exit_rec.get('reason', 'Unknown')}")
+                    if exit_rec.get('current_price'):
+                        st.text(f"Current: {ui.format_price(exit_rec['current_price'])}")
+    else:
+        st.info("No active trades")
+    
+    st.markdown("---")
+    
+    # Signal-based trade plans
+    st.subheader("🎯 Available Trade Setups")
+    
+    all_signals = signals.get_all_active_signals()
+    
+    if all_signals:
+        for symbol, signal_data in all_signals.items():
+            trade_plan = trade_mgmt.create_trade_plan(symbol, signal_data)
+            if trade_plan:
+                with st.expander(f"Setup: {symbol} {signal_data.get('signal', '')}"):
+                    plan_display = trade_mgmt.format_trade_plan_for_display(trade_plan)
+                    if plan_display:
+                        for key, value in plan_display.items():
+                            st.text(f"{key}: {value}")
+                    
+                    # Risk check
+                    risk_check = risk_mgmt.check_risk_limits(trade_plan)
+                    if risk_check['approved']:
+                        st.success("✅ Risk limits approved")
+                    else:
+                        st.error("❌ Risk limits exceeded")
+                        for violation in risk_check['violations']:
+                            st.text(f"• {violation['message']}")
+    else:
+        st.info("No trade setups available")
+
+def show_analytics_page(ui, infrastructure, spx_module, stock_module):
+    st.title("📊 Analytics & Performance")
+    
+    # Market overview
+    st.subheader("🌍 Market Overview")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # SPX chart
+        spx_data = spx_module.get_spx_data()
+        if not spx_data.empty:
+            fig = go.Figure(data=go.Candlestick(
+                x=spx_data.index,
+                open=spx_data['Open'],
+                high=spx_data['High'],
+                low=spx_data['Low'],
+                close=spx_data['Close'],
+                name='SPX'
+            ))
+            
+            # Auto-zoom to reasonable range
+            current_price = spx_data['Close'].iloc[-1]
+            price_range = current_price * 0.05  # 5% range
+            y_min = current_price - price_range
+            y_max = current_price + price_range
+            
+            fig.update_layout(
+                title="SPX 30-min Chart", 
+                height=400,
+                yaxis=dict(range=[y_min, y_max])
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # ES chart
+        es_data = spx_module.get_es_data()
+        if not es_data.empty:
+            fig = go.Figure(data=go.Candlestick(
+                x=es_data.index,
+                open=es_data['Open'],
+                high=es_data['High'],
+                low=es_data['Low'],
+                close=es_data['Close'],
+                name='ES'
+            ))
+            
+            # Auto-zoom to reasonable range
+            current_price = es_data['Close'].iloc[-1]
+            price_range = current_price * 0.05  # 5% range
+            y_min = current_price - price_range
+            y_max = current_price + price_range
+            
+            fig.update_layout(
+                title="ES 30-min Chart", 
+                height=400,
+                yaxis=dict(range=[y_min, y_max])
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Performance metrics
+    st.subheader("📈 Performance Metrics")
+    
+    # Data freshness
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        spx_fresh = spx_module.is_data_fresh()
+        st.metric("SPX Data", "Fresh" if spx_fresh else "Stale")
+    
+    with col2:
+        market_hours = infrastructure.market_hours()
+        st.metric("Market Status", market_hours['session'])
+    
+    with col3:
+        error_count = infrastructure.status['error_count']
+        st.metric("System Errors", error_count)
+    
+    # Stock performance grid
+    st.markdown("---")
+    st.subheader("📊 Stock Performance")
+    
+    performance_data = []
+    for symbol in stock_module.stocks:
+        price = stock_module.get_stock_price(symbol)
+        change = stock_module.get_stock_change(symbol)
+        volume = stock_module.get_stock_volume(symbol)
+        
+        performance_data.append({
+            'Symbol': symbol,
+            'Price': ui.format_price(price) if price else 'N/A',
+            'Change': ui.format_change(change),
+            'Volume': f"{volume:,}" if volume else 'N/A'
+        })
+    
+    df = pd.DataFrame(performance_data)
+    st.dataframe(df, use_container_width=True)
 
