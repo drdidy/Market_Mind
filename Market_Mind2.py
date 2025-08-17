@@ -592,3 +592,277 @@ class StockDataModule:
 def get_stock_module():
     infrastructure = get_infrastructure()
     return StockDataModule(infrastructure)
+
+# Market Lens - Part 5: SPX Channel Engine
+
+class SPXChannelEngine:
+    def __init__(self, spx_module):
+        self.spx_module = spx_module
+        self.skyline_slope = 0.2255
+        self.baseline_slope = -0.2255
+        self.anchor_cache = self.spx_module.infrastructure.cache_dir / 'spx_anchors.json'
+        
+    def detect_anchors(self):
+        try:
+            offset = self.spx_module.calculate_es_spx_offset()
+            es_data = self.spx_module.get_es_data()
+            
+            if es_data.empty:
+                return self._get_fallback_anchors()
+            
+            now = datetime.now(self.spx_module.infrastructure.timezone)
+            cutoff_time = now.replace(hour=20, minute=0, second=0, microsecond=0)
+            
+            if now.hour >= 20:
+                cutoff_time = cutoff_time - timedelta(days=1)
+            
+            anchor_data = es_data[es_data.index < cutoff_time]
+            
+            if anchor_data.empty:
+                return self._get_fallback_anchors()
+            
+            spx_eq_prices = anchor_data['Close'] + offset
+            
+            skyline_anchor = self._find_swing_high(anchor_data, spx_eq_prices)
+            baseline_anchor = self._find_swing_low(anchor_data, spx_eq_prices)
+            
+            anchors = {
+                'skyline': skyline_anchor,
+                'baseline': baseline_anchor,
+                'offset': offset,
+                'detection_time': now.isoformat()
+            }
+            
+            self._save_anchors(anchors)
+            return anchors
+            
+        except Exception:
+            return self._get_fallback_anchors()
+    
+    def _find_swing_high(self, data, prices):
+        try:
+            rolling_max = prices.rolling(window=3, center=True).max()
+            swing_highs = prices[prices == rolling_max]
+            
+            if swing_highs.empty:
+                max_idx = prices.idxmax()
+                return {
+                    'price': float(prices.loc[max_idx]),
+                    'timestamp': max_idx.isoformat()
+                }
+            
+            highest_price = swing_highs.max()
+            highest_time = swing_highs.idxmax()
+            
+            return {
+                'price': float(highest_price),
+                'timestamp': highest_time.isoformat()
+            }
+            
+        except Exception:
+            now = datetime.now(self.spx_module.infrastructure.timezone)
+            return {
+                'price': 4520.0,
+                'timestamp': now.isoformat()
+            }
+    
+    def _find_swing_low(self, data, prices):
+        try:
+            rolling_min = prices.rolling(window=3, center=True).min()
+            swing_lows = prices[prices == rolling_min]
+            
+            if swing_lows.empty:
+                min_idx = prices.idxmin()
+                return {
+                    'price': float(prices.loc[min_idx]),
+                    'timestamp': min_idx.isoformat()
+                }
+            
+            lowest_price = swing_lows.min()
+            lowest_time = swing_lows.idxmin()
+            
+            return {
+                'price': float(lowest_price),
+                'timestamp': lowest_time.isoformat()
+            }
+            
+        except Exception:
+            now = datetime.now(self.spx_module.infrastructure.timezone)
+            return {
+                'price': 4480.0,
+                'timestamp': now.isoformat()
+            }
+    
+    def _get_fallback_anchors(self):
+        now = datetime.now(self.spx_module.infrastructure.timezone)
+        return {
+            'skyline': {
+                'price': 4520.0,
+                'timestamp': now.isoformat()
+            },
+            'baseline': {
+                'price': 4480.0,
+                'timestamp': now.isoformat()
+            },
+            'offset': 15.0,
+            'detection_time': now.isoformat()
+        }
+    
+    def _save_anchors(self, anchors):
+        try:
+            with open(self.anchor_cache, 'w') as f:
+                json.dump(anchors, f)
+        except Exception:
+            pass
+    
+    def _load_anchors(self):
+        try:
+            if self.anchor_cache.exists():
+                with open(self.anchor_cache, 'r') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return None
+    
+    def calculate_blocks_between_times(self, start_time, end_time):
+        try:
+            if isinstance(start_time, str):
+                start_time = datetime.fromisoformat(start_time.replace('Z', ''))
+            if isinstance(end_time, str):
+                end_time = datetime.fromisoformat(end_time.replace('Z', ''))
+            
+            if start_time.tzinfo is None:
+                start_time = self.spx_module.infrastructure.timezone.localize(start_time)
+            if end_time.tzinfo is None:
+                end_time = self.spx_module.infrastructure.timezone.localize(end_time)
+            
+            time_diff = end_time - start_time
+            blocks = time_diff.total_seconds() / (30 * 60)
+            return int(round(blocks))
+            
+        except Exception:
+            return 0
+    
+    def calculate_channel_level(self, anchor_price, anchor_time, target_time, is_skyline=True):
+        try:
+            blocks = self.calculate_blocks_between_times(anchor_time, target_time)
+            slope = self.skyline_slope if is_skyline else self.baseline_slope
+            return anchor_price + (slope * blocks)
+        except Exception:
+            return anchor_price
+    
+    def generate_rth_levels(self):
+        try:
+            anchors = self._load_anchors()
+            if not anchors:
+                anchors = self.detect_anchors()
+            
+            skyline_anchor = anchors['skyline']
+            baseline_anchor = anchors['baseline']
+            
+            now = datetime.now(self.spx_module.infrastructure.timezone)
+            today = now.date()
+            
+            rth_times = []
+            for hour in range(8, 15):
+                for minute in [0, 30]:
+                    if hour == 8 and minute == 0:
+                        continue
+                    if hour == 14 and minute == 30:
+                        break
+                    
+                    slot_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+                    slot_time = self.spx_module.infrastructure.timezone.localize(slot_time)
+                    rth_times.append(slot_time)
+            
+            levels = []
+            current_price = self.spx_module.get_current_spx_price()
+            
+            for slot_time in rth_times:
+                skyline_level = self.calculate_channel_level(
+                    skyline_anchor['price'], 
+                    skyline_anchor['timestamp'], 
+                    slot_time, 
+                    is_skyline=True
+                )
+                
+                baseline_level = self.calculate_channel_level(
+                    baseline_anchor['price'], 
+                    baseline_anchor['timestamp'], 
+                    slot_time, 
+                    is_skyline=False
+                )
+                
+                zone = self._determine_zone(current_price, skyline_level, baseline_level)
+                
+                levels.append({
+                    'time': slot_time.strftime('%H:%M'),
+                    'skyline': skyline_level,
+                    'baseline': baseline_level,
+                    'zone': zone,
+                    'skyline_distance': abs(current_price - skyline_level) if current_price else 0,
+                    'baseline_distance': abs(current_price - baseline_level) if current_price else 0
+                })
+            
+            return levels
+            
+        except Exception:
+            return []
+    
+    def _determine_zone(self, current_price, skyline_level, baseline_level):
+        if current_price is None:
+            return "Unknown"
+        
+        if current_price >= skyline_level:
+            return "Sell Zone"
+        elif current_price <= baseline_level:
+            return "Buy Zone"
+        else:
+            return "Between"
+    
+    def get_current_levels(self):
+        try:
+            anchors = self._load_anchors()
+            if not anchors:
+                anchors = self.detect_anchors()
+            
+            now = datetime.now(self.spx_module.infrastructure.timezone)
+            
+            current_skyline = self.calculate_channel_level(
+                anchors['skyline']['price'],
+                anchors['skyline']['timestamp'],
+                now,
+                is_skyline=True
+            )
+            
+            current_baseline = self.calculate_channel_level(
+                anchors['baseline']['price'],
+                anchors['baseline']['timestamp'],
+                now,
+                is_skyline=False
+            )
+            
+            current_price = self.spx_module.get_current_spx_price()
+            zone = self._determine_zone(current_price, current_skyline, current_baseline)
+            
+            return {
+                'skyline': current_skyline,
+                'baseline': current_baseline,
+                'current_price': current_price,
+                'zone': zone,
+                'anchors': anchors
+            }
+            
+        except Exception:
+            return {
+                'skyline': None,
+                'baseline': None,
+                'current_price': None,
+                'zone': "Unknown",
+                'anchors': None
+            }
+
+@st.cache_resource
+def get_spx_channel_engine():
+    spx_module = get_spx_module()
+    return SPXChannelEngine(spx_module)
