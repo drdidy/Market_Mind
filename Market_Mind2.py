@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - ENTERPRISE SPX & EQUITIES FORECASTING PLATFORM  
-# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS
+# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (UPDATED FOR MODERN UI)
 # Professional Trading Application with Advanced Analytics & Real-time Data
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
@@ -31,9 +31,22 @@ CT = ZoneInfo("America/Chicago")
 SPX_SYMBOL = "^GSPC"
 ES_SYMBOL = "ES=F"
 
-# Skyline and Baseline slopes (per 30-minute block)
-SKYLINE_SLOPE = +0.2255  # Upper channel slope
-BASELINE_SLOPE = -0.2255  # Lower channel slope
+# SPX Skyline and Baseline slopes (per 30-minute block)
+SPX_SKYLINE_SLOPE = +0.2255  # SPX upper channel slope
+SPX_BASELINE_SLOPE = -0.2255  # SPX lower channel slope
+
+# Individual stock slopes (per 30-minute block) - Fixed per ticker
+STOCK_SLOPES = {
+    "AAPL": {"skyline": +0.0155, "baseline": -0.0155},
+    "MSFT": {"skyline": +0.0541, "baseline": -0.0541},
+    "NVDA": {"skyline": +0.0086, "baseline": -0.0086},
+    "AMZN": {"skyline": +0.0139, "baseline": -0.0139},
+    "GOOGL": {"skyline": +0.0122, "baseline": -0.0122},
+    "TSLA": {"skyline": +0.0285, "baseline": -0.0285},
+    "META": {"skyline": +0.0674, "baseline": -0.0674},
+    "NFLX": {"skyline": +0.0089, "baseline": -0.0089},
+    "GOOG": {"skyline": +0.0122, "baseline": -0.0122}  # Same as GOOGL
+}
 
 # Core equity universe with detailed specifications
 MAJOR_EQUITIES = {
@@ -129,7 +142,27 @@ def generate_rth_slots() -> List[datetime]:
         current += timedelta(minutes=30)
     return slots
 
+# Helper function to get slopes for any asset
+def get_asset_slopes(symbol: str) -> Dict[str, float]:
+    """Get skyline and baseline slopes for the specified asset."""
+    if symbol == "^GSPC":
+        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
+    elif symbol in STOCK_SLOPES:
+        return STOCK_SLOPES[symbol]
+    else:
+        # Default to SPX slopes for unknown symbols
+        log_error(f"Unknown symbol {symbol}, using SPX slopes", "Configuration")
+        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
+
 def safe_float_conversion(value: Any, default: float = 0.0) -> float:
+    """Generate slope information for current asset."""
+    current_asset = AppState.get_current_asset()
+    slopes = get_asset_slopes(current_asset)
+    
+    if current_asset == "^GSPC":
+        return f"SPX Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
+    else:
+        return f"{current_asset} Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
     """Safely convert value to float with fallback."""
     try:
         if value is None or value == '' or str(value).lower() in ['nan', 'none', '—']:
@@ -211,20 +244,20 @@ def sanitize_price_data(price: Any) -> Optional[float]:
         return None
 
 # ───────────────────────────────  CONFIGURATION CONSTANTS  ───────────────────────────────
-# Color scheme for consistent theming
+# Color scheme for consistent theming (Updated for modern UI)
 COLORS = {
-    "primary": "#0ea5e9",
-    "secondary": "#3b82f6", 
-    "success": "#10b981",
-    "warning": "#f59e0b",
-    "error": "#ef4444",
-    "neutral": "#64748b",
-    "background": "#ffffff",
-    "text": "#0f172a",
-    "muted": "#64748b"
+    "primary": "#22d3ee",     # Neon cyan
+    "secondary": "#a855f7",   # Neon purple
+    "success": "#10b981",     # Neon green
+    "warning": "#f59e0b",     # Neon orange
+    "error": "#ef4444",       # Neon red/pink
+    "neutral": "#64748b",     # Neutral gray
+    "background": "transparent",  # Transparent for glass effect
+    "text": "#ffffff",        # White text for dark theme
+    "muted": "rgba(255, 255, 255, 0.7)"  # Muted white
 }
 
-# Chart configuration for Plotly
+# Chart configuration for Plotly (Updated for dark theme)
 CHART_CONFIG = {
     "displayModeBar": True,
     "displaylogo": False,
@@ -296,63 +329,185 @@ def verify_system_ready() -> Dict[str, bool]:
 # Initialize and verify system readiness
 system_status = verify_system_ready()
 
-# ───────────────────────────────  USER INTERFACE  ───────────────────────────────
-st.title(f"📈 {APP_NAME}")
-st.subheader(f"{TAGLINE} - v{VERSION}")
+# ───────────────────────────────  TEXT VISIBILITY FIX FOR MODERN UI  ───────────────────────────────
+# Force all Streamlit components to use white text for dark theme compatibility
+st.markdown("""
+<style>
+/* Force white text for all Streamlit components */
+.stApp, .stApp * {
+    color: #ffffff !important;
+}
 
-# Main dashboard
+/* Specific fixes for form elements */
+.stSelectbox label, 
+.stDateInput label,
+.stButton > button,
+.stRadio label,
+.stMetric label,
+.stMetric div {
+    color: #ffffff !important;
+}
+
+/* Fix metric values */
+[data-testid="metric-container"] {
+    color: #ffffff !important;
+}
+
+[data-testid="metric-container"] > div {
+    color: #ffffff !important;
+}
+
+/* Fix sidebar text */
+section[data-testid="stSidebar"] * {
+    color: #ffffff !important;
+}
+
+/* Fix main content area */
+.main .block-container * {
+    color: #ffffff !important;
+}
+
+/* Fix dataframes */
+.stDataFrame {
+    color: #ffffff !important;
+}
+
+/* Fix alerts and info boxes */
+.stAlert, .stInfo, .stSuccess, .stWarning, .stError {
+    color: #ffffff !important;
+}
+
+/* Fix markdown content */
+.stMarkdown {
+    color: #ffffff !important;
+}
+
+/* Fix headers */
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
+}
+
+/* Fix paragraphs and text */
+p, span, div {
+    color: #ffffff !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ───────────────────────────────  DEMONSTRATION SECTION (UPDATED FOR UI)  ───────────────────────────────
+# Create a simple demonstration that works with the new UI
+st.markdown(f"""
+<div style="color: #ffffff; padding: 1rem; margin: 1rem 0;">
+    <h1 style="color: #ffffff !important;">📈 {APP_NAME}</h1>
+    <h2 style="color: rgba(255, 255, 255, 0.8) !important;">{TAGLINE} - v{VERSION}</h2>
+    <p style="color: rgba(255, 255, 255, 0.7) !important;">Professional Trading Analytics Platform by {COMPANY}</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Create columns for demonstration metrics
 col1, col2, col3 = st.columns(3)
 
 with col1:
     market_status, _ = get_market_status()
-    st.metric("Market Status", market_status)
-
-with col2:
-    current_time = datetime.now(ET).strftime("%I:%M:%S %p ET")
-    st.metric("Current Time", current_time)
-
-with col3:
-    st.markdown("""
-    <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: 1rem;">
-        <p style="color: rgb(49, 51, 63); font-size: 0.875rem; line-height: 1.6; margin: 0;">Company</p>
-        <p style="color: rgb(49, 51, 63); font-size: 1.875rem; font-weight: 600; line-height: 1; margin: 0.25rem 0 0 0;">Max Pointe</p>
-        <p style="color: rgb(49, 51, 63); font-size: 1.875rem; font-weight: 600; line-height: 1; margin: 0;">Consulting</p>
+    st.markdown(f"""
+    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
+        <h3 style="color: #ffffff !important; margin: 0;">Market Status</h3>
+        <p style="color: #22d3ee !important; font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">{market_status}</p>
     </div>
     """, unsafe_allow_html=True)
 
-# Sidebar controls
+with col2:
+    current_time = datetime.now(ET).strftime("%I:%M:%S %p ET")
+    st.markdown(f"""
+    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
+        <h3 style="color: #ffffff !important; margin: 0;">Current Time</h3>
+        <p style="color: #a855f7 !important; font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">{current_time}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
+        <h3 style="color: #ffffff !important; margin: 0;">Company</h3>
+        <p style="color: #10b981 !important; font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">{COMPANY}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Create sidebar demonstration
 with st.sidebar:
-    st.title("🎛️ Controls")
+    st.markdown(f"""
+    <div style="color: #ffffff; text-align: center; padding: 1rem;">
+        <h2 style="color: #ffffff !important;">🎛️ Controls</h2>
+        <p style="color: rgba(255, 255, 255, 0.8) !important;">Application ready for Part 3</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Asset selector
+    st.markdown('<p style="color: #ffffff !important; font-weight: bold;">Select Asset:</p>', unsafe_allow_html=True)
     selected_asset = st.selectbox(
-        "Select Asset",
+        "Choose trading instrument",
         options=list(MAJOR_EQUITIES.keys()),
-        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x}"
+        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x}",
+        label_visibility="collapsed"
     )
 
+    # Date selector
+    st.markdown('<p style="color: #ffffff !important; font-weight: bold;">Forecast Date:</p>', unsafe_allow_html=True)
     forecast_date = st.date_input(
-        "Forecast Date", 
+        "Analysis date", 
         value=date.today(),
-        max_value=date.today()
+        max_value=date.today(),
+        label_visibility="collapsed"
     )
 
 # Update session state
 AppState.set_current_asset(selected_asset)
 AppState.set_forecast_date(forecast_date)
 
-# Asset information
+# Asset information display
 asset_info = MAJOR_EQUITIES[selected_asset]
-st.subheader(f"{asset_info['icon']} {selected_asset} Analysis")
+st.markdown(f"""
+<div style="background: rgba(255, 255, 255, 0.08); padding: 2rem; border-radius: 16px; margin: 2rem 0; text-align: center;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
+    <h2 style="color: #ffffff !important;">{selected_asset} Analysis</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        <div>
+            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Asset Name</h4>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{asset_info['name']}</p>
+        </div>
+        <div>
+            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Sector</h4>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{asset_info['type']}</p>
+        </div>
+        <div>
+            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Analysis Date</h4>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{forecast_date.strftime('%B %d, %Y')}</p>
+        </div>
+        <div>
+            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Slopes Configuration</h4>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{get_slope_info_display()}</p>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
+# System status display
+system_checks = verify_system_ready()
+all_ready = all(system_checks.values())
 
-with col1:
-    st.metric("Asset Name", asset_info['name'])
-    st.metric("Sector", asset_info['type'])
+st.markdown(f"""
+<div style="background: rgba(255, 255, 255, 0.08); padding: 1.5rem; border-radius: 16px; margin: 2rem 0; text-align: center;">
+    <h3 style="color: #ffffff !important;">System Status</h3>
+    <p style="color: {'#10b981' if all_ready else '#f59e0b'} !important; font-size: 1.25rem; font-weight: bold;">
+        {'🟢 All Systems Ready' if all_ready else '🟡 Partial Ready'}
+    </p>
+    <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
+</div>
+""", unsafe_allow_html=True)
 
-with col2:
-    st.metric("Date", forecast_date.strftime("%b %d, %Y"))
-    prev_day = previous_trading_day(forecast_date)
-    st.metric("Previous Day", prev_day.strftime("%b %d, %Y"))
+
+
+
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - PART 2A: CORE CSS & FOUNDATION STYLING
