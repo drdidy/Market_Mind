@@ -428,272 +428,509 @@ st.markdown(f"**{APP_NAME}** v{VERSION} | {COMPANY} | Professional Trading Analy
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FORMS)
-# Professional Trading Interface - Visual Foundation
+# MARKETLENS PRO - PART 2A: CORE UI FOUNDATION & COLOR SYSTEM
+# Modern Glassmorphism Design with Perfect Color Accessibility
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Professional UI styling foundation with WORKING FORMS
+# Core CSS Foundation with Fixed Form Elements
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ========== PROFESSIONAL DESIGN SYSTEM ========== */
+/* ========== CORE FOUNDATION & MODERN VARIABLES ========== */
 :root {
-  --primary-blue: #0ea5e9;
-  --primary-purple: #8b5cf6;
-  --success-green: #10b981;
-  --warning-orange: #f59e0b;
-  --error-red: #ef4444;
-  --neutral-gray: #64748b;
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  --warning-gradient: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  --error-gradient: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+  --neutral-gradient: linear-gradient(135deg, #434343 0%, #000000 100%);
   
-  --glass-light: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.18);
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
   
-  --surface-dark: #0f172a;
-  --surface-medium: #1e293b;
-  --surface-light: #334155;
+  --neon-blue: #00d4ff;
+  --neon-purple: #8b5cf6;
+  --neon-green: #00ff88;
+  --neon-orange: #ff6b35;
+  --neon-pink: #ff006e;
   
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.8);
-  --text-muted: rgba(255, 255, 255, 0.6);
+  --surface-1: #0f0f23;
+  --surface-2: #1a1a2e;
+  --surface-3: #16213e;
+  --surface-4: #0f172a;
+  
+  --accent-cyan: #22d3ee;
+  --accent-violet: #a855f7;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
 }
 
-/* ========== MAIN CONTENT STYLING ========== */
+/* ========== GLOBAL RESET & BASE STYLES ========== */
 html, body, .stApp {
   font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(135deg, #0c0c1e 0%, #1a1a2e 25%, #16213e 50%, #0f172a 75%, #1e1b4b 100%);
   background-attachment: fixed;
-  color: var(--text-primary);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
+  color: #ffffff;
+  overflow-x: hidden;
 }
 
 .stApp {
   background: 
-    radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-    linear-gradient(135deg, var(--surface-dark) 0%, var(--surface-medium) 100%);
+    radial-gradient(circle at 20% 20%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.2) 0%, transparent 50%),
+    linear-gradient(135deg, #0c0c1e 0%, #1a1a2e 100%);
   min-height: 100vh;
 }
 
-/* ========== PROFESSIONAL BACKGROUND EFFECTS ========== */
+/* ========== ANIMATED BACKGROUND PARTICLES ========== */
 .stApp::before {
   content: '';
   position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: 
-    radial-gradient(1px 1px at 25px 35px, rgba(255, 255, 255, 0.1), transparent),
-    radial-gradient(1px 1px at 75px 85px, rgba(255, 255, 255, 0.08), transparent),
-    radial-gradient(1px 1px at 125px 45px, rgba(255, 255, 255, 0.06), transparent);
+    radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(2px 2px at 160px 30px, rgba(255, 255, 255, 0.1), transparent);
   background-repeat: repeat;
-  background-size: 200px 250px;
-  animation: professional-float 30s linear infinite;
+  background-size: 250px 300px;
+  animation: sparkle 20s linear infinite;
   pointer-events: none;
   z-index: 1;
-  opacity: 0.6;
 }
 
-@keyframes professional-float {
+@keyframes sparkle {
   from { background-position: 0% 0%; }
-  to { background-position: 200px 250px; }
+  to { background-position: 250px 300px; }
 }
 
-/* ========== MAIN CONTENT TEXT - WHITE ========== */
-.main .block-container,
-.main .block-container *,
-h1, h2, h3, h4, h5, h6, p, span, div, label,
-.stMarkdown, .stMarkdown * {
-  color: var(--text-primary) !important;
-}
-
-/* ========== SIDEBAR - LIGHT BACKGROUND, DARK TEXT ========== */
-section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
-  border-right: 1px solid #e2e8f0 !important;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* ALL SIDEBAR TEXT - DARK */
-section[data-testid="stSidebar"],
-section[data-testid="stSidebar"] *,
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] div,
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] .stMarkdown,
-section[data-testid="stSidebar"] .stMarkdown * {
-  color: #1f2937 !important;
-}
-
-/* ========== PERFECT FORM VISIBILITY ========== */
-/* SELECTBOX - DARK TEXT ON WHITE BACKGROUND */
-.stSelectbox > div > div,
-.stSelectbox input,
-.stSelectbox span,
-.stSelectbox div[role="combobox"],
-.stSelectbox div[role="button"] {
-  background: #ffffff !important;
-  color: #1f2937 !important;
-  border: 2px solid #d1d5db !important;
-  border-radius: 6px !important;
-  font-weight: 500 !important;
-}
-
-/* DROPDOWN OPTIONS - DARK TEXT ON WHITE */
-.stSelectbox [role="listbox"],
-.stSelectbox [role="option"],
-.stSelectbox ul,
-.stSelectbox li,
-.stSelectbox div[data-baseweb="menu"],
-.stSelectbox div[data-baseweb="option"] {
-  background: #ffffff !important;
-  color: #1f2937 !important;
-  border: 1px solid #d1d5db !important;
-}
-
-.stSelectbox [role="option"]:hover,
-.stSelectbox li:hover {
-  background: #f3f4f6 !important;
-  color: #1f2937 !important;
-}
-
-/* DATE INPUT - DARK TEXT ON WHITE BACKGROUND */
-.stDateInput input,
-.stDateInput > div > div,
-.stDateInput > div > div > input {
-  background: #ffffff !important;
-  color: #1f2937 !important;
-  border: 2px solid #d1d5db !important;
-  border-radius: 6px !important;
-  font-weight: 500 !important;
-}
-
-/* CALENDAR POPUP - DARK TEXT ON WHITE */
-.stDateInput .stCalendar,
-.stDateInput .stCalendar *,
-.stDateInput div[data-baseweb="calendar"],
-.stDateInput div[data-baseweb="calendar"] * {
-  background: #ffffff !important;
-  color: #1f2937 !important;
-  border: 1px solid #d1d5db !important;
-}
-
-/* ========== PROFESSIONAL METRICS ========== */
-[data-testid="metric-container"] {
-  background: var(--glass-light);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: var(--glass-shadow);
-  transition: all 0.3s ease;
-}
-
-[data-testid="metric-container"]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-}
-
-/* ========== PROFESSIONAL BUTTONS ========== */
-.stButton > button {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
-  border: none;
-  border-radius: 10px;
+/* ========== CRITICAL FIX: FORM ELEMENTS & INPUTS ========== */
+/* Fix selectbox dropdown text visibility */
+.stSelectbox > div > div > div {
+  background-color: #1a1a2e !important;
   color: #ffffff !important;
-  font-weight: 600;
-  padding: 0.75rem 1.5rem;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-size: 0.875rem;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  border-radius: 8px !important;
+}
+
+.stSelectbox > div > div > div > div {
+  color: #ffffff !important;
+  background-color: #1a1a2e !important;
+}
+
+/* Fix selectbox options in dropdown */
+.stSelectbox > div > div > div[data-baseweb="popover"] > div > div {
+  background-color: #1a1a2e !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.stSelectbox > div > div > div[data-baseweb="popover"] > div > div > div {
+  color: #ffffff !important;
+  background-color: transparent !important;
+}
+
+.stSelectbox > div > div > div[data-baseweb="popover"] > div > div > div:hover {
+  background-color: rgba(34, 211, 238, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Fix date input calendar */
+.stDateInput > div > div > input {
+  background-color: #1a1a2e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  border-radius: 8px !important;
+}
+
+/* Fix date picker calendar popup */
+.stDateInput > div > div > div[data-baseweb="popover"] {
+  background-color: #1a1a2e !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.stDateInput > div > div > div[data-baseweb="popover"] * {
+  color: #ffffff !important;
+}
+
+.stDateInput > div > div > div[data-baseweb="popover"] button {
+  color: #ffffff !important;
+  background-color: transparent !important;
+}
+
+.stDateInput > div > div > div[data-baseweb="popover"] button:hover {
+  background-color: rgba(34, 211, 238, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Fix radio button text */
+.stRadio > div > label > div > div {
+  color: #ffffff !important;
+}
+
+.stRadio > div > label > div > p {
+  color: #ffffff !important;
+}
+
+/* Fix all input labels */
+.stSelectbox > label,
+.stDateInput > label,
+.stTextInput > label,
+.stNumberInput > label,
+.stRadio > label,
+.stCheckbox > label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Fix button styling */
+.stButton > button {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%) !important;
+  border: 1px solid rgba(34, 211, 238, 0.4) !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
 }
 
 .stButton > button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.4);
+  border-color: var(--neon-blue) !important;
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.4) !important;
+  transform: translateY(-2px) !important;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%) !important;
 }
 
-/* ========== PROFESSIONAL ALERTS ========== */
-.stSuccess {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
-  border-left: 4px solid var(--success-green);
-  border-radius: 8px;
-  color: var(--text-primary) !important;
+/* ========== GLASSMORPHISM HERO SECTION ========== */
+.hero-container {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+  padding: 2.5rem;
+  margin: 2rem 0;
+  box-shadow: 
+    0 8px 32px rgba(31, 38, 135, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
 }
 
-.stWarning {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
-  border-left: 4px solid var(--warning-orange);
-  border-radius: 8px;
-  color: var(--text-primary) !important;
+.hero-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--neon-blue) 20%, 
+    var(--neon-purple) 40%,
+    var(--neon-green) 60%,
+    var(--neon-orange) 80%, 
+    transparent 100%);
+  animation: shimmer 3s ease-in-out infinite;
 }
 
-.stError {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
-  border-left: 4px solid var(--error-red);
-  border-radius: 8px;
-  color: var(--text-primary) !important;
+@keyframes shimmer {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 
-.stInfo {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
-  border-left: 4px solid var(--primary-blue);
-  border-radius: 8px;
-  color: var(--text-primary) !important;
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffffff 0%, #22d3ee 50%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(34, 211, 238, 0.4);
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.4));
+  }
+  50% { 
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.6));
+  }
+}
+
+.hero-subtitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 1rem 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.hero-meta {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+/* ========== SIDEBAR ENHANCEMENTS ========== */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, 
+    rgba(15, 15, 35, 0.95) 0%, 
+    rgba(26, 26, 46, 0.95) 100%) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+section[data-testid="stSidebar"] > div {
+  background: transparent !important;
+}
+
+/* Fix sidebar text color */
+section[data-testid="stSidebar"] * {
+  color: #ffffff !important;
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div {
+  color: #ffffff !important;
+}
+
+/* ========== UTILITY CLASSES ========== */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+}
+
+.text-center { text-align: center; }
+
+.neon-border {
+  border: 1px solid var(--neon-blue);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+}
+
+.text-glow {
+  text-shadow: 0 0 10px currentColor;
 }
 
 /* ========== RESPONSIVE DESIGN ========== */
 @media (max-width: 768px) {
-  h1 { font-size: 2rem !important; }
-  h2 { font-size: 1.5rem !important; }
-  h3 { font-size: 1.25rem !important; }
-  
-  [data-testid="metric-container"] {
-    padding: 1rem;
+  .hero-title {
+    font-size: 2.5rem;
   }
-}
-
-/* ========== PROFESSIONAL POLISH ========== */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--surface-dark);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--surface-light);
-  border-radius: 4px;
-}
-
-.block-container {
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  max-width: 1200px;
+  
+  .hero-container {
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Professional visual confirmation
-st.markdown("""
-<div style="
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  border-radius: 12px;
-  padding: 1.5rem;
-  text-align: center;
-  margin: 2rem 0;
-  backdrop-filter: blur(10px);
-">
-  <h3 style="color: #0ea5e9 !important; margin: 0 0 0.5rem 0;">Professional Interface Active</h3>
-  <p style="color: rgba(255, 255, 255, 0.8) !important; margin: 0;">
-    Visual foundation with perfect form visibility and professional styling.
-  </p>
-</div>
-""", unsafe_allow_html=True)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# HERO SECTION WITH GLASSMORPHISM DESIGN
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_hero_section():
+    """Create the stunning hero section with modern glassmorphism design."""
+    
+    # Get current market data for dynamic display
+    market_status, status_type = get_market_status()
+    current_asset = AppState.get_current_asset()
+    asset_info = MAJOR_EQUITIES[current_asset]
+    
+    st.markdown(f"""
+    <div class="hero-container">
+        <div class="text-center">
+            <h1 class="hero-title">MarketLens Pro</h1>
+            <p class="hero-subtitle">Enterprise SPX & Equities Forecasting</p>
+            <p class="hero-meta">v{VERSION} • Max Pointe Consulting • Professional Trading Analytics</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# NAVIGATION SYSTEM FOUNDATION  
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_navigation_sidebar():
+    """Create the futuristic navigation sidebar with proper form styling."""
+    
+    with st.sidebar:
+        # Company branding with neon effect
+        st.markdown(f"""
+        <div style="text-align: center; padding: 2rem 1rem; margin-bottom: 2rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📈</div>
+            <h2 style="color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 900; 
+                       background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+                       -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                {APP_NAME}
+            </h2>
+            <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0.5rem 0; font-size: 0.875rem;">
+                Max Pointe Consulting
+            </p>
+            <div style="margin-top: 1rem;">
+                <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                           color: white; padding: 0.25rem 0.75rem; border-radius: 20px; 
+                           font-size: 0.75rem; font-weight: 700;">v{VERSION}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Navigation menu
+        st.markdown("### 🧭 Navigation")
+        
+        nav_options = [
+            "📊 Dashboard",
+            "⚓ Anchors", 
+            "🎯 Forecasts",
+            "📡 Signals",
+            "📜 Contracts",
+            "🌟 Fibonacci",
+            "📤 Export",
+            "⚙️ Settings"
+        ]
+        
+        selected_page = st.radio(
+            "",
+            options=nav_options,
+            label_visibility="collapsed"
+        )
+        
+        # Asset selector with enhanced styling
+        st.markdown('<div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
+        st.markdown("#### 📈 Trading Asset")
+        
+        selected_asset = st.selectbox(
+            "Select primary trading instrument",
+            options=list(MAJOR_EQUITIES.keys()),
+            format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x} - {MAJOR_EQUITIES[x]['name']}",
+            key="asset_selector"
+        )
+        
+        # Update asset if changed
+        if selected_asset != AppState.get_current_asset():
+            AppState.set_current_asset(selected_asset)
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Date selector with proper styling
+        st.markdown('<div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
+        st.markdown("#### 📅 Analysis Session")
+        
+        forecast_date = st.date_input(
+            "Target trading session",
+            value=AppState.get_forecast_date(),
+            max_value=date.today(),
+            help="Select the trading session for analysis"
+        )
+        
+        # Update date if changed
+        if forecast_date != AppState.get_forecast_date():
+            AppState.set_forecast_date(forecast_date)
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        return selected_page
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# SYSTEM STATUS DISPLAY
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def display_system_overview():
+    """Display system status and key metrics."""
+    
+    current_asset = AppState.get_current_asset()
+    asset_info = MAJOR_EQUITIES[current_asset]
+    market_status, status_type = get_market_status()
+    
+    # Create key metrics display
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">{asset_info['icon']}</div>
+            <div style="font-size: 0.875rem; color: rgba(255,255,255,0.7); margin-bottom: 0.5rem;">CURRENT ASSET</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #ffffff;">{current_asset}</div>
+            <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">{asset_info['name']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        status_color = "#00ff88" if status_type == "success" else "#ff6b35" if status_type == "warning" else "#ff006e"
+        st.markdown(f"""
+        <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📊</div>
+            <div style="font-size: 0.875rem; color: rgba(255,255,255,0.7); margin-bottom: 0.5rem;">MARKET STATUS</div>
+            <div style="font-size: 1.2rem; font-weight: 700; color: {status_color};">{market_status}</div>
+            <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">Live Data Feed</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        forecast_date = AppState.get_forecast_date()
+        st.markdown(f"""
+        <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📅</div>
+            <div style="font-size: 0.875rem; color: rgba(255,255,255,0.7); margin-bottom: 0.5rem;">ANALYSIS DATE</div>
+            <div style="font-size: 1.2rem; font-weight: 700; color: #ffffff;">{forecast_date.strftime('%m/%d/%Y')}</div>
+            <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">{forecast_date.strftime('%A')}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        current_time = datetime.now(ET).strftime("%I:%M:%S %p")
+        st.markdown(f"""
+        <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">⏰</div>
+            <div style="font-size: 0.875rem; color: rgba(255,255,255,0.7); margin-bottom: 0.5rem;">CURRENT TIME</div>
+            <div style="font-size: 1.2rem; font-weight: 700; color: #ffffff;">{current_time}</div>
+            <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">Eastern Time</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# EXECUTE PART 2A
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Create the hero section
+create_hero_section()
+
+# Create navigation and get selected page
+selected_page = create_navigation_sidebar()
+
+# Display system overview
+display_system_overview()
+
+# Store selected page for next parts
+if 'selected_page' not in st.session_state:
+    st.session_state.selected_page = selected_page
+else:
+    st.session_state.selected_page = selected_page
