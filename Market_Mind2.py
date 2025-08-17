@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional, List
 import time
 
-# Handle optional imports gracefully for Session 1
+# Handle imports gracefully
 try:
     import pandas as pd
     import numpy as np
@@ -19,9 +19,6 @@ try:
     DEPENDENCIES_AVAILABLE = True
 except ImportError as e:
     DEPENDENCIES_AVAILABLE = False
-    missing_deps = str(e)
-    st.error(f"⚠️ Missing dependencies: {missing_deps}")
-    st.info("Please install requirements: `pip install -r requirements.txt`")
 
 # ===========================
 # SESSION 1: FOUNDATION & BRANDING
@@ -210,6 +207,13 @@ def load_custom_css():
     .stock-icon {
         color: #059669;
     }
+    
+    /* Alert styling */
+    .stAlert {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -264,10 +268,10 @@ class MarketLensConfig:
     """Configuration constants for Market Lens"""
     
     # Timezone (handle gracefully if pytz not available)
-    try:
+    if DEPENDENCIES_AVAILABLE:
         TIMEZONE = pytz.timezone('America/Chicago')  # Central Time
-    except:
-        TIMEZONE = None  # Will be handled in Session 2
+    else:
+        TIMEZONE = None
     
     # Data intervals and caching
     CACHE_TTL = 300  # 5 minutes
@@ -283,9 +287,6 @@ class MarketLensConfig:
     def ensure_data_dir(cls):
         if not os.path.exists(cls.DATA_DIR):
             os.makedirs(cls.DATA_DIR)
-
-# Initialize configuration
-MarketLensConfig.ensure_data_dir()
 
 def render_header():
     """Render the main Market Lens header with branding"""
@@ -332,26 +333,38 @@ def render_status_badge(status: str) -> str:
     status_class = f"status-{status.lower()}"
     return f'<span class="status-badge {status_class}">{status}</span>'
 
+def show_dependency_error():
+    """Show dependency installation instructions"""
+    st.error("📦 **Dependencies Required**")
+    st.markdown("""
+    Please install the required packages to run Market Lens:
+    
+    ```bash
+    pip install streamlit pandas numpy yfinance pytz plotly openpyxl requests python-dateutil
+    ```
+    
+    Or use the requirements.txt file:
+    ```bash
+    pip install -r requirements.txt
+    ```
+    
+    Then restart your Streamlit application.
+    """)
+
 def main():
     """Main application entry point for Session 1"""
     
     # Load custom styling
     load_custom_css()
     
-    # Check dependencies
+    # Check dependencies first
     if not DEPENDENCIES_AVAILABLE:
-        st.markdown("""
-        ## 🚨 Setup Required
-        
-        Please install the required dependencies first:
-        
-        ```bash
-        pip install -r requirements.txt
-        ```
-        
-        Then restart your Streamlit app.
-        """)
+        render_header()
+        show_dependency_error()
         st.stop()
+    
+    # Initialize configuration
+    MarketLensConfig.ensure_data_dir()
     
     # Render header
     render_header()
@@ -427,6 +440,50 @@ def main():
         Price trading between Skyline and Baseline - neutral zone
     </div>
     """, unsafe_allow_html=True)
+    
+    # Configuration preview
+    st.markdown("### 🔧 Enterprise Configuration:")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Data Management:**
+        - Cache TTL: 5 minutes
+        - Retry attempts: 3
+        - Timezone: America/Chicago
+        - Data directory: `.market_lens/`
+        """)
+    
+    with col2:
+        st.markdown(f"""
+        **Big 7 Stocks Ready:**
+        {', '.join(MarketLensBranding.BIG_7_STOCKS.keys())}
+        
+        **SPX Symbols:**
+        - Index: ^GSPC
+        - Futures: ES=F
+        """)
+    
+    # Interactive demo section
+    st.markdown("### 🚀 Interactive Preview:")
+    
+    # Sample forecast table preview
+    if st.button("🎯 Preview Forecast Table", help="See what the forecast tables will look like"):
+        sample_data = {
+            'Time (CT)': ['08:30', '09:00', '09:30', '10:00', '10:30'],
+            'Skyline': [5850.25, 5852.50, 5854.75, 5857.00, 5859.25],
+            'Baseline': [5825.75, 5823.50, 5821.25, 5819.00, 5816.75],
+            'Zone': ['Sell Zone', 'Between', 'Buy Zone', 'Between', 'Sell Zone'],
+            'Distance': ['-12.5 pts', '+5.2 pts', '+8.7 pts', '-2.1 pts', '-15.8 pts']
+        }
+        
+        # Create DataFrame for display
+        df_sample = pd.DataFrame(sample_data)
+        
+        st.markdown("**Sample SPX Forecast Table:**")
+        st.dataframe(df_sample, use_container_width=True)
+        
+        st.success("✅ This is how your professional forecast tables will look in Sessions 2-8!")
     
     # Next session preview
     st.markdown("""
