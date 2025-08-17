@@ -234,6 +234,12 @@ def get_asset_slopes(symbol: str) -> Dict[str, float]:
         # Default to SPX slopes for unknown symbols
         return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
 
+def get_display_symbol(symbol: str) -> str:
+    """Get user-friendly display name for symbol."""
+    if symbol == "^GSPC":
+        return "SPX"
+    return symbol
+
 # ───────────────────────────────  CONFIGURATION CONSTANTS  ───────────────────────────────
 # Color scheme for consistent theming (Updated for modern UI)
 COLORS = {
@@ -506,7 +512,6 @@ st.markdown(f"""
     <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
 </div>
 """, unsafe_allow_html=True)
-
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FOR STREAMLIT)
