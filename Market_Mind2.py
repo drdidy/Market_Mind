@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - ENTERPRISE SPX & EQUITIES FORECASTING PLATFORM  
-# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (FULLY FIXED)
+# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (INTEGRATED WITH PART 2A UI)
 # Professional Trading Application with Advanced Analytics & Real-time Data
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
@@ -326,99 +326,119 @@ def verify_system_ready() -> Dict[str, bool]:
 # Initialize and verify system readiness
 system_status = verify_system_ready()
 
-# ───────────────────────────────  USER INTERFACE  ───────────────────────────────
-# Simple title without complex styling
-st.title(f"📈 {APP_NAME}")
-st.subheader(f"{TAGLINE} - v{VERSION}")
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MAIN CONTENT DISPLAY (INTEGRATED WITH PART 2A STYLING)
+# ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Basic metrics without complex HTML
-col1, col2, col3 = st.columns(3)
+# This section uses the CSS and UI components from Part 2A
+# The navigation and hero section are handled in Part 2A
 
-with col1:
-    market_status, _ = get_market_status()
-    st.metric("Market Status", market_status)
+# Asset information for current selection
+current_asset = st.session_state.current_asset
+asset_info = MAJOR_EQUITIES[current_asset]
+display_symbol = get_display_symbol(current_asset)
+slopes = get_asset_slopes(current_asset)
 
-with col2:
-    current_time = datetime.now(CT).strftime("%I:%M:%S %p CT")
-    st.metric("Current Time", current_time)
+# Professional metrics display using glass panels
+st.markdown(f"""
+<div class="glass-panel" style="padding: 2rem; margin: 2rem 0; text-align: center;">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
+    <h1 style="color: #0f172a; font-size: 2.5rem; margin: 0.5rem 0; font-weight: 900;">
+        {display_symbol} Analysis Dashboard
+    </h1>
+    <p style="color: #64748b; font-size: 1.2rem; margin: 0;">
+        {asset_info['name']} • {asset_info['type']} Sector
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-with col3:
-    st.metric("Company", COMPANY)
-
-# Sidebar controls with proper contrast
-with st.sidebar:
-    st.title("🎛️ Controls")
-    
-    # Asset selector with proper visibility
-    st.subheader("Select Asset:")
-    selected_asset = st.selectbox(
-        "Choose trading instrument",
-        options=list(MAJOR_EQUITIES.keys()),
-        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {get_display_symbol(x)} - {MAJOR_EQUITIES[x]['name']}",
-        label_visibility="collapsed"
-    )
-
-    # Date selector with proper visibility
-    st.subheader("Forecast Date:")
-    forecast_date = st.date_input(
-        "Analysis date", 
-        value=date.today(),
-        max_value=date.today(),
-        label_visibility="collapsed"
-    )
-
-# Update session state
-AppState.set_current_asset(selected_asset)
-AppState.set_forecast_date(forecast_date)
-
-# Get slope information for the selected asset (INTERNAL ONLY - NOT DISPLAYED)
-slopes = get_asset_slopes(selected_asset)
-display_symbol = get_display_symbol(selected_asset)
-
-# Asset information display (PROFESSIONAL - NO SLOPES SHOWN)
-asset_info = MAJOR_EQUITIES[selected_asset]
-
-st.subheader(f"{asset_info['icon']} {display_symbol} Analysis")
-
-# Professional grid layout
+# Create professional metrics grid
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("Asset Symbol", display_symbol)
+    st.markdown(f"""
+    <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">SYMBOL</div>
+        <div style="color: #0f172a; font-size: 1.5rem; font-weight: 800;">{display_symbol}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    st.metric("Asset Name", asset_info['name'])
+    st.markdown(f"""
+    <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">SECTOR</div>
+        <div style="color: #0f172a; font-size: 1.5rem; font-weight: 800;">{asset_info['type']}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col3:
-    st.metric("Sector", asset_info['type'])
+    forecast_date = st.session_state.forecast_date
+    st.markdown(f"""
+    <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">ANALYSIS DATE</div>
+        <div style="color: #0f172a; font-size: 1.5rem; font-weight: 800;">{forecast_date.strftime('%m/%d/%Y')}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col4:
-    st.metric("Analysis Date", forecast_date.strftime('%b %d, %Y'))
+    market_status, status_type = get_market_status()
+    status_color = "#10b981" if status_type == "success" else "#f59e0b" if status_type == "warning" else "#ef4444"
+    st.markdown(f"""
+    <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">MARKET STATUS</div>
+        <div style="color: {status_color}; font-size: 1.2rem; font-weight: 800;">{market_status}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Second row - Professional trading information
+# Session information
+st.markdown("---")
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Previous Session", previous_trading_day(forecast_date).strftime('%b %d, %Y'))
+    prev_day = previous_trading_day(forecast_date)
+    st.markdown(f"""
+    <div style="text-align: center; padding: 1rem;">
+        <div style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem;">PREVIOUS SESSION</div>
+        <div style="color: #0f172a; font-size: 1.25rem; font-weight: 700;">{prev_day.strftime('%B %d, %Y')}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    st.metric("Market Session", "Regular Trading Hours")
+    current_time_ct = datetime.now(CT).strftime("%I:%M:%S %p CT")
+    st.markdown(f"""
+    <div style="text-align: center; padding: 1rem;">
+        <div style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem;">CURRENT TIME</div>
+        <div style="color: #0f172a; font-size: 1.25rem; font-weight: 700;">{current_time_ct}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col3:
-    st.metric("Time Zone", "Central Time (CT)")
-
-# System status display
-system_checks = verify_system_ready()
-all_ready = all(system_checks.values())
-
-if all_ready:
-    st.success("🟢 System Operational")
-else:
-    st.warning("🟡 System Initializing")
+    system_checks = verify_system_ready()
+    all_ready = all(system_checks.values())
+    system_status_text = "All Systems Operational" if all_ready else "System Initializing"
+    system_color = "#10b981" if all_ready else "#f59e0b"
+    st.markdown(f"""
+    <div style="text-align: center; padding: 1rem;">
+        <div style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem;">SYSTEM STATUS</div>
+        <div style="color: {system_color}; font-size: 1.25rem; font-weight: 700;">{system_status_text}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Professional footer
 st.markdown("---")
-st.markdown(f"**{APP_NAME}** v{VERSION} | {COMPANY} | Professional Trading Analytics Platform")
+st.markdown(f"""
+<div style="text-align: center; padding: 2rem 0; color: #64748b;">
+    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">
+        {APP_NAME} v{VERSION}
+    </div>
+    <div style="font-size: 0.9rem;">
+        {COMPANY} • Professional Trading Analytics Platform
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
 
 
 
