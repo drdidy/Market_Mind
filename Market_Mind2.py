@@ -467,15 +467,7 @@ st.markdown("""
   --accent-rose: #f43f5e;
 }
 
-/* ========== GLOBAL RESET & BASE STYLES ========== */
-html, body, .stApp {
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, #0c0c1e 0%, #1a1a2e 25%, #16213e 50%, #0f172a 75%, #1e1b4b 100%);
-  background-attachment: fixed;
-  color: #ffffff;
-  overflow-x: hidden;
-}
-
+/* ========== BACKGROUND ONLY - PRESERVE TEXT COLORS ========== */
 .stApp {
   background: 
     radial-gradient(circle at 20% 20%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
@@ -483,6 +475,32 @@ html, body, .stApp {
     radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.2) 0%, transparent 50%),
     linear-gradient(135deg, #0c0c1e 0%, #1a1a2e 100%);
   min-height: 100vh;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ========== PRESERVE MAIN CONTENT TEXT COLORS ========== */
+.main .block-container {
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 2rem;
+  margin: 1rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Keep main content text dark */
+.main .block-container * {
+  color: #0f172a !important;
+}
+
+/* Exception: Keep metric cards with white text */
+.main .block-container .hero-container *,
+.main .block-container .glass-panel *,
+.main .block-container .metric-card * {
+  color: #ffffff !important;
 }
 
 /* ========== ANIMATED BACKGROUND PARTICLES ========== */
@@ -511,90 +529,103 @@ html, body, .stApp {
   to { background-position: 250px 300px; }
 }
 
-/* ========== CRITICAL FIX: FORM ELEMENTS & INPUTS ========== */
-/* Fix selectbox dropdown text visibility */
-.stSelectbox > div > div > div {
-  background-color: #1a1a2e !important;
+/* ========== SIDEBAR STYLING ONLY ========== */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, 
+    rgba(15, 15, 35, 0.95) 0%, 
+    rgba(26, 26, 46, 0.95) 100%) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+section[data-testid="stSidebar"] > div {
+  background: transparent !important;
+}
+
+/* SIDEBAR TEXT COLOR FIXES */
+section[data-testid="stSidebar"] *,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div {
   color: #ffffff !important;
-  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+}
+
+/* ========== CRITICAL FIXES: SIDEBAR FORM ELEMENTS ========== */
+
+/* Fix sidebar selectbox */
+section[data-testid="stSidebar"] .stSelectbox > div > div {
+  background-color: #2d3748 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(34, 211, 238, 0.5) !important;
   border-radius: 8px !important;
 }
 
-.stSelectbox > div > div > div > div {
+section[data-testid="stSidebar"] .stSelectbox > div > div > div {
+  background-color: #2d3748 !important;
   color: #ffffff !important;
-  background-color: #1a1a2e !important;
 }
 
-/* Fix selectbox options in dropdown */
-.stSelectbox > div > div > div[data-baseweb="popover"] > div > div {
-  background-color: #1a1a2e !important;
-  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+section[data-testid="stSidebar"] .stSelectbox > div > div > div > div {
+  background-color: #2d3748 !important;
+  color: #ffffff !important;
+}
+
+/* Fix sidebar selectbox dropdown */
+section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] {
+  background-color: #2d3748 !important;
+  border: 1px solid rgba(34, 211, 238, 0.5) !important;
   border-radius: 8px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
 }
 
-.stSelectbox > div > div > div[data-baseweb="popover"] > div > div > div {
-  color: #ffffff !important;
-  background-color: transparent !important;
-}
-
-.stSelectbox > div > div > div[data-baseweb="popover"] > div > div > div:hover {
-  background-color: rgba(34, 211, 238, 0.2) !important;
+section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] * {
+  background-color: #2d3748 !important;
   color: #ffffff !important;
 }
 
-/* Fix date input calendar */
-.stDateInput > div > div > input {
-  background-color: #1a1a2e !important;
+section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] li:hover {
+  background-color: rgba(34, 211, 238, 0.3) !important;
   color: #ffffff !important;
-  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+}
+
+/* Fix sidebar date input */
+section[data-testid="stSidebar"] .stDateInput > div > div {
+  background-color: #2d3748 !important;
+  border: 1px solid rgba(34, 211, 238, 0.5) !important;
   border-radius: 8px !important;
 }
 
-/* Fix date picker calendar popup */
-.stDateInput > div > div > div[data-baseweb="popover"] {
-  background-color: #1a1a2e !important;
-  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+section[data-testid="stSidebar"] .stDateInput > div > div > input {
+  background-color: #2d3748 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+/* Fix sidebar date picker calendar */
+section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] {
+  background-color: #2d3748 !important;
+  border: 1px solid rgba(34, 211, 238, 0.5) !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
 }
 
-.stDateInput > div > div > div[data-baseweb="popover"] * {
+section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] * {
+  background-color: #2d3748 !important;
   color: #ffffff !important;
 }
 
-.stDateInput > div > div > div[data-baseweb="popover"] button {
-  color: #ffffff !important;
-  background-color: transparent !important;
-}
-
-.stDateInput > div > div > div[data-baseweb="popover"] button:hover {
-  background-color: rgba(34, 211, 238, 0.2) !important;
+section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] button:hover {
+  background-color: rgba(34, 211, 238, 0.3) !important;
   color: #ffffff !important;
 }
 
-/* Fix radio button text */
-.stRadio > div > label > div > div {
-  color: #ffffff !important;
-}
-
-.stRadio > div > label > div > p {
-  color: #ffffff !important;
-}
-
-/* Fix all input labels */
-.stSelectbox > label,
-.stDateInput > label,
-.stTextInput > label,
-.stNumberInput > label,
-.stRadio > label,
-.stCheckbox > label {
-  color: #ffffff !important;
-  font-weight: 600 !important;
-}
-
-/* Fix button styling */
-.stButton > button {
+/* Fix sidebar buttons */
+section[data-testid="stSidebar"] .stButton > button {
   background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%) !important;
   border: 1px solid rgba(34, 211, 238, 0.4) !important;
   border-radius: 8px !important;
@@ -603,7 +634,7 @@ html, body, .stApp {
   transition: all 0.3s ease !important;
 }
 
-.stButton > button:hover {
+section[data-testid="stSidebar"] .stButton > button:hover {
   border-color: var(--neon-blue) !important;
   box-shadow: 0 0 15px rgba(34, 211, 238, 0.4) !important;
   transform: translateY(-2px) !important;
