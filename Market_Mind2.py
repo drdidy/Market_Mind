@@ -1769,21 +1769,63 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 def create_price_chart(symbol: str, title: str = "Price Chart"):
-    """Create a beautiful price chart with dark theme styling."""
+    """Create a beautiful price chart with proper price range and dark theme styling."""
     
     # Create sample data for demonstration
     import plotly.graph_objects as go
     from datetime import datetime, timedelta
     import numpy as np
     
-    # Generate sample price data
+    # Generate realistic price data with proper ranges
     dates = [datetime.now() - timedelta(days=x) for x in range(30, 0, -1)]
-    base_price = 6450 if symbol == "^GSPC" else 230
-    prices = [base_price + np.random.normal(0, base_price * 0.02) for _ in dates]
+    
+    # Set realistic base prices and volatility for ALL assets in MAJOR_EQUITIES
+    asset_data = {
+        "^GSPC": {"base": 6443, "volatility": 80},    # SPX can move 50-150 points
+        "AAPL": {"base": 230, "volatility": 8},       # AAPL can move 5-15 points
+        "MSFT": {"base": 420, "volatility": 15},      # MSFT can move 8-25 points
+        "NVDA": {"base": 140, "volatility": 12},      # NVDA can move 8-20 points
+        "AMZN": {"base": 185, "volatility": 14},      # AMZN can move 8-22 points
+        "GOOGL": {"base": 175, "volatility": 10},     # GOOGL can move 6-18 points
+        "META": {"base": 520, "volatility": 25},      # META can move 15-40 points
+        "TSLA": {"base": 240, "volatility": 20},      # TSLA can move 10-30 points
+        "NFLX": {"base": 680, "volatility": 35},      # NFLX can move 20-50 points
+        "GOOG": {"base": 175, "volatility": 10},      # GOOG (same as GOOGL)
+    }
+    
+    # Get asset data or use defaults
+    if symbol in asset_data:
+        base_price = asset_data[symbol]["base"]
+        volatility_range = asset_data[symbol]["volatility"]
+    else:
+        # Default for any unlisted assets
+        base_price = 200
+        volatility_range = 10
+    
+    # Generate realistic price movement
+    prices = []
+    current_price = base_price
+    
+    for i, date in enumerate(dates):
+        # Add some trend and random movement
+        trend = np.sin(i * 0.2) * (volatility_range * 0.3)
+        daily_change = np.random.normal(0, volatility_range * 0.25)
+        current_price += trend + daily_change
+        prices.append(current_price)
+    
+    # Calculate proper Y-axis range (focus on the actual price movement)
+    min_price = min(prices)
+    max_price = max(prices)
+    price_range = max_price - min_price
+    
+    # Add padding above and below (10% on each side)
+    y_min = min_price - (price_range * 0.1)
+    y_max = max_price + (price_range * 0.1)
     
     # Create the chart
     fig = go.Figure()
     
+    # Add price line with gradient fill
     fig.add_trace(go.Scatter(
         x=dates,
         y=prices,
@@ -1795,10 +1837,21 @@ def create_price_chart(symbol: str, title: str = "Price Chart"):
             shape='spline'
         ),
         fill='tonexty',
-        fillcolor='rgba(34, 211, 238, 0.1)'
+        fillcolor='rgba(34, 211, 238, 0.1)',
+        hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
     ))
     
-    # Chart styling
+    # Add some reference lines for context
+    avg_price = sum(prices) / len(prices)
+    fig.add_hline(
+        y=avg_price, 
+        line_dash="dash", 
+        line_color="rgba(255, 255, 255, 0.3)",
+        annotation_text=f"Avg: ${avg_price:,.2f}",
+        annotation_position="top right"
+    )
+    
+    # Chart styling with proper Y-axis range
     fig.update_layout(
         title=dict(
             text=title,
@@ -1818,11 +1871,14 @@ def create_price_chart(symbol: str, title: str = "Price Chart"):
             gridcolor='rgba(255,255,255,0.1)',
             showgrid=True,
             zeroline=False,
-            color='#ffffff'
+            color='#ffffff',
+            range=[y_min, y_max],  # Set proper Y-axis range
+            tickformat='$,.0f'     # Format prices with $ and commas
         ),
         showlegend=False,
-        margin=dict(l=40, r=40, t=50, b=40),
-        height=400
+        margin=dict(l=60, r=40, t=50, b=40),  # More left margin for price labels
+        height=400,
+        hovermode='x unified'
     )
     
     return fig
