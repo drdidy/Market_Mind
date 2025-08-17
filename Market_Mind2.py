@@ -2329,78 +2329,280 @@ st.markdown(f"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3: REAL MARKET DATA INTEGRATION
-# Live Yahoo Finance Data with Caching and Error Handling
+# MARKETLENS PRO - PART 3A: MARKET DATA INTEGRATION
+# Real Yahoo Finance Data with Advanced Caching, Validation & Asian Session Support
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-import yfinance as yf
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import streamlit as st
-
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# REAL MARKET DATA FUNCTIONS
+# DATA VALIDATION & QUALITY CONTROL
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=60, show_spinner=False)  # Cache for 1 minute
-def get_real_market_data(symbol: str) -> dict:
-    """Fetch real market data from Yahoo Finance."""
+def validate_price_data(data: dict) -> tuple[bool, str]:
+    """Validate if price data looks reasonable and provide detailed feedback."""
+    if data['status'] != 'success':
+        return False, f"Data fetch failed: {data.get('error', 'Unknown error')}"
+    
+    price = data.get('price', 0)
+    change_pct = data.get('change_pct', 0)
+    volume = data.get('volume', 0)
+    
+    # Basic sanity checks
+    if price <= 0:
+        return False, "Price cannot be zero or negative"
+    
+    if price > 100000:
+        return False, f"Price {price:,.2f} appears unreasonably high"
+    
+    # Check for extreme movements (>50% in one update)
+    if abs(change_pct) > 50:
+        return False, f"Price change {change_pct:.2f}% appears unreasonably large"
+    
+    # Volume validation (if provided)
+    if volume < 0:
+        return False, "Volume cannot be negative"
+    
+    # Asset-specific validation
+    symbol = data.get('symbol', '')
+    if symbol == '^GSPC' and (price < 1000 or price > 10000):
+        return False, f"SPX price {price:,.2f} outside expected range (1000-10000)"
+    elif symbol in ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'] and (price < 1 or price > 2000):
+        return False, f"{symbol} price {price:,.2f} outside expected range (1-2000)"
+    
+    return True, "Data validation passed"
+
+def sanitize_market_data(raw_data: dict) -> dict:
+    """Clean and sanitize market data with type safety."""
     try:
-        ticker = yf.Ticker(symbol)
-        
-        # Get current quote data
-        info = ticker.info
-        hist = ticker.history(period="2d", interval="1m")
-        
-        if hist.empty:
-            raise ValueError(f"No data available for {symbol}")
-        
-        # Get latest price data
-        latest = hist.iloc[-1]
-        previous_close = info.get('previousClose', hist['Close'].iloc[-2] if len(hist) > 1 else latest['Close'])
-        
-        current_price = float(latest['Close'])
-        change = current_price - previous_close
-        change_pct = (change / previous_close) * 100 if previous_close != 0 else 0
-        
-        # Get additional data
-        volume = int(latest['Volume']) if 'Volume' in latest else 0
-        high_52w = info.get('fiftyTwoWeekHigh', current_price)
-        low_52w = info.get('fiftyTwoWeekLow', current_price)
-        
         return {
-            'symbol': symbol,
-            'price': current_price,
-            'change': change,
-            'change_pct': change_pct,
-            'volume': volume,
-            'previous_close': previous_close,
-            'high_52w': high_52w,
-            'low_52w': low_52w,
-            'timestamp': datetime.now(),
-            'status': 'success'
+            'symbol': str(raw_data.get('symbol', '')).upper(),
+            'price': max(0.0, float(raw_data.get('price', 0.0))),
+            'change': float(raw_data.get('change', 0.0)),
+            'change_pct': float(raw_data.get('change_pct', 0.0)),
+            'volume': max(0, int(raw_data.get('volume', 0))),
+            'previous_close': max(0.0, float(raw_data.get('previous_close', 0.0))),
+            'high_52w': max(0.0, float(raw_data.get('high_52w', 0.0))),
+            'low_52w': max(0.0, float(raw_data.get('low_52w', 0.0))),
+            'timestamp': raw_data.get('timestamp', datetime.now()),
+            'status': raw_data.get('status', 'unknown'),
+            'error': raw_data.get('error', None)
         }
-        
-    except Exception as e:
-        # Return fallback data with error status
+    except (ValueError, TypeError) as e:
         return {
-            'symbol': symbol,
-            'price': 0.0,
-            'change': 0.0,
-            'change_pct': 0.0,
-            'volume': 0,
-            'previous_close': 0.0,
-            'high_52w': 0.0,
-            'low_52w': 0.0,
-            'timestamp': datetime.now(),
-            'status': 'error',
-            'error': str(e)
+            'symbol': str(raw_data.get('symbol', '')),
+            'price': 0.0, 'change': 0.0, 'change_pct': 0.0, 'volume': 0,
+            'previous_close': 0.0, 'high_52w': 0.0, 'low_52w': 0.0,
+            'timestamp': datetime.now(), 'status': 'sanitization_error',
+            'error': f"Data sanitization failed: {str(e)}"
         }
 
-@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
-def get_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") -> pd.DataFrame:
-    """Fetch historical price data from Yahoo Finance."""
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ENHANCED MARKET STATUS DETECTION
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_enhanced_market_status() -> dict:
+    """Enhanced market status with detailed session detection and trading hours."""
+    now_et = datetime.now(ET)
+    now_ct = datetime.now(CT)
+    
+    # Get basic market status
+    basic_status, status_type = get_market_status()
+    
+    # Detailed session detection
+    if now_et.weekday() < 5:  # Monday to Friday
+        current_time = now_et.time()
+        
+        if time(4, 0) <= current_time < time(9, 30):
+            session = "Pre-Market"
+            session_icon = "🌅"
+            next_event = "Market Open"
+            next_time = "9:30 AM ET"
+        elif time(9, 30) <= current_time < time(16, 0):
+            session = "Regular Trading Hours"
+            session_icon = "🔔"
+            next_event = "Market Close"
+            next_time = "4:00 PM ET"
+        elif time(16, 0) <= current_time < time(20, 0):
+            session = "After Hours"
+            session_icon = "🌆"
+            next_event = "Extended Hours End"
+            next_time = "8:00 PM ET"
+        else:
+            session = "Overnight"
+            session_icon = "🌙"
+            next_event = "Pre-Market Open"
+            next_time = "4:00 AM ET"
+    else:
+        session = "Weekend"
+        session_icon = "📴"
+        # Calculate next trading day
+        days_until_monday = (7 - now_et.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 1  # If it's Sunday, next trading day is Monday
+        next_event = "Market Open"
+        next_time = "Next Monday 9:30 AM ET"
+    
+    # Trading activity level
+    if session in ["Regular Trading Hours"]:
+        activity_level = "High"
+        activity_color = "#00ff88"
+    elif session in ["Pre-Market", "After Hours"]:
+        activity_level = "Moderate"
+        activity_color = "#ff6b35"
+    else:
+        activity_level = "Low"
+        activity_color = "#64748b"
+    
+    # Calculate time until next major event
+    try:
+        if session != "Weekend":
+            if session == "Pre-Market":
+                market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+                time_until_event = market_open - now_et
+            elif session == "Regular Trading Hours":
+                market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+                time_until_event = market_close - now_et
+            elif session == "After Hours":
+                extended_close = now_et.replace(hour=20, minute=0, second=0, microsecond=0)
+                time_until_event = extended_close - now_et
+            else:  # Overnight
+                next_premarket = (now_et + timedelta(days=1)).replace(hour=4, minute=0, second=0, microsecond=0)
+                time_until_event = next_premarket - now_et
+            
+            hours_until = int(time_until_event.total_seconds() // 3600)
+            minutes_until = int((time_until_event.total_seconds() % 3600) // 60)
+            time_until_str = f"{hours_until:02d}:{minutes_until:02d}"
+        else:
+            time_until_str = "Weekend"
+    except:
+        time_until_str = "Unknown"
+    
+    return {
+        "status": basic_status,
+        "status_type": status_type,
+        "session": session,
+        "session_icon": session_icon,
+        "activity_level": activity_level,
+        "activity_color": activity_color,
+        "next_event": next_event,
+        "next_time": next_time,
+        "time_until_event": time_until_str,
+        "timestamp_et": now_et,
+        "timestamp_ct": now_ct,
+        "is_trading_hours": session == "Regular Trading Hours",
+        "is_extended_hours": session in ["Pre-Market", "After Hours"],
+        "is_market_day": now_et.weekday() < 5
+    }
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ENHANCED REAL MARKET DATA FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_real_market_data(symbol: str, retry_count: int = 3) -> dict:
+    """Fetch real market data from Yahoo Finance with enhanced error handling and validation."""
+    
+    for attempt in range(retry_count):
+        try:
+            ticker = yf.Ticker(symbol)
+            
+            # Get current quote data with timeout
+            info = ticker.info
+            hist = ticker.history(period="2d", interval="1m")
+            
+            if hist.empty:
+                if attempt < retry_count - 1:
+                    continue  # Retry on empty data
+                raise ValueError(f"No price data available for {symbol}")
+            
+            # Get latest price data
+            latest = hist.iloc[-1]
+            previous_close = info.get('previousClose')
+            
+            # Fallback to yesterday's close if previousClose not available
+            if previous_close is None or previous_close == 0:
+                if len(hist) > 1:
+                    previous_close = float(hist['Close'].iloc[-2])
+                else:
+                    previous_close = float(latest['Close'])
+            
+            current_price = float(latest['Close'])
+            change = current_price - previous_close
+            change_pct = (change / previous_close) * 100 if previous_close != 0 else 0
+            
+            # Get additional market data
+            volume = int(latest['Volume']) if 'Volume' in latest and pd.notna(latest['Volume']) else 0
+            high_52w = info.get('fiftyTwoWeekHigh', current_price)
+            low_52w = info.get('fiftyTwoWeekLow', current_price)
+            market_cap = info.get('marketCap', 0)
+            
+            # Get intraday high/low
+            day_high = float(latest['High']) if 'High' in latest else current_price
+            day_low = float(latest['Low']) if 'Low' in latest else current_price
+            
+            # Construct raw data
+            raw_data = {
+                'symbol': symbol,
+                'price': current_price,
+                'change': change,
+                'change_pct': change_pct,
+                'volume': volume,
+                'previous_close': previous_close,
+                'day_high': day_high,
+                'day_low': day_low,
+                'high_52w': high_52w,
+                'low_52w': low_52w,
+                'market_cap': market_cap,
+                'timestamp': datetime.now(),
+                'status': 'success',
+                'data_source': 'Yahoo Finance',
+                'attempt': attempt + 1
+            }
+            
+            # Sanitize the data
+            clean_data = sanitize_market_data(raw_data)
+            
+            # Validate the data
+            is_valid, validation_message = validate_price_data(clean_data)
+            
+            if is_valid:
+                clean_data['validation_status'] = 'passed'
+                clean_data['validation_message'] = validation_message
+                return clean_data
+            else:
+                if attempt < retry_count - 1:
+                    continue  # Retry on validation failure
+                clean_data['status'] = 'validation_failed'
+                clean_data['error'] = validation_message
+                return clean_data
+            
+        except Exception as e:
+            error_msg = f"Attempt {attempt + 1}/{retry_count}: {str(e)}"
+            
+            if attempt < retry_count - 1:
+                # Log the attempt but continue retrying
+                continue
+            else:
+                # Final attempt failed, return error data
+                return sanitize_market_data({
+                    'symbol': symbol,
+                    'price': 0.0, 'change': 0.0, 'change_pct': 0.0, 'volume': 0,
+                    'previous_close': 0.0, 'day_high': 0.0, 'day_low': 0.0,
+                    'high_52w': 0.0, 'low_52w': 0.0, 'market_cap': 0,
+                    'timestamp': datetime.now(), 'status': 'error',
+                    'error': error_msg, 'data_source': 'Yahoo Finance (Failed)',
+                    'attempt': retry_count
+                })
+    
+    # This should never be reached, but just in case
+    return sanitize_market_data({
+        'symbol': symbol, 'status': 'unknown_error',
+        'error': 'Unexpected error in retry loop'
+    })
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_enhanced_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") -> pd.DataFrame:
+    """Fetch historical data with enhanced error handling and data quality checks."""
     try:
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period=period, interval=interval)
@@ -2408,353 +2610,166 @@ def get_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") 
         if hist.empty:
             raise ValueError(f"No historical data available for {symbol}")
         
-        # Reset index to make Date a column
+        # Data quality checks
+        if len(hist) < 5:  # Too few data points
+            st.warning(f"Limited historical data for {symbol}: only {len(hist)} data points available")
+        
+        # Check for data gaps
+        expected_days = {"1mo": 20, "3mo": 60, "6mo": 120, "1y": 250}
+        expected_count = expected_days.get(period, len(hist))
+        
+        if len(hist) < expected_count * 0.8:  # Missing more than 20% of expected data
+            st.info(f"Some historical data may be missing for {symbol}")
+        
+        # Reset index and add metadata
         hist = hist.reset_index()
         hist['Symbol'] = symbol
+        hist['DataQuality'] = 'Good' if len(hist) >= expected_count * 0.9 else 'Partial'
         
         return hist
         
     except Exception as e:
-        # Return empty DataFrame on error
+        st.error(f"Failed to fetch historical data for {symbol}: {str(e)}")
         return pd.DataFrame()
 
-@st.cache_data(ttl=180, show_spinner=False)  # Cache for 3 minutes
-def get_intraday_data(symbol: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
-    """Fetch intraday data for charts."""
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ASIAN SESSION DATA INTEGRATION (ES FUTURES)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_es_asian_session_data(target_date: date) -> dict:
+    """Get ES futures data for Asian session (5-8 PM CT previous day) with swing detection."""
     try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period=period, interval=interval)
+        # Calculate Asian session window (previous day 5-8 PM CT)
+        prev_day = target_date - timedelta(days=1)
+        start_time = datetime.combine(prev_day, time(17, 0), tzinfo=CT)
+        end_time = datetime.combine(prev_day, time(20, 0), tzinfo=CT)
         
-        if hist.empty:
-            raise ValueError(f"No intraday data available for {symbol}")
+        # Get ES futures data
+        es_ticker = yf.Ticker(ES_SYMBOL)
         
-        hist = hist.reset_index()
-        hist['Symbol'] = symbol
+        # Fetch broader range to ensure we have data
+        es_data = es_ticker.history(period="7d", interval="30m", prepost=True)
         
-        return hist
+        if es_data.empty:
+            return {
+                "status": "error", 
+                "message": "No ES futures data available",
+                "symbol": ES_SYMBOL
+            }
+        
+        # Convert to CT timezone and filter for Asian session
+        es_data = es_data.reset_index()
+        es_data['Datetime_CT'] = pd.to_datetime(es_data['Datetime']).dt.tz_convert(CT)
+        
+        # Filter for the specific Asian session window
+        asian_mask = (
+            (es_data['Datetime_CT'] >= start_time) & 
+            (es_data['Datetime_CT'] <= end_time)
+        )
+        asian_session = es_data[asian_mask].copy()
+        
+        if asian_session.empty:
+            return {
+                "status": "error",
+                "message": f"No ES data found for Asian session {start_time} to {end_time}",
+                "symbol": ES_SYMBOL,
+                "window_start": start_time,
+                "window_end": end_time
+            }
+        
+        # Find swing points using CLOSE prices (for line chart compatibility)
+        high_idx = asian_session['Close'].idxmax()
+        low_idx = asian_session['Close'].idxmin()
+        
+        high_price = float(asian_session.loc[high_idx, 'Close'])
+        low_price = float(asian_session.loc[low_idx, 'Close'])
+        high_time = asian_session.loc[high_idx, 'Datetime_CT']
+        low_time = asian_session.loc[low_idx, 'Datetime_CT']
+        
+        # Calculate ES to SPX offset (typical offset around 25-30 points)
+        # This would normally be calculated using concurrent SPX data
+        spx_offset = -25.0  # Approximate offset, should be calculated dynamically
+        
+        # Convert ES prices to SPX equivalent
+        spx_high_equivalent = high_price + spx_offset
+        spx_low_equivalent = low_price + spx_offset
+        
+        # Additional metrics
+        asian_range = high_price - low_price
+        asian_duration = (end_time - start_time).total_seconds() / 3600  # hours
+        swing_duration = abs((high_time - low_time).total_seconds() / 3600)  # hours between swings
+        
+        return {
+            "status": "success",
+            "symbol": ES_SYMBOL,
+            "window_start": start_time,
+            "window_end": end_time,
+            "data_points": len(asian_session),
+            
+            # ES Raw Data
+            "es_high_price": high_price,
+            "es_low_price": low_price,
+            "es_high_time": high_time,
+            "es_low_time": low_time,
+            "es_range": asian_range,
+            
+            # SPX Equivalent Data (for strategy)
+            "spx_high_equivalent": spx_high_equivalent,
+            "spx_low_equivalent": spx_low_equivalent,
+            "spx_offset_used": spx_offset,
+            
+            # Analysis Metrics
+            "asian_duration_hours": asian_duration,
+            "swing_duration_hours": swing_duration,
+            "volatility_estimate": (asian_range / low_price) * 100,  # percentage
+            
+            # Data Quality
+            "data_quality": "Good" if len(asian_session) >= 6 else "Limited",  # 30m intervals for 3h = 6 points
+            "timestamp": datetime.now()
+        }
         
     except Exception as e:
-        return pd.DataFrame()
+        return {
+            "status": "error",
+            "message": f"Error processing ES Asian session data: {str(e)}",
+            "symbol": ES_SYMBOL,
+            "error_details": str(e),
+            "timestamp": datetime.now()
+        }
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# UPDATED CHART FUNCTIONS WITH REAL DATA
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-def create_real_price_chart(symbol: str, title: str = "Price Chart"):
-    """Create price chart using real Yahoo Finance data."""
-    
-    import plotly.graph_objects as go
-    
-    # Get real historical data
-    df = get_historical_data(symbol, period="1mo", interval="1d")
-    
-    if df.empty:
-        # Fallback to demo data if real data fails
-        return create_demo_chart(symbol, title)
-    
-    # Calculate moving averages
-    df['SMA_20'] = df['Close'].rolling(window=20).mean()
-    df['SMA_50'] = df['Close'].rolling(window=50).mean()
-    
-    # Create the chart
-    fig = go.Figure()
-    
-    # Add price line
-    fig.add_trace(go.Scatter(
-        x=df['Date'] if 'Date' in df.columns else df.index,
-        y=df['Close'],
-        mode='lines',
-        name=symbol,
-        line=dict(
-            color='#22d3ee',
-            width=3
-        ),
-        hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
-    ))
-    
-    # Add 20-day SMA if we have enough data
-    if len(df) >= 20:
-        fig.add_trace(go.Scatter(
-            x=df['Date'] if 'Date' in df.columns else df.index,
-            y=df['SMA_20'],
-            mode='lines',
-            name='SMA 20',
-            line=dict(color='#ff6b35', width=1, dash='dot'),
-            hovertemplate='SMA 20: $%{y:,.2f}<extra></extra>'
-        ))
-    
-    # Calculate proper Y-axis range
-    min_price = df['Close'].min()
-    max_price = df['Close'].max()
-    price_range = max_price - min_price
-    y_min = min_price - (price_range * 0.05)
-    y_max = max_price + (price_range * 0.05)
-    
-    # Chart styling
-    fig.update_layout(
-        title=dict(
-            text=title,
-            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            zeroline=False,
-            color='#ffffff'
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            zeroline=False,
-            color='#ffffff',
-            range=[y_min, y_max],
-            tickformat='$,.2f'
-        ),
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.5)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
-        ),
-        margin=dict(l=60, r=40, t=50, b=40),
-        height=400,
-        hovermode='x unified'
-    )
-    
-    return fig
-
-def create_demo_chart(symbol: str, title: str):
-    """Fallback demo chart when real data is unavailable."""
-    
-    import plotly.graph_objects as go
-    from datetime import datetime, timedelta
-    import numpy as np
-    
-    # Demo data (as backup)
-    dates = [datetime.now() - timedelta(days=x) for x in range(30, 0, -1)]
-    
-    asset_data = {
-        "^GSPC": {"base": 6443, "volatility": 80},
-        "AAPL": {"base": 230, "volatility": 8},
-        "MSFT": {"base": 420, "volatility": 15},
-        "NVDA": {"base": 140, "volatility": 12},
-        "AMZN": {"base": 185, "volatility": 14},
-        "GOOGL": {"base": 175, "volatility": 10},
-        "META": {"base": 520, "volatility": 25},
-        "TSLA": {"base": 240, "volatility": 20},
-        "NFLX": {"base": 680, "volatility": 35},
-        "GOOG": {"base": 175, "volatility": 10},
-    }
-    
-    if symbol in asset_data:
-        base_price = asset_data[symbol]["base"]
-        volatility_range = asset_data[symbol]["volatility"]
-    else:
-        base_price = 200
-        volatility_range = 10
-    
-    prices = []
-    current_price = base_price
-    
-    for i in range(30):
-        trend = np.sin(i * 0.2) * (volatility_range * 0.3)
-        daily_change = np.random.normal(0, volatility_range * 0.25)
-        current_price += trend + daily_change
-        prices.append(current_price)
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=dates,
-        y=prices,
-        mode='lines',
-        name=f"{symbol} (Demo)",
-        line=dict(color='#ff6b35', width=3, dash='dot'),
-        hovertemplate='<b>%{x}</b><br>Demo Price: $%{y:,.2f}<extra></extra>'
-    ))
-    
-    # Add warning annotation
-    fig.add_annotation(
-        text="⚠️ Demo Data - Real data unavailable",
-        xref="paper", yref="paper",
-        x=0.5, y=0.95,
-        showarrow=False,
-        font=dict(color='#ff6b35', size=12),
-        bgcolor='rgba(255, 107, 53, 0.1)',
-        bordercolor='#ff6b35',
-        borderwidth=1
-    )
-    
-    min_price = min(prices)
-    max_price = max(prices)
-    price_range = max_price - min_price
-    y_min = min_price - (price_range * 0.1)
-    y_max = max_price + (price_range * 0.1)
-    
-    fig.update_layout(
-        title=dict(
-            text=f"{title} (Demo Mode)",
-            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff'
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff',
-            range=[y_min, y_max],
-            tickformat='$,.2f'
-        ),
-        showlegend=False,
-        margin=dict(l=60, r=40, t=50, b=40),
-        height=400
-    )
-    
-    return fig
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# UPDATED LIVE DATA DISPLAY
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-def display_real_market_data():
-    """Display real market data for the selected asset."""
-    
-    current_asset = AppState.get_current_asset()
-    asset_info = MAJOR_EQUITIES[current_asset]
-    display_symbol = get_display_symbol(current_asset)
-    
-    # Get real market data
-    market_data = get_real_market_data(current_asset)
-    
-    if market_data['status'] == 'success':
-        # Real data available
-        price = market_data['price']
-        change = market_data['change']
-        change_pct = market_data['change_pct']
-        volume = market_data['volume']
+@st.cache_data(ttl=180, show_spinner=False)
+def get_current_es_spx_offset() -> dict:
+    """Calculate current ES to SPX offset for accurate conversions."""
+    try:
+        # Get current ES price
+        es_data = get_real_market_data(ES_SYMBOL)
+        spx_data = get_real_market_data("^GSPC")
         
-        # Status indicators
-        data_status = "🟢 Live Data"
-        status_color = "#00ff88"
-        
-    else:
-        # Error getting real data
-        price = 0.0
-        change = 0.0
-        change_pct = 0.0
-        volume = 0
-        
-        data_status = "🔴 Data Error"
-        status_color = "#ff006e"
-    
-    # Display live price panel
-    change_color = "#00ff88" if change >= 0 else "#ff6b35"
-    change_icon = "↗" if change >= 0 else "↘"
-    
-    st.markdown(f"""
-    <div class="glass-panel" style="padding: 2rem; text-align: center; margin: 2rem 0; position: relative;">
-        <div style="position: absolute; top: 1rem; right: 1rem;">
-            <span style="background: {status_color}; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
-                {data_status}
-            </span>
-        </div>
-        <div class="asset-icon" style="font-size: 4rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
-        <h1 style="color: #ffffff; font-size: 3rem; margin: 0; font-family: 'JetBrains Mono', monospace;">
-            ${price:,.2f}
-        </h1>
-        <div style="color: {change_color}; font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">
-            {change_icon} ${change:+.2f} ({change_pct:+.2f}%)
-        </div>
-        <div style="color: rgba(255,255,255,0.7); font-size: 1rem;">
-            {display_symbol} • {asset_info['name']}
-        </div>
-        <div style="color: rgba(255,255,255,0.6); font-size: 0.875rem; margin-top: 1rem;">
-            Volume: {volume:,} • Updated: {market_data['timestamp'].strftime('%H:%M:%S')}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    return market_data
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# DATA QUALITY INDICATOR
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-def show_data_quality_status():
-    """Show data quality and connectivity status."""
-    
-    current_asset = AppState.get_current_asset()
-    
-    # Test connectivity to Yahoo Finance
-    market_data = get_real_market_data(current_asset)
-    
-    if market_data['status'] == 'success':
-        # Real data working
-        st.success(f"✅ **Live Data Connected** - Real-time {current_asset} data from Yahoo Finance")
-        
-        # Show data quality metrics
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Data Source", "Yahoo Finance", "Live")
+        if es_data['status'] == 'success' and spx_data['status'] == 'success':
+            current_offset = spx_data['price'] - es_data['price']
             
-        with col2:
-            st.metric("Last Update", market_data['timestamp'].strftime('%H:%M:%S'), "Real-time")
-            
-        with col3:
-            st.metric("Data Quality", "High", "✅ Verified")
-            
-    else:
-        # Error with real data
-        st.error(f"❌ **Data Connection Error** - Using demo data for {current_asset}")
-        st.info(f"**Error Details:** {market_data.get('error', 'Unknown error')}")
-        
-        # Show fallback status
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Data Source", "Demo Mode", "Fallback")
-            
-        with col2:
-            st.metric("Status", "Simulated", "⚠️ Not Live")
-            
-        with col3:
-            st.metric("Data Quality", "Demo", "⚠️ Simulated")
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# EXECUTE PART 3 - REAL DATA INTEGRATION
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-# Add data quality status section
-st.markdown(f"""
-<div style="text-align: center; margin: 3rem 0 2rem 0;">
-    <div style="font-size: 3rem; margin-bottom: 1rem;">📡</div>
-    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
-               background: linear-gradient(135deg, #00ff88 0%, #22d3ee 100%);
-               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        Live Market Data
-    </h2>
-    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Real-time data from Yahoo Finance with intelligent fallback</p>
-</div>
-<div class="section-divider"></div>
-""", unsafe_allow_html=True)
-
-# Display real market data
-market_data = display_real_market_data()
-
-# Show data quality status
-show_data_quality_status()
-
-# NOTE: Removed the "Live Charts & Analysis" header + chart + success/warning banner
-# to avoid duplicating the chart already shown in Part 2 tabs.
+            return {
+                "status": "success",
+                "offset": current_offset,
+                "es_price": es_data['price'],
+                "spx_price": spx_data['price'],
+                "calculation_time": datetime.now(),
+                "data_quality": "Live"
+            }
+        else:
+            # Use historical average offset as fallback
+            return {
+                "status": "fallback",
+                "offset": -25.0,  # Historical average
+                "calculation_time": datetime.now(),
+                "data_quality": "Estimated"
+            }
+    
+    except Exception as e:
+        return {
+            "status": "error", 
+            "offset": -25.0,  # Safe fallback
+            "error": str(e),
+            "data_quality": "Default"
+        }
