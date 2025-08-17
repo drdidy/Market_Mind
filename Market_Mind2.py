@@ -444,7 +444,7 @@ with st.sidebar:
     selected_asset = st.selectbox(
         "Choose trading instrument",
         options=list(MAJOR_EQUITIES.keys()),
-        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x}",
+        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {get_display_symbol(x)}",
         label_visibility="collapsed"
     )
 
@@ -463,18 +463,24 @@ AppState.set_forecast_date(forecast_date)
 
 # Get slope information for the selected asset
 slopes = get_asset_slopes(selected_asset)
+display_symbol = get_display_symbol(selected_asset)
+
 if selected_asset == "^GSPC":
     slope_info = f"SPX Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
 else:
-    slope_info = f"{selected_asset} Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
+    slope_info = f"{display_symbol} Slopes: Skyline +{slopes['skyline']:.4f}, Baseline {slopes['baseline']:.4f}"
 
 # Asset information display
 asset_info = MAJOR_EQUITIES[selected_asset]
 st.markdown(f"""
 <div style="background: rgba(255, 255, 255, 0.08); padding: 2rem; border-radius: 16px; margin: 2rem 0; text-align: center;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
-    <h2 style="color: #ffffff !important;">{selected_asset} Analysis</h2>
+    <h2 style="color: #ffffff !important;">{display_symbol} Analysis</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        <div>
+            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Asset Symbol</h4>
+            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{display_symbol}</p>
+        </div>
         <div>
             <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Asset Name</h4>
             <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{asset_info['name']}</p>
@@ -512,6 +518,7 @@ st.markdown(f"""
     <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
 </div>
 """, unsafe_allow_html=True)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FOR STREAMLIT)
