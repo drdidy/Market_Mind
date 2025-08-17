@@ -343,10 +343,10 @@ slopes = get_asset_slopes(current_asset)
 st.markdown(f"""
 <div class="glass-panel" style="padding: 2rem; margin: 2rem 0; text-align: center;">
     <div style="font-size: 4rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
-    <h1 style="color: #0f172a; font-size: 2.5rem; margin: 0.5rem 0; font-weight: 900;">
+    <h1 style="color: #ffffff; font-size: 2.5rem; margin: 0.5rem 0; font-weight: 900;">
         {display_symbol} Analysis Dashboard
     </h1>
-    <p style="color: #64748b; font-size: 1.2rem; margin: 0;">
+    <p style="color: rgba(255, 255, 255, 0.8); font-size: 1.2rem; margin: 0;">
         {asset_info['name']} • {asset_info['type']} Sector
     </p>
 </div>
@@ -358,16 +358,16 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown(f"""
     <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">SYMBOL</div>
-        <div style="color: #0f172a; font-size: 1.5rem; font-weight: 800;">{display_symbol}</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">SYMBOL</div>
+        <div style="color: #ffffff; font-size: 1.5rem; font-weight: 800;">{display_symbol}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
     <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">SECTOR</div>
-        <div style="color: #0f172a; font-size: 1.5rem; font-weight: 800;">{asset_info['type']}</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">SECTOR</div>
+        <div style="color: #ffffff; font-size: 1.5rem; font-weight: 800;">{asset_info['type']}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -375,23 +375,25 @@ with col3:
     forecast_date = st.session_state.forecast_date
     st.markdown(f"""
     <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">ANALYSIS DATE</div>
-        <div style="color: #0f172a; font-size: 1.5rem; font-weight: 800;">{forecast_date.strftime('%m/%d/%Y')}</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">ANALYSIS DATE</div>
+        <div style="color: #ffffff; font-size: 1.5rem; font-weight: 800;">{forecast_date.strftime('%m/%d/%Y')}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col4:
     market_status, status_type = get_market_status()
-    status_color = "#10b981" if status_type == "success" else "#f59e0b" if status_type == "warning" else "#ef4444"
+    status_color = "#00ff88" if status_type == "success" else "#ff6b35" if status_type == "warning" else "#ff006e"
     st.markdown(f"""
     <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-        <div style="color: #64748b; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">MARKET STATUS</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">MARKET STATUS</div>
         <div style="color: {status_color}; font-size: 1.2rem; font-weight: 800;">{market_status}</div>
     </div>
     """, unsafe_allow_html=True)
 
 # Session information
-st.markdown("---")
+st.markdown("""
+<div style="height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 20%, rgba(34, 211, 238, 0.4) 50%, rgba(255, 255, 255, 0.2) 80%, transparent 100%); margin: 3rem 0;"></div>
+""", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
@@ -399,8 +401,8 @@ with col1:
     prev_day = previous_trading_day(forecast_date)
     st.markdown(f"""
     <div style="text-align: center; padding: 1rem;">
-        <div style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem;">PREVIOUS SESSION</div>
-        <div style="color: #0f172a; font-size: 1.25rem; font-weight: 700;">{prev_day.strftime('%B %d, %Y')}</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">PREVIOUS SESSION</div>
+        <div style="color: #ffffff; font-size: 1.25rem; font-weight: 700;">{prev_day.strftime('%B %d, %Y')}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -408,8 +410,8 @@ with col2:
     current_time_ct = datetime.now(CT).strftime("%I:%M:%S %p CT")
     st.markdown(f"""
     <div style="text-align: center; padding: 1rem;">
-        <div style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem;">CURRENT TIME</div>
-        <div style="color: #0f172a; font-size: 1.25rem; font-weight: 700;">{current_time_ct}</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">CURRENT TIME</div>
+        <div style="color: #ffffff; font-size: 1.25rem; font-weight: 700;">{current_time_ct}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -417,33 +419,31 @@ with col3:
     system_checks = verify_system_ready()
     all_ready = all(system_checks.values())
     system_status_text = "All Systems Operational" if all_ready else "System Initializing"
-    system_color = "#10b981" if all_ready else "#f59e0b"
+    system_color = "#00ff88" if all_ready else "#ff6b35"
     st.markdown(f"""
     <div style="text-align: center; padding: 1rem;">
-        <div style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem;">SYSTEM STATUS</div>
+        <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">SYSTEM STATUS</div>
         <div style="color: {system_color}; font-size: 1.25rem; font-weight: 700;">{system_status_text}</div>
     </div>
     """, unsafe_allow_html=True)
 
-# Professional footer
-st.markdown("---")
+# Professional footer with neon divider
+st.markdown("""
+<div style="height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 20%, rgba(168, 85, 247, 0.4) 50%, rgba(255, 255, 255, 0.2) 80%, transparent 100%); margin: 3rem 0;"></div>
+""", unsafe_allow_html=True)
+
 st.markdown(f"""
-<div style="text-align: center; padding: 2rem 0; color: #64748b;">
-    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">
+<div style="text-align: center; padding: 2rem 0; color: rgba(255, 255, 255, 0.8);">
+    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; 
+                background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         {APP_NAME} v{VERSION}
     </div>
-    <div style="font-size: 0.9rem;">
+    <div style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.6);">
         {COMPANY} • Professional Trading Analytics Platform
     </div>
 </div>
 """, unsafe_allow_html=True)
-
-
-
-
-
-
-
 
 
 
