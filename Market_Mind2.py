@@ -419,3 +419,331 @@ else:
 # Professional footer
 st.markdown("---")
 st.markdown(f"**{APP_NAME}** v{VERSION} | {COMPANY} | Professional Trading Analytics Platform")
+
+
+
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (CONSUMER READY)
+# Professional Trading Interface - Visual Foundation
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Professional UI styling foundation
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ========== PROFESSIONAL DESIGN SYSTEM ========== */
+:root {
+  /* Professional Color Palette */
+  --primary-blue: #0ea5e9;
+  --primary-purple: #8b5cf6;
+  --success-green: #10b981;
+  --warning-orange: #f59e0b;
+  --error-red: #ef4444;
+  --neutral-gray: #64748b;
+  
+  /* Glass Effect System */
+  --glass-light: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+  
+  /* Professional Surfaces */
+  --surface-dark: #0f172a;
+  --surface-medium: #1e293b;
+  --surface-light: #334155;
+  
+  /* Typography */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-muted: rgba(255, 255, 255, 0.6);
+}
+
+/* ========== GLOBAL STYLING ========== */
+html, body, .stApp {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.stApp {
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+    linear-gradient(135deg, var(--surface-dark) 0%, var(--surface-medium) 100%);
+  min-height: 100vh;
+}
+
+/* ========== PROFESSIONAL BACKGROUND EFFECTS ========== */
+.stApp::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: 
+    radial-gradient(1px 1px at 25px 35px, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 75px 85px, rgba(255, 255, 255, 0.08), transparent),
+    radial-gradient(1px 1px at 125px 45px, rgba(255, 255, 255, 0.06), transparent);
+  background-repeat: repeat;
+  background-size: 200px 250px;
+  animation: professional-float 30s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+@keyframes professional-float {
+  from { background-position: 0% 0%; }
+  to { background-position: 200px 250px; }
+}
+
+/* ========== TEXT VISIBILITY SYSTEM ========== */
+/* Ensure all text is properly visible */
+.stApp, .stApp *, .main *, .block-container *,
+h1, h2, h3, h4, h5, h6, p, span, div, label,
+.stMarkdown, .stMarkdown * {
+  color: var(--text-primary) !important;
+}
+
+/* Headers with professional styling */
+h1 {
+  font-size: 2.5rem !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
+  margin-bottom: 1rem !important;
+}
+
+h2 {
+  font-size: 1.875rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  margin-bottom: 0.75rem !important;
+}
+
+h3 {
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* ========== PROFESSIONAL FORM ELEMENTS ========== */
+/* Sidebar form elements with perfect visibility */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, 
+    rgba(15, 23, 42, 0.95) 0%, 
+    rgba(30, 41, 59, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* PERFECT FORM VISIBILITY - Consumer Ready */
+section[data-testid="stSidebar"] .stSelectbox > div > div,
+section[data-testid="stSidebar"] .stSelectbox input,
+section[data-testid="stSidebar"] .stDateInput input,
+section[data-testid="stSidebar"] .stDateInput > div > div,
+.stSelectbox > div > div,
+.stSelectbox input,
+.stDateInput input,
+.stDateInput > div > div {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #cccccc !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+
+/* Dropdown options visibility */
+.stSelectbox [role="listbox"],
+.stSelectbox [role="option"],
+.stSelectbox ul,
+.stSelectbox li {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.stSelectbox [role="option"]:hover {
+  background: #f0f9ff !important;
+  color: #000000 !important;
+}
+
+/* Calendar popup visibility */
+.stDateInput .stCalendar,
+.stDateInput .stCalendar * {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* ========== PROFESSIONAL METRICS ========== */
+[data-testid="metric-container"] {
+  background: var(--glass-light);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s ease;
+}
+
+[data-testid="metric-container"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+[data-testid="metric-container"] > div {
+  color: var(--text-primary) !important;
+}
+
+/* ========== PROFESSIONAL BUTTONS ========== */
+.stButton > button {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
+  border: none;
+  border-radius: 10px;
+  color: #ffffff !important;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.875rem;
+}
+
+.stButton > button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.4);
+}
+
+/* ========== PROFESSIONAL ALERTS ========== */
+.stSuccess {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border-left: 4px solid var(--success-green);
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+}
+
+.stWarning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+  border-left: 4px solid var(--warning-orange);
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+}
+
+.stError {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+  border-left: 4px solid var(--error-red);
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+}
+
+.stInfo {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border-left: 4px solid var(--primary-blue);
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+}
+
+/* ========== PROFESSIONAL SIDEBAR ========== */
+section[data-testid="stSidebar"] > div {
+  padding-top: 1rem;
+  background: transparent;
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] label {
+  color: var(--text-primary) !important;
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+@media (max-width: 768px) {
+  h1 { font-size: 2rem !important; }
+  h2 { font-size: 1.5rem !important; }
+  h3 { font-size: 1.25rem !important; }
+  
+  [data-testid="metric-container"] {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 1.75rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  
+  .stButton > button {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ========== PROFESSIONAL POLISH ========== */
+.stMarkdown > div {
+  color: var(--text-primary) !important;
+}
+
+/* Clean scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--glass-border);
+}
+
+/* ========== ACCESSIBILITY ========== */
+.stApp *:focus {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: 2px;
+}
+
+/* ========== PROFESSIONAL SPACING ========== */
+.block-container {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  max-width: 1200px;
+}
+
+/* ========== FINAL POLISH ========== */
+.stApp .main .block-container {
+  background: transparent;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Professional visual confirmation
+st.markdown("""
+<div style="
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  margin: 2rem 0;
+  backdrop-filter: blur(10px);
+">
+  <h3 style="color: #0ea5e9 !important; margin: 0 0 0.5rem 0;">Professional Interface Active</h3>
+  <p style="color: rgba(255, 255, 255, 0.8) !important; margin: 0;">
+    Visual foundation loaded with professional styling and optimal form visibility.
+  </p>
+</div>
+""", unsafe_allow_html=True)
