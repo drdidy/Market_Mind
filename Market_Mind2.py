@@ -315,31 +315,35 @@ with col3:
     st.metric("Company", COMPANY)
 
 # Sidebar controls
-st.sidebar.title("🎛️ Trading Controls")
-selected_asset = st.sidebar.selectbox(
-    "Select Asset",
-    options=list(MAJOR_EQUITIES.keys()),
-    format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x} - {MAJOR_EQUITIES[x]['name']}"
-)
+with st.sidebar:
+    st.title("🎛️ Controls")
+    selected_asset = st.selectbox(
+        "Select Asset",
+        options=list(MAJOR_EQUITIES.keys()),
+        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x}"
+    )
 
-forecast_date = st.sidebar.date_input(
-    "Forecast Date", 
-    value=date.today(),
-    max_value=date.today()
-)
+    forecast_date = st.date_input(
+        "Forecast Date", 
+        value=date.today(),
+        max_value=date.today()
+    )
 
 # Update session state
 AppState.set_current_asset(selected_asset)
 AppState.set_forecast_date(forecast_date)
 
 # Asset information
-st.subheader(f"{MAJOR_EQUITIES[selected_asset]['icon']} {selected_asset} Analysis")
+asset_info = MAJOR_EQUITIES[selected_asset]
+st.subheader(f"{asset_info['icon']} {selected_asset} Analysis")
+
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric("Asset Name", MAJOR_EQUITIES[selected_asset]['name'])
-    st.metric("Sector", MAJOR_EQUITIES[selected_asset]['type'])
+    st.metric("Asset Name", asset_info['name'])
+    st.metric("Sector", asset_info['type'])
 
 with col2:
-    st.metric("Forecast Date", forecast_date.strftime("%B %d, %Y"))
-    st.metric("Previous Trading Day", previous_trading_day(forecast_date).strftime("%B %d, %Y"))
+    st.metric("Date", forecast_date.strftime("%b %d, %Y"))
+    prev_day = previous_trading_day(forecast_date)
+    st.metric("Previous Day", prev_day.strftime("%b %d, %Y"))
