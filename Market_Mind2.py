@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - ENTERPRISE SPX & EQUITIES FORECASTING PLATFORM  
-# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (ERROR-FREE VERSION)
+# PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (FULLY FIXED)
 # Professional Trading Application with Advanced Analytics & Real-time Data
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
@@ -151,6 +151,23 @@ def safe_float_conversion(value: Any, default: float = 0.0) -> float:
     except (ValueError, TypeError):
         return default
 
+# Helper function to get slopes for any asset
+def get_asset_slopes(symbol: str) -> Dict[str, float]:
+    """Get skyline and baseline slopes for the specified asset."""
+    if symbol == "^GSPC":
+        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
+    elif symbol in STOCK_SLOPES:
+        return STOCK_SLOPES[symbol]
+    else:
+        # Default to SPX slopes for unknown symbols
+        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
+
+def get_display_symbol(symbol: str) -> str:
+    """Get user-friendly display name for symbol."""
+    if symbol == "^GSPC":
+        return "SPX"
+    return symbol
+
 # ───────────────────────────────  SESSION STATE INITIALIZATION  ───────────────────────────────
 def initialize_session_state():
     """Initialize all session state variables with defaults."""
@@ -222,23 +239,6 @@ def sanitize_price_data(price: Any) -> Optional[float]:
         return clean_price
     except:
         return None
-
-# Helper function to get slopes for any asset
-def get_asset_slopes(symbol: str) -> Dict[str, float]:
-    """Get skyline and baseline slopes for the specified asset."""
-    if symbol == "^GSPC":
-        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
-    elif symbol in STOCK_SLOPES:
-        return STOCK_SLOPES[symbol]
-    else:
-        # Default to SPX slopes for unknown symbols
-        return {"skyline": SPX_SKYLINE_SLOPE, "baseline": SPX_BASELINE_SLOPE}
-
-def get_display_symbol(symbol: str) -> str:
-    """Get user-friendly display name for symbol."""
-    if symbol == "^GSPC":
-        return "SPX"
-    return symbol
 
 # ───────────────────────────────  CONFIGURATION CONSTANTS  ───────────────────────────────
 # Color scheme for consistent theming (Updated for modern UI)
@@ -326,130 +326,40 @@ def verify_system_ready() -> Dict[str, bool]:
 # Initialize and verify system readiness
 system_status = verify_system_ready()
 
-# ───────────────────────────────  TEXT VISIBILITY FIX FOR MODERN UI  ───────────────────────────────
-# Force all Streamlit components to use white text for dark theme compatibility
-st.markdown("""
-<style>
-/* Force white text for all Streamlit components */
-.stApp, .stApp * {
-    color: #ffffff !important;
-}
+# ───────────────────────────────  USER INTERFACE  ───────────────────────────────
+# Simple title without complex styling
+st.title(f"📈 {APP_NAME}")
+st.subheader(f"{TAGLINE} - v{VERSION}")
 
-/* Specific fixes for form elements */
-.stSelectbox label, 
-.stDateInput label,
-.stButton > button,
-.stRadio label,
-.stMetric label,
-.stMetric div {
-    color: #ffffff !important;
-}
-
-/* Fix metric values */
-[data-testid="metric-container"] {
-    color: #ffffff !important;
-}
-
-[data-testid="metric-container"] > div {
-    color: #ffffff !important;
-}
-
-/* Fix sidebar text */
-section[data-testid="stSidebar"] * {
-    color: #ffffff !important;
-}
-
-/* Fix main content area */
-.main .block-container * {
-    color: #ffffff !important;
-}
-
-/* Fix dataframes */
-.stDataFrame {
-    color: #ffffff !important;
-}
-
-/* Fix alerts and info boxes */
-.stAlert, .stInfo, .stSuccess, .stWarning, .stError {
-    color: #ffffff !important;
-}
-
-/* Fix markdown content */
-.stMarkdown {
-    color: #ffffff !important;
-}
-
-/* Fix headers */
-h1, h2, h3, h4, h5, h6 {
-    color: #ffffff !important;
-}
-
-/* Fix paragraphs and text */
-p, span, div {
-    color: #ffffff !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ───────────────────────────────  DEMONSTRATION SECTION (UPDATED FOR UI)  ───────────────────────────────
-# Create a simple demonstration that works with the new UI
-st.markdown(f"""
-<div style="color: #ffffff; padding: 1rem; margin: 1rem 0;">
-    <h1 style="color: #ffffff !important;">📈 {APP_NAME}</h1>
-    <h2 style="color: rgba(255, 255, 255, 0.8) !important;">{TAGLINE} - v{VERSION}</h2>
-    <p style="color: rgba(255, 255, 255, 0.7) !important;">Professional Trading Analytics Platform by {COMPANY}</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Create columns for demonstration metrics
+# Basic metrics without complex HTML
 col1, col2, col3 = st.columns(3)
 
 with col1:
     market_status, _ = get_market_status()
-    st.markdown(f"""
-    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
-        <h3 style="color: #ffffff !important; margin: 0;">Market Status</h3>
-        <p style="color: #22d3ee !important; font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">{market_status}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric("Market Status", market_status)
 
 with col2:
     current_time = datetime.now(CT).strftime("%I:%M:%S %p CT")
-    st.markdown(f"""
-    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
-        <h3 style="color: #ffffff !important; margin: 0;">Current Time</h3>
-        <p style="color: #a855f7 !important; font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">{current_time}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric("Current Time", current_time)
 
 with col3:
-    st.markdown(f"""
-    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 12px; text-align: center;">
-        <h3 style="color: #ffffff !important; margin: 0;">Company</h3>
-        <p style="color: #10b981 !important; font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">{COMPANY}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric("Company", COMPANY)
 
-# Create sidebar demonstration
+# Sidebar controls with proper contrast
 with st.sidebar:
-    st.markdown(f"""
-    <div style="color: #ffffff; text-align: center; padding: 1rem;">
-        <h2 style="color: #ffffff !important;">🎛️ Controls</h2>
-        <p style="color: rgba(255, 255, 255, 0.8) !important;">Application ready for Part 3</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.title("🎛️ Controls")
     
-    # Asset selector
-    st.markdown('<p style="color: #ffffff !important; font-weight: bold;">Select Asset:</p>', unsafe_allow_html=True)
+    # Asset selector with proper visibility
+    st.subheader("Select Asset:")
     selected_asset = st.selectbox(
         "Choose trading instrument",
         options=list(MAJOR_EQUITIES.keys()),
-        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {get_display_symbol(x)}",
+        format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {get_display_symbol(x)} - {MAJOR_EQUITIES[x]['name']}",
         label_visibility="collapsed"
     )
 
-    # Date selector
-    st.markdown('<p style="color: #ffffff !important; font-weight: bold;">Forecast Date:</p>', unsafe_allow_html=True)
+    # Date selector with proper visibility
+    st.subheader("Forecast Date:")
     forecast_date = st.date_input(
         "Analysis date", 
         value=date.today(),
@@ -472,348 +382,41 @@ else:
 
 # Asset information display
 asset_info = MAJOR_EQUITIES[selected_asset]
-st.markdown(f"""
-<div style="background: rgba(255, 255, 255, 0.08); padding: 2rem; border-radius: 16px; margin: 2rem 0; text-align: center;">
-    <div style="font-size: 3rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
-    <h2 style="color: #ffffff !important;">{display_symbol} Analysis</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
-        <div>
-            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Asset Symbol</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{display_symbol}</p>
-        </div>
-        <div>
-            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Asset Name</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{asset_info['name']}</p>
-        </div>
-        <div>
-            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Sector</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{asset_info['type']}</p>
-        </div>
-        <div>
-            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Analysis Date</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{forecast_date.strftime('%B %d, %Y')}</p>
-        </div>
-        <div>
-            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Previous Day</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{previous_trading_day(forecast_date).strftime('%B %d, %Y')}</p>
-        </div>
-        <div>
-            <h4 style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Slopes Configuration</h4>
-            <p style="color: #ffffff !important; font-weight: bold; margin: 0;">{slope_info}</p>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+
+st.subheader(f"{asset_info['icon']} {display_symbol} Analysis")
+
+# Simple grid layout
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Asset Symbol", display_symbol)
+
+with col2:
+    st.metric("Asset Name", asset_info['name'])
+
+with col3:
+    st.metric("Sector", asset_info['type'])
+
+with col4:
+    st.metric("Analysis Date", forecast_date.strftime('%B %d, %Y'))
+
+# Second row
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric("Previous Day", previous_trading_day(forecast_date).strftime('%B %d, %Y'))
+
+with col2:
+    st.metric("Slopes Config", slope_info)
 
 # System status display
 system_checks = verify_system_ready()
 all_ready = all(system_checks.values())
 
-st.markdown(f"""
-<div style="background: rgba(255, 255, 255, 0.08); padding: 1.5rem; border-radius: 16px; margin: 2rem 0; text-align: center;">
-    <h3 style="color: #ffffff !important;">System Status</h3>
-    <p style="color: {'#10b981' if all_ready else '#f59e0b'} !important; font-size: 1.25rem; font-weight: bold;">
-        {'🟢 All Systems Ready' if all_ready else '🟡 Partial Ready'}
-    </p>
-    <p style="color: rgba(255, 255, 255, 0.7) !important; margin: 0;">Ready for Part 3 - Data Integration</p>
-</div>
-""", unsafe_allow_html=True)
+st.subheader("System Status")
+if all_ready:
+    st.success("🟢 All Systems Ready - Ready for Part 2A")
+else:
+    st.warning("🟡 Partial Ready - Some components need attention")
 
-
-
-
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2A: FOUNDATION CSS & CORE STYLING (FIXED FOR STREAMLIT)
-# Next-Generation Trading Interface - Foundation Layer
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-# Foundation CSS styling that works with Streamlit
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-/* ========== CORE FOUNDATION & MODERN VARIABLES ========== */
-:root {
-  /* Glassmorphism System */
-  --glass-bg: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.18);
-  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-  --glass-hover: rgba(255, 255, 255, 0.12);
-  
-  /* Neon Color Palette */
-  --neon-blue: #00d4ff;
-  --neon-purple: #8b5cf6;
-  --neon-green: #00ff88;
-  --neon-orange: #ff6b35;
-  --neon-pink: #ff006e;
-  --neon-cyan: #22d3ee;
-  --neon-violet: #a855f7;
-  
-  /* Surface Colors */
-  --surface-1: #0f0f23;
-  --surface-2: #1a1a2e;
-  --surface-3: #16213e;
-  --surface-4: #0f172a;
-  --surface-5: #1e1b4b;
-  
-  /* Accent Colors */
-  --accent-cyan: #22d3ee;
-  --accent-violet: #a855f7;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
-  
-  /* Animation Timing */
-  --transition-fast: 0.15s;
-  --transition-normal: 0.3s;
-  --transition-slow: 0.5s;
-  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ========== GLOBAL RESET & BASE STYLES ========== */
-html, body, .stApp {
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-4) 75%, var(--surface-5) 100%);
-  background-attachment: fixed;
-  color: #ffffff;
-  overflow-x: hidden;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.stApp {
-  background: 
-    radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-    linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%);
-  min-height: 100vh;
-  position: relative;
-}
-
-/* ========== ANIMATED BACKGROUND PARTICLES ========== */
-.stApp::before {
-  content: '';
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: 
-    radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.15), transparent),
-    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.1), transparent),
-    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.1), transparent),
-    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.08), transparent),
-    radial-gradient(2px 2px at 160px 30px, rgba(255, 255, 255, 0.12), transparent);
-  background-repeat: repeat;
-  background-size: 300px 400px;
-  animation: sparkle 25s linear infinite;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.8;
-}
-
-@keyframes sparkle {
-  from { background-position: 0% 0%; }
-  to { background-position: 300px 400px; }
-}
-
-/* ========== TEXT VISIBILITY FIXES FOR STREAMLIT ========== */
-/* Force white text for ALL Streamlit components */
-.stApp, .stApp *, .main *, .block-container *, 
-.stMarkdown, .stMarkdown *, .css-1d391kg *, 
-.css-12oz5g7 *, .css-1ekf893 *, .css-16idsys *,
-h1, h2, h3, h4, h5, h6, p, span, div, label {
-  color: #ffffff !important;
-}
-
-/* Specific Streamlit component fixes */
-.stSelectbox label, 
-.stDateInput label,
-.stButton > button,
-.stRadio label,
-.stMetric label,
-.stMetric div,
-.stText,
-.stCaption,
-[data-testid="metric-container"],
-[data-testid="metric-container"] > div,
-[data-testid="stMetricLabel"],
-[data-testid="stMetricValue"] {
-  color: #ffffff !important;
-}
-
-/* Sidebar text fixes */
-section[data-testid="stSidebar"] *, 
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] div,
-section[data-testid="stSidebar"] label {
-  color: #ffffff !important;
-}
-
-/* Form element base styling */
-.stSelectbox > div > div,
-.stDateInput > div > div > input,
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  border-radius: 12px !important;
-  color: #ffffff !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-/* Alert styling */
-.stAlert, .stInfo, .stSuccess, .stWarning, .stError {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  border-radius: 12px !important;
-  color: #ffffff !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.stSuccess {
-  border-left: 4px solid var(--neon-green) !important;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%) !important;
-}
-
-.stWarning {
-  border-left: 4px solid var(--neon-orange) !important;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%) !important;
-}
-
-.stError {
-  border-left: 4px solid var(--neon-pink) !important;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%) !important;
-}
-
-.stInfo {
-  border-left: 4px solid var(--neon-cyan) !important;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%) !important;
-}
-
-/* ========== SIDEBAR FOUNDATION ========== */
-section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, 
-    rgba(15, 15, 35, 0.98) 0%, 
-    rgba(26, 26, 46, 0.95) 50%,
-    rgba(15, 23, 42, 0.98) 100%);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border-right: 2px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 80px rgba(0, 0, 0, 0.6);
-}
-
-section[data-testid="stSidebar"] > div {
-  background: transparent;
-  padding-top: 1rem;
-}
-
-/* FORCE DARK TEXT IN SIDEBAR FORM ELEMENTS */
-section[data-testid="stSidebar"] .stSelectbox > div > div,
-section[data-testid="stSidebar"] .stSelectbox > div > div > div,
-section[data-testid="stSidebar"] .stSelectbox input,
-section[data-testid="stSidebar"] .stSelectbox span,
-section[data-testid="stSidebar"] .stSelectbox div[role="button"],
-section[data-testid="stSidebar"] .stSelectbox div[role="option"],
-section[data-testid="stSidebar"] .stDateInput input,
-section[data-testid="stSidebar"] .stDateInput > div > div,
-section[data-testid="stSidebar"] .stDateInput span {
-  background: #ffffff !important;
-  color: #000000 !important;
-  border: 1px solid #cccccc !important;
-}
-
-/* Force dropdown options to be dark */
-section[data-testid="stSidebar"] [role="listbox"],
-section[data-testid="stSidebar"] [role="option"],
-section[data-testid="stSidebar"] .stSelectbox ul,
-section[data-testid="stSidebar"] .stSelectbox li {
-  background: #ffffff !important;
-  color: #000000 !important;
-}
-
-/* ========== BUTTON FOUNDATION ========== */
-.stButton > button {
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
-  border: 2px solid rgba(34, 211, 238, 0.5);
-  border-radius: 12px;
-  color: #ffffff !important;
-  font-weight: 700;
-  padding: 0.75rem 1.5rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.stButton > button:hover {
-  border-color: var(--neon-cyan);
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.35) 0%, rgba(168, 85, 247, 0.35) 100%);
-  box-shadow: 0 0 30px rgba(34, 211, 238, 0.5);
-  transform: translateY(-2px);
-}
-
-/* ========== RESPONSIVE DESIGN ========== */
-@media (max-width: 768px) {
-  .stApp {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 480px) {
-  .stApp {
-    font-size: 13px;
-  }
-}
-
-/* ========== UTILITIES ========== */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-}
-
-.text-center { text-align: center; }
-.text-white { color: #ffffff !important; }
-
-/* ========== FIX FOR STREAMLIT MARKDOWN ========== */
-.stMarkdown > div {
-  color: #ffffff !important;
-}
-
-/* Fix for expander content */
-.streamlit-expanderContent,
-.streamlit-expanderContent *,
-details[data-testid="stExpander"] *,
-div[data-testid="stExpander"] * {
-  color: #ffffff !important;
-}
-
-/* Fix for tabs */
-.stTabs [data-baseweb="tab-list"] *,
-.stTabs [data-baseweb="tab-panel"] * {
-  color: #ffffff !important;
-}
-
-/* Fix for columns */
-.css-12oz5g7 *, .css-1d391kg *, .css-16idsys * {
-  color: #ffffff !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Test that the CSS is working
-st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 12px; margin: 1rem 0;"><h3 style="color: #22d3ee !important;">✅ Part 2A Foundation CSS Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">The foundation styling is now active. You should see this text in white with a glass background.</p></div>', unsafe_allow_html=True)
+st.info("This is Part 1 with simple, clean interface. Form elements use default Streamlit styling for maximum visibility.")
