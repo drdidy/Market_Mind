@@ -1488,13 +1488,14 @@ st.markdown(f"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2C1: WORKING REAL DATA CHART FUNCTIONS
-# Functional real data charts using yfinance (no duplicate imports)
+# MARKETLENS PRO - PART 2C1: REAL DATA CHART FUNCTIONS (FIXED)
+# Working integration with existing app using real Yahoo Finance data
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Additional CSS for chart containers only
+# Additional CSS for chart containers with proper text colors
 st.markdown("""
 <style>
+/* ========== CHART CONTAINERS WITH PROPER TEXT COLORS ========== */
 .chart-container {
   background: linear-gradient(135deg, 
     rgba(255, 255, 255, 0.08) 0%, 
@@ -1521,9 +1522,9 @@ st.markdown("""
   height: 1px;
   background: linear-gradient(90deg,
     transparent 0%,
-    #22d3ee 25%,
-    #a855f7 50%,
-    #00ff88 75%,
+    var(--neon-blue) 25%,
+    var(--neon-purple) 50%,
+    var(--neon-green) 75%,
     transparent 100%);
   animation: chart-shimmer 4s ease-in-out infinite;
 }
@@ -1532,70 +1533,114 @@ st.markdown("""
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+
+/* ========== ENSURE WHITE TEXT IN CHART AREAS ========== */
+.chart-container *,
+.chart-container h1,
+.chart-container h2, 
+.chart-container h3,
+.chart-container p,
+.chart-container div {
+  color: #ffffff !important;
+}
+
+/* ========== TAB STYLING WITH WHITE TEXT ========== */
+.stTabs [data-baseweb="tab-list"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 12px !important;
+  padding: 0.5rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+  background: transparent !important;
+  border-radius: 8px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+  background: rgba(34, 211, 238, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# WORKING REAL DATA FUNCTIONS
+# REAL DATA FUNCTIONS (NO DUPLICATE IMPORTS)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=300, show_spinner=False)
-def fetch_real_price_data(symbol: str):
-    """Fetch real price data from Yahoo Finance - WORKING VERSION"""
+@st.cache_data(ttl=180, show_spinner=False)
+def fetch_real_price_data(symbol: str) -> dict:
+    """Fetch real current price data from Yahoo Finance."""
     try:
-        # Create ticker object
         ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="5d", interval="1d")
         
-        # Get 1 month of daily data
-        hist_data = ticker.history(period="1mo", interval="1d")
+        if hist.empty:
+            return {"status": "error", "error": "No data available"}
         
-        if hist_data.empty:
-            return None, "No data available"
+        current_price = float(hist['Close'].iloc[-1])
+        prev_close = float(hist['Close'].iloc[-2]) if len(hist) > 1 else current_price
         
-        # Reset index to get dates as column
-        hist_data = hist_data.reset_index()
-        
-        # Get current price info
-        info = ticker.info
-        current_price = info.get('currentPrice', hist_data['Close'].iloc[-1])
-        previous_close = info.get('previousClose', hist_data['Close'].iloc[-2])
-        
-        # Calculate change
-        change = current_price - previous_close
-        change_pct = (change / previous_close) * 100 if previous_close > 0 else 0
+        change = current_price - prev_close
+        change_pct = (change / prev_close) * 100 if prev_close != 0 else 0
         
         return {
-            'hist_data': hist_data,
-            'current_price': float(current_price),
-            'change': float(change),
-            'change_pct': float(change_pct),
-            'volume': int(info.get('volume', 0)),
-            'symbol': symbol
-        }, None
-        
+            "status": "success",
+            "price": current_price,
+            "change": change,
+            "change_pct": change_pct,
+            "volume": int(hist['Volume'].iloc[-1]) if 'Volume' in hist.columns else 0
+        }
     except Exception as e:
-        return None, str(e)
+        return {"status": "error", "error": str(e)}
 
-def create_working_price_chart(symbol: str):
-    """Create price chart with REAL Yahoo Finance data - GUARANTEED WORKING"""
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_chart_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
+    """Fetch real historical data for charts."""
+    try:
+        ticker = yf.Ticker(symbol)
+        data = ticker.history(period=period, interval="1d")
+        
+        if data.empty:
+            return pd.DataFrame()
+        
+        # Reset index to make Date a column
+        data = data.reset_index()
+        return data
+    except Exception:
+        return pd.DataFrame()
+
+def build_real_price_chart(symbol: str, title: str):
+    """Build price chart with real Yahoo Finance data."""
     
-    # Fetch real data
-    data, error = fetch_real_price_data(symbol)
+    # Get real historical data
+    df = fetch_chart_data(symbol, period="1mo")
     
-    if error or not data:
+    if df.empty:
         # Create error chart
         fig = go.Figure()
         fig.add_annotation(
-            text=f"❌ Cannot fetch real data for {symbol}<br>Error: {error or 'Unknown error'}",
-            xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False, 
-            font=dict(color='#ff6b35', size=16),
+            text=f"⚠️ Unable to load real data for {symbol}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(color='#ff6b35', size=18),
             bgcolor='rgba(255, 107, 53, 0.1)',
             bordercolor='#ff6b35',
-            borderwidth=2
+            borderwidth=2,
+            borderpad=20
         )
         fig.update_layout(
-            title=f"{symbol} Price Chart - Data Error",
+            title=f"{title} - Data Unavailable",
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#ffffff'),
@@ -1603,45 +1648,44 @@ def create_working_price_chart(symbol: str):
         )
         return fig
     
-    # Use real data
-    df = data['hist_data']
+    # Calculate moving average
+    df['MA20'] = df['Close'].rolling(window=20).mean()
     
-    # Create the chart with real data
+    # Create chart
     fig = go.Figure()
     
-    # Add real price line
+    # Add price line
     fig.add_trace(go.Scatter(
         x=df['Date'],
         y=df['Close'],
         mode='lines',
-        name=f"{symbol} Real Price",
+        name=f'{symbol} Price',
         line=dict(color='#22d3ee', width=3),
-        hovertemplate='Date: %{x}<br>Price: $%{y:,.2f}<extra></extra>'
+        hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Price: $%{y:,.2f}<extra></extra>'
     ))
     
-    # Add 20-day moving average if enough data
-    if len(df) >= 20:
-        df['MA20'] = df['Close'].rolling(window=20).mean()
+    # Add moving average if we have enough data
+    if len(df) >= 20 and not df['MA20'].isna().all():
         fig.add_trace(go.Scatter(
             x=df['Date'],
             y=df['MA20'],
             mode='lines',
-            name='20-Day MA',
-            line=dict(color='#ff6b35', width=1, dash='dot'),
-            hovertemplate='20-Day MA: $%{y:,.2f}<extra></extra>'
+            name='20-Day Average',
+            line=dict(color='#ff6b35', width=2, dash='dot'),
+            hovertemplate='<b>%{x|%Y-%m-%d}</b><br>MA20: $%{y:,.2f}<extra></extra>'
         ))
     
     # Set proper Y-axis range
-    min_price = df['Close'].min()
-    max_price = df['Close'].max()
-    price_range = max_price - min_price
-    y_min = min_price - (price_range * 0.05)
-    y_max = max_price + (price_range * 0.05)
+    price_min = df['Close'].min()
+    price_max = df['Close'].max()
+    price_range = price_max - price_min
+    y_bottom = price_min - (price_range * 0.05)
+    y_top = price_max + (price_range * 0.05)
     
     # Style the chart
     fig.update_layout(
         title=dict(
-            text=f"{symbol} Live Price Chart (Yahoo Finance)",
+            text=f"{title} (Live Yahoo Finance Data)",
             font=dict(color='#ffffff', size=18),
             x=0.5
         ),
@@ -1657,535 +1701,596 @@ def create_working_price_chart(symbol: str):
             gridcolor='rgba(255,255,255,0.1)',
             showgrid=True,
             color='#ffffff',
-            range=[y_min, y_max],
+            range=[y_bottom, y_top],
             tickformat='$,.2f'
         ),
         showlegend=True,
         legend=dict(
-            bgcolor='rgba(0,0,0,0.5)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
+            bgcolor='rgba(0,0,0,0.7)',
+            bordercolor='rgba(255,255,255,0.3)',
+            borderwidth=1,
+            font=dict(color='#ffffff')
         ),
-        height=400,
-        margin=dict(l=60, r=40, t=60, b=40)
+        margin=dict(l=60, r=40, t=60, b=40),
+        height=400
     )
     
     return fig
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# EXECUTE WORKING CHARTS
+# CHART SECTION HEADER
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Section header
 st.markdown(f"""
 <div style="text-align: center; margin: 3rem 0 2rem 0;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
     <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
                background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
                -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        Live Market Data Charts
+        Live Market Charts
     </h2>
-    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">
-        Real-time Yahoo Finance data integration
+    <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem; margin: 0.5rem 0 0 0;">
+        Real-time data visualization powered by Yahoo Finance
     </p>
 </div>
+<div style="height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 20%, rgba(34, 211, 238, 0.4) 50%, rgba(255, 255, 255, 0.2) 80%, transparent 100%); margin: 3rem 0;"></div>
 """, unsafe_allow_html=True)
 
-# Get current asset
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# CHART TABS (START WITH TAB 1)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Get current asset info
 current_asset = AppState.get_current_asset()
 display_symbol = get_display_symbol(current_asset)
+asset_info = MAJOR_EQUITIES[current_asset]
 
-# Create main price chart
-st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+# Create chart tabs
+tab1, tab2, tab3 = st.tabs(["📊 Price Action", "📈 Volume Analysis", "🎯 Technical Indicators"])
 
-# Generate and display the working chart
-price_chart = create_working_price_chart(current_asset)
-st.plotly_chart(price_chart, use_container_width=True, config=CHART_CONFIG)
+# TAB 1: PRICE ACTION WITH REAL DATA
+with tab1:
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    
+    # Create and display real price chart
+    price_chart = build_real_price_chart(current_asset, f"{display_symbol} Price Movement")
+    st.plotly_chart(price_chart, use_container_width=True, config=CHART_CONFIG)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Get real market data for analysis
+    live_data = fetch_real_price_data(current_asset)
+    
+    if live_data['status'] == 'success':
+        # Show analysis with real data
+        price = live_data['price']
+        change = live_data['change']
+        change_pct = live_data['change_pct']
+        
+        change_color = "#00ff88" if change >= 0 else "#ff6b35"
+        trend_word = "positive" if change >= 0 else "negative"
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); 
+                    border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
+            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
+                📊 Live Price Analysis
+            </div>
+            <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                <strong>{display_symbol}</strong> is currently trading at <strong>${price:,.2f}</strong> with a 
+                <span style="color: {change_color}; font-weight: 700;">{trend_word}</span> movement of 
+                <strong style="color: {change_color};">${change:+.2f} ({change_pct:+.2f}%)</strong> from the previous session.
+                Chart displays real market data from Yahoo Finance with 20-day moving average overlay.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    else:
+        # Show error message
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%); 
+                    border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
+            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
+                ⚠️ Data Connection Issue
+            </div>
+            <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                Unable to fetch real market data for <strong>{display_symbol}</strong>. 
+                Error: {live_data.get('error', 'Unknown error')}. 
+                Please check your internet connection and try refreshing the page.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Display data status
-data_result, error = fetch_real_price_data(current_asset)
-
-if data_result and not error:
-    # Show real data metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "Current Price", 
-            f"${data_result['current_price']:,.2f}",
-            f"{data_result['change']:+.2f}"
-        )
-    
-    with col2:
-        st.metric(
-            "Daily Change", 
-            f"{data_result['change_pct']:+.2f}%",
-            f"${data_result['change']:+.2f}"
-        )
-    
-    with col3:
-        st.metric(
-            "Volume", 
-            f"{data_result['volume']:,}" if data_result['volume'] > 0 else "N/A"
-        )
-    
-    with col4:
-        st.metric(
-            "Data Points", 
-            f"{len(data_result['hist_data'])}" if data_result['hist_data'] is not None else "0"
-        )
-    
-    # Success message
-    st.success(f"✅ **Live data successfully loaded for {display_symbol}** - Chart shows real Yahoo Finance data with {len(data_result['hist_data'])} data points")
-    
-else:
-    # Error message
-    st.error(f"❌ **Failed to load real data for {display_symbol}** - Error: {error}")
-    st.info("💡 **Troubleshooting:** Check your internet connection or try selecting a different asset. Yahoo Finance may be temporarily unavailable.")
-
-# Data source info
-st.markdown(f"""
-<div class="glass-panel" style="padding: 1.5rem; margin: 2rem 0; text-align: center;">
-    <div style="color: rgba(255, 255, 255, 0.8); font-size: 1rem; margin-bottom: 0.5rem;">
-        <strong>Data Source:</strong> Yahoo Finance API via yfinance library
-    </div>
-    <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.875rem;">
-        Real-time price data • 1-month historical chart • 20-day moving average
-    </div>
-</div>
-""", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2C2: WORKING VOLUME & TECHNICAL ANALYSIS
-# Complete working tabs with real Yahoo Finance data
+# MARKETLENS PRO - PART 2C2: VOLUME & TECHNICAL ANALYSIS COMPLETION
+# Complete the remaining tabs with real Yahoo Finance data integration
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# WORKING TECHNICAL ANALYSIS FUNCTIONS
+# REAL DATA FUNCTIONS FOR TECHNICAL ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 @st.cache_data(ttl=300, show_spinner=False)
-def fetch_technical_data(symbol: str):
-    """Fetch data for technical analysis - WORKING VERSION"""
+def fetch_technical_data(symbol: str) -> pd.DataFrame:
+    """Fetch extended historical data for technical indicators."""
     try:
         ticker = yf.Ticker(symbol)
+        data = ticker.history(period="6mo", interval="1d")  # 6 months for good indicator calculation
         
-        # Get 3 months of data for indicators
-        hist_data = ticker.history(period="3mo", interval="1d")
+        if data.empty:
+            return pd.DataFrame()
         
-        if hist_data.empty:
-            return None, "No technical data available"
-        
-        # Reset index
-        hist_data = hist_data.reset_index()
-        
-        # Calculate technical indicators
-        close_prices = hist_data['Close']
-        
-        # RSI calculation
-        delta = close_prices.diff()
+        data = data.reset_index()
+        return data
+    except Exception:
+        return pd.DataFrame()
+
+def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate RSI, MACD, and Bollinger Bands from real data."""
+    if df.empty or len(df) < 26:  # Need minimum data for MACD
+        return df
+    
+    try:
+        # RSI Calculation
+        delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
+        df['RSI'] = 100 - (100 / (1 + rs))
         
-        # MACD calculation
-        exp1 = close_prices.ewm(span=12).mean()
-        exp2 = close_prices.ewm(span=26).mean()
-        macd_line = exp1 - exp2
-        macd_signal = macd_line.ewm(span=9).mean()
-        macd_histogram = macd_line - macd_signal
+        # MACD Calculation
+        exp1 = df['Close'].ewm(span=12).mean()
+        exp2 = df['Close'].ewm(span=26).mean()
+        df['MACD'] = exp1 - exp2
+        df['MACD_signal'] = df['MACD'].ewm(span=9).mean()
+        df['MACD_histogram'] = df['MACD'] - df['MACD_signal']
         
         # Bollinger Bands
-        bb_period = 20
-        bb_middle = close_prices.rolling(window=bb_period).mean()
-        bb_std = close_prices.rolling(window=bb_period).std()
-        bb_upper = bb_middle + (bb_std * 2)
-        bb_lower = bb_middle - (bb_std * 2)
+        df['BB_middle'] = df['Close'].rolling(window=20).mean()
+        bb_std = df['Close'].rolling(window=20).std()
+        df['BB_upper'] = df['BB_middle'] + (bb_std * 2)
+        df['BB_lower'] = df['BB_middle'] - (bb_std * 2)
         
-        # Add indicators to dataframe
-        hist_data['RSI'] = rsi
-        hist_data['MACD'] = macd_line
-        hist_data['MACD_Signal'] = macd_signal
-        hist_data['MACD_Histogram'] = macd_histogram
-        hist_data['BB_Upper'] = bb_upper
-        hist_data['BB_Middle'] = bb_middle
-        hist_data['BB_Lower'] = bb_lower
-        hist_data['SMA_20'] = close_prices.rolling(window=20).mean()
-        
-        return hist_data, None
-        
-    except Exception as e:
-        return None, str(e)
+        return df
+    except Exception:
+        return df
 
-def create_working_technical_chart(symbol: str):
-    """Create working technical analysis chart with real data"""
+def build_technical_chart(symbol: str):
+    """Build technical indicators chart with real data."""
     
-    # Fetch technical data
-    tech_data, error = fetch_technical_data(symbol)
+    from plotly.subplots import make_subplots
     
-    if error or tech_data is None:
+    # Get real technical data
+    df = fetch_technical_data(symbol)
+    
+    if df.empty:
         # Error chart
-        fig = go.Figure()
+        fig = make_subplots(rows=1, cols=1)
         fig.add_annotation(
-            text=f"❌ Cannot fetch technical data for {symbol}<br>Error: {error or 'Unknown error'}",
+            text=f"⚠️ Unable to load technical data for {symbol}",
             xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False,
-            font=dict(color='#ff6b35', size=16),
-            bgcolor='rgba(255, 107, 53, 0.1)',
-            bordercolor='#ff6b35',
-            borderwidth=2
+            showarrow=False, font=dict(color='#ff6b35', size=18),
+            bgcolor='rgba(255, 107, 53, 0.1)', bordercolor='#ff6b35', borderwidth=2
         )
         fig.update_layout(
             title=f"{symbol} Technical Analysis - Data Error",
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#ffffff'),
-            height=600
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#ffffff'), height=600
         )
-        return fig
+        return fig, {}
     
-    # Create subplots for technical indicators
-    from plotly.subplots import make_subplots
+    # Calculate indicators
+    df = calculate_technical_indicators(df)
     
+    # Create subplots
     fig = make_subplots(
         rows=3, cols=1,
-        subplot_titles=(
+        subplot_titles=[
             f'{symbol} Price & Bollinger Bands (Live Data)',
             f'{symbol} RSI (Live Data)', 
             f'{symbol} MACD (Live Data)'
-        ),
+        ],
         vertical_spacing=0.08,
         row_heights=[0.5, 0.25, 0.25]
     )
     
-    # Price and Bollinger Bands (Row 1)
+    # Price and Bollinger Bands
     fig.add_trace(go.Scatter(
-        x=tech_data['Date'],
-        y=tech_data['Close'],
-        mode='lines',
-        name='Price',
+        x=df['Date'], y=df['Close'],
+        mode='lines', name='Price',
         line=dict(color='#22d3ee', width=2),
         hovertemplate='Price: $%{y:,.2f}<extra></extra>'
     ), row=1, col=1)
     
-    # Add SMA if available
-    if not tech_data['SMA_20'].isna().all():
+    if not df['BB_upper'].isna().all():
         fig.add_trace(go.Scatter(
-            x=tech_data['Date'],
-            y=tech_data['SMA_20'],
-            mode='lines',
-            name='SMA 20',
-            line=dict(color='#ff6b35', width=1, dash='dot'),
-            hovertemplate='SMA 20: $%{y:,.2f}<extra></extra>'
-        ), row=1, col=1)
-    
-    # Add Bollinger Bands if available
-    if not tech_data['BB_Upper'].isna().all():
-        fig.add_trace(go.Scatter(
-            x=tech_data['Date'],
-            y=tech_data['BB_Upper'],
-            mode='lines',
-            name='BB Upper',
+            x=df['Date'], y=df['BB_upper'],
+            mode='lines', name='BB Upper',
             line=dict(color='#a855f7', width=1),
             hovertemplate='BB Upper: $%{y:,.2f}<extra></extra>'
         ), row=1, col=1)
         
         fig.add_trace(go.Scatter(
-            x=tech_data['Date'],
-            y=tech_data['BB_Lower'],
-            mode='lines',
-            name='BB Lower',
+            x=df['Date'], y=df['BB_lower'],
+            mode='lines', name='BB Lower',
             line=dict(color='#a855f7', width=1),
-            fill='tonexty',
-            fillcolor='rgba(168, 85, 247, 0.1)',
+            fill='tonexty', fillcolor='rgba(168, 85, 247, 0.1)',
             hovertemplate='BB Lower: $%{y:,.2f}<extra></extra>'
         ), row=1, col=1)
     
-    # RSI (Row 2)
-    if not tech_data['RSI'].isna().all():
+    # RSI
+    if not df['RSI'].isna().all():
         fig.add_trace(go.Scatter(
-            x=tech_data['Date'],
-            y=tech_data['RSI'],
-            mode='lines',
-            name='RSI',
+            x=df['Date'], y=df['RSI'],
+            mode='lines', name='RSI',
             line=dict(color='#00ff88', width=2),
             hovertemplate='RSI: %{y:.1f}<extra></extra>'
         ), row=2, col=1)
     
     # RSI reference lines
-    fig.add_hline(y=70, line_dash="dash", line_color="rgba(239, 68, 68, 0.5)", row=2, col=1)
-    fig.add_hline(y=30, line_dash="dash", line_color="rgba(16, 185, 129, 0.5)", row=2, col=1)
+    fig.add_hline(y=70, line_dash="dash", line_color="rgba(255, 107, 53, 0.7)", row=2, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="rgba(0, 255, 136, 0.7)", row=2, col=1)
     fig.add_hline(y=50, line_dash="dot", line_color="rgba(255, 255, 255, 0.3)", row=2, col=1)
     
-    # MACD (Row 3)
-    if not tech_data['MACD'].isna().all():
+    # MACD
+    if not df['MACD'].isna().all():
         fig.add_trace(go.Scatter(
-            x=tech_data['Date'],
-            y=tech_data['MACD'],
-            mode='lines',
-            name='MACD',
+            x=df['Date'], y=df['MACD'],
+            mode='lines', name='MACD',
             line=dict(color='#22d3ee', width=2),
             hovertemplate='MACD: %{y:.3f}<extra></extra>'
         ), row=3, col=1)
         
         fig.add_trace(go.Scatter(
-            x=tech_data['Date'],
-            y=tech_data['MACD_Signal'],
-            mode='lines',
-            name='Signal',
+            x=df['Date'], y=df['MACD_signal'],
+            mode='lines', name='Signal',
             line=dict(color='#ff6b35', width=2),
             hovertemplate='Signal: %{y:.3f}<extra></extra>'
         ), row=3, col=1)
         
         # MACD Histogram
-        colors = ['#00ff88' if x >= 0 else '#ff006e' for x in tech_data['MACD_Histogram']]
+        colors = ['#00ff88' if x >= 0 else '#ff006e' for x in df['MACD_histogram']]
         fig.add_trace(go.Bar(
-            x=tech_data['Date'],
-            y=tech_data['MACD_Histogram'],
-            name='Histogram',
-            marker_color=colors,
-            opacity=0.6,
+            x=df['Date'], y=df['MACD_histogram'],
+            name='Histogram', marker_color=colors, opacity=0.6,
             hovertemplate='Histogram: %{y:.4f}<extra></extra>'
         ), row=3, col=1)
     
     # Update layout
     fig.update_layout(
         title=dict(
-            text=f"{symbol} Technical Analysis (Yahoo Finance)",
-            font=dict(color='#ffffff', size=18),
-            x=0.5
+            text=f"{symbol} Technical Analysis (Live Yahoo Finance Data)",
+            font=dict(color='#ffffff', size=18), x=0.5
         ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#ffffff'),
         showlegend=True,
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.5)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
-        ),
-        height=600,
-        margin=dict(l=60, r=40, t=60, b=40)
+        legend=dict(bgcolor='rgba(0,0,0,0.7)', bordercolor='rgba(255,255,255,0.3)', 
+                   borderwidth=1, font=dict(color='#ffffff')),
+        height=600, margin=dict(l=60, r=40, t=80, b=40)
     )
     
     # Update axes
     fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff')
     fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff')
-    
-    # Format price axis
     fig.update_yaxes(tickformat='$,.2f', row=1, col=1)
-    fig.update_yaxes(range=[0, 100], row=2, col=1)  # RSI range
+    fig.update_yaxes(range=[0, 100], row=2, col=1)
     
-    return fig
+    # Get current values for analysis
+    current_values = {}
+    if len(df) > 0:
+        current_values = {
+            'rsi': df['RSI'].iloc[-1] if not df['RSI'].isna().all() else 50,
+            'macd': df['MACD'].iloc[-1] if not df['MACD'].isna().all() else 0,
+            'macd_signal': df['MACD_signal'].iloc[-1] if not df['MACD_signal'].isna().all() else 0,
+            'price': df['Close'].iloc[-1],
+            'bb_upper': df['BB_upper'].iloc[-1] if not df['BB_upper'].isna().all() else 0,
+            'bb_lower': df['BB_lower'].iloc[-1] if not df['BB_lower'].isna().all() else 0
+        }
+    
+    return fig, current_values
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# WORKING TABS IMPLEMENTATION
+# COMPLETE TAB 2: VOLUME ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Create tab system
-tab1, tab2, tab3 = st.tabs(["📊 Price Action", "📈 Volume Analysis", "🎯 Technical Indicators"])
-
-# Get current asset info
-current_asset = AppState.get_current_asset()
-display_symbol = get_display_symbol(current_asset)
-
-# TAB 1: Price Action (already handled in 2C1)
-with tab1:
-    st.markdown("**Price Action tab content is handled in Part 2C1**")
-    st.info("💡 The price chart above shows real Yahoo Finance data for the selected asset.")
-
-# TAB 2: Volume Analysis with REAL data
 with tab2:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
     
-    st.markdown(f"""
-    <div style="text-align: center; padding: 2rem;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
-        <h3 style="color: #ffffff; margin-bottom: 1rem;">Live Volume Analysis for {display_symbol}</h3>
-        <p style="color: rgba(255, 255, 255, 0.8);">Real-time volume analysis from Yahoo Finance</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Get real volume data
+    volume_data = fetch_real_price_data(current_asset)
+    historical_data = fetch_chart_data(current_asset, period="1mo")
     
-    # Get real data for volume analysis
-    data_result, error = fetch_real_price_data(current_asset)
-    
-    if data_result and not error:
-        # Calculate volume metrics from real data
-        hist_data = data_result['hist_data']
-        current_volume = data_result.get('volume', 0)
+    if volume_data['status'] == 'success' and not historical_data.empty:
+        current_volume = volume_data['volume']
         
-        if 'Volume' in hist_data.columns and len(hist_data) > 0:
-            # Calculate real volume metrics
-            avg_volume = int(hist_data['Volume'].mean())
+        # Calculate volume metrics from real data
+        if 'Volume' in historical_data.columns:
+            avg_volume = int(historical_data['Volume'].mean())
+            relative_volume = current_volume / avg_volume if avg_volume > 0 else 1.0
             
-            # Calculate relative volume
-            relative_volume = (current_volume / avg_volume) if avg_volume > 0 and current_volume > 0 else 0
-            
-            # Calculate volume trend (last 5 vs previous 5 days)
-            if len(hist_data) >= 10:
-                recent_vol = hist_data['Volume'].tail(5).mean()
-                previous_vol = hist_data['Volume'].iloc[-10:-5].mean()
+            # Volume trend (last 5 days vs previous 5 days)
+            if len(historical_data) >= 10:
+                recent_vol = historical_data['Volume'].tail(5).mean()
+                previous_vol = historical_data['Volume'].iloc[-10:-5].mean()
                 volume_trend = ((recent_vol - previous_vol) / previous_vol) * 100 if previous_vol > 0 else 0
             else:
                 volume_trend = 0
-            
-            # Display real volume metrics
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-                    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">CURRENT VOLUME</div>
-                    <div style="color: #a855f7; font-size: 1.5rem; font-weight: 800;">{current_volume:,}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                trend_color = "#00ff88" if volume_trend >= 0 else "#ff6b35"
-                trend_sign = "+" if volume_trend >= 0 else ""
-                st.markdown(f"""
-                <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-                    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">VOLUME TREND</div>
-                    <div style="color: {trend_color}; font-size: 1.5rem; font-weight: 800;">{trend_sign}{volume_trend:.1f}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                relative_color = "#ff6b35" if relative_volume > 1.5 else "#00ff88" if relative_volume > 0.8 else "#a855f7"
-                st.markdown(f"""
-                <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
-                    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">RELATIVE VOLUME</div>
-                    <div style="color: {relative_color}; font-size: 1.5rem; font-weight: 800;">{relative_volume:.1f}x</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Volume analysis
-            if relative_volume > 2.0:
-                st.success(f"🔥 **High Volume Activity** - {relative_volume:.1f}x average suggests institutional interest")
-            elif relative_volume > 1.5:
-                st.info(f"📈 **Above Average Volume** - {relative_volume:.1f}x indicates increased market participation")
-            elif relative_volume < 0.5:
-                st.warning(f"📉 **Low Volume** - {relative_volume:.1f}x suggests limited market interest")
-            else:
-                st.info(f"✅ **Normal Volume** - {relative_volume:.1f}x average indicates typical trading activity")
-        
         else:
-            st.warning("⚠️ Volume data not available for this asset")
-    
+            avg_volume = 0
+            relative_volume = 1.0
+            volume_trend = 0
+        
+        # Volume analysis header
+        st.markdown(f"""
+        <div style="text-align: center; padding: 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+            <h3 style="color: #ffffff; margin-bottom: 1rem; font-weight: 800;">
+                Live Volume Analysis - {display_symbol}
+            </h3>
+            <p style="color: rgba(255, 255, 255, 0.8); line-height: 1.6;">
+                Real-time volume analysis powered by Yahoo Finance data showing institutional activity patterns.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Volume metrics grid
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem; font-weight: 600;">CURRENT VOLUME</div>
+                <div style="color: #a855f7; font-size: 1.8rem; font-weight: 800;">{current_volume:,}</div>
+                <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.75rem; margin-top: 0.5rem;">shares traded today</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            trend_color = "#00ff88" if volume_trend >= 0 else "#ff6b35"
+            trend_sign = "+" if volume_trend >= 0 else ""
+            st.markdown(f"""
+            <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem; font-weight: 600;">VOLUME TREND</div>
+                <div style="color: {trend_color}; font-size: 1.8rem; font-weight: 800;">{trend_sign}{volume_trend:.1f}%</div>
+                <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.75rem; margin-top: 0.5rem;">5-day comparison</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            rel_color = "#ff6b35" if relative_volume > 2.0 else "#00ff88" if relative_volume > 1.2 else "#a855f7"
+            st.markdown(f"""
+            <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem; font-weight: 600;">RELATIVE VOLUME</div>
+                <div style="color: {rel_color}; font-size: 1.8rem; font-weight: 800;">{relative_volume:.1f}x</div>
+                <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.75rem; margin-top: 0.5rem;">vs 30-day average</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Volume analysis insights
+        if relative_volume > 2.5:
+            analysis = f"Exceptionally high volume at {relative_volume:.1f}x average suggests major institutional activity or significant news impact."
+            panel_type = "warning"
+        elif relative_volume > 1.5:
+            analysis = f"Above-average volume at {relative_volume:.1f}x indicates strong market interest and potential for continued momentum."
+            panel_type = "success"
+        elif relative_volume < 0.5:
+            analysis = f"Below-average volume at {relative_volume:.1f}x suggests low participation and potential for range-bound trading."
+            panel_type = "info"
+        else:
+            analysis = f"Normal volume levels at {relative_volume:.1f}x average indicate typical market participation."
+            panel_type = "info"
+        
+        # Display analysis panel
+        panel_colors = {
+            "success": ("rgba(16, 185, 129, 0.1)", "rgba(16, 185, 129, 0.3)"),
+            "warning": ("rgba(245, 158, 11, 0.1)", "rgba(245, 158, 11, 0.3)"),
+            "info": ("rgba(34, 211, 238, 0.1)", "rgba(34, 211, 238, 0.3)")
+        }
+        bg_color, border_color = panel_colors[panel_type]
+        
+        st.markdown(f"""
+        <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
+                📊 Live Volume Insights
+            </div>
+            <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                <strong>{display_symbol}</strong> volume analysis: {current_volume:,} shares traded vs {avg_volume:,} average. 
+                {analysis} Volume trend: {volume_trend:+.1f}% over past 5 sessions.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
     else:
-        st.error(f"❌ Cannot fetch volume data: {error}")
+        # Volume data error
+        st.markdown(f"""
+        <div style="text-align: center; padding: 3rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem; color: #ff6b35;">⚠️</div>
+            <h3 style="color: #ffffff; margin-bottom: 1rem; font-weight: 800;">Volume Data Unavailable</h3>
+            <p style="color: rgba(255, 255, 255, 0.8);">
+                Unable to fetch real volume data for {display_symbol}. Please check your connection and try refreshing.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 3: Technical Indicators with REAL data
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# COMPLETE TAB 3: TECHNICAL INDICATORS  
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
 with tab3:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
     
-    # Create and display technical chart
-    tech_chart = create_working_technical_chart(current_asset)
+    # Create technical chart
+    tech_chart, tech_values = build_technical_chart(current_asset)
     st.plotly_chart(tech_chart, use_container_width=True, config=CHART_CONFIG)
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Get technical data for analysis
-    tech_result, tech_error = fetch_technical_data(current_asset)
-    
-    if tech_result is not None and not tech_error:
-        # Get latest indicator values
-        try:
-            latest_rsi = tech_result['RSI'].iloc[-1] if not tech_result['RSI'].isna().all() else 50
-            latest_macd = tech_result['MACD'].iloc[-1] if not tech_result['MACD'].isna().all() else 0
-            latest_signal = tech_result['MACD_Signal'].iloc[-1] if not tech_result['MACD_Signal'].isna().all() else 0
-            current_price = tech_result['Close'].iloc[-1]
-            bb_upper = tech_result['BB_Upper'].iloc[-1] if not tech_result['BB_Upper'].isna().all() else current_price
-            bb_lower = tech_result['BB_Lower'].iloc[-1] if not tech_result['BB_Lower'].isna().all() else current_price
+    # Technical analysis panels
+    if tech_values:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # RSI Analysis
+            rsi = tech_values.get('rsi', 50)
+            if rsi > 70:
+                rsi_status = "Overbought"
+                rsi_color = "#ff6b35"
+                rsi_action = "Consider profit-taking opportunities"
+                panel_type = "warning"
+            elif rsi < 30:
+                rsi_status = "Oversold"
+                rsi_color = "#00ff88"
+                rsi_action = "Potential buying opportunity emerging"
+                panel_type = "success"
+            else:
+                rsi_status = "Neutral"
+                rsi_color = "#a855f7"
+                rsi_action = "RSI in normal trading range"
+                panel_type = "info"
             
-            # Technical analysis summary
-            col1, col2, col3 = st.columns(3)
+            panel_colors = {
+                "success": ("rgba(16, 185, 129, 0.1)", "rgba(16, 185, 129, 0.3)"),
+                "warning": ("rgba(245, 158, 11, 0.1)", "rgba(245, 158, 11, 0.3)"),
+                "info": ("rgba(34, 211, 238, 0.1)", "rgba(34, 211, 238, 0.3)")
+            }
+            bg_color, border_color = panel_colors[panel_type]
             
-            with col1:
-                # RSI Analysis
-                if latest_rsi > 70:
-                    rsi_status = "🔴 Overbought"
-                    rsi_message = f"RSI at {latest_rsi:.1f} suggests potential selling pressure"
-                    rsi_type = "warning"
-                elif latest_rsi < 30:
-                    rsi_status = "🟢 Oversold"
-                    rsi_message = f"RSI at {latest_rsi:.1f} suggests potential buying opportunity"
-                    rsi_type = "success"
-                else:
-                    rsi_status = "🟡 Neutral"
-                    rsi_message = f"RSI at {latest_rsi:.1f} indicates normal trading range"
-                    rsi_type = "info"
+            st.markdown(f"""
+            <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
+                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
+                    RSI Analysis ({rsi:.1f})
+                </div>
+                <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                    <strong style="color: {rsi_color};">{rsi_status}</strong> conditions detected. 
+                    {rsi_action}. Current 14-period RSI calculated from real Yahoo Finance data.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            # MACD Analysis
+            macd = tech_values.get('macd', 0)
+            macd_signal = tech_values.get('macd_signal', 0)
+            
+            if macd > macd_signal:
+                macd_status = "Bullish"
+                macd_color = "#00ff88"
+                macd_action = "MACD above signal suggests upward momentum"
+                panel_type = "success"
+            elif macd < macd_signal:
+                macd_status = "Bearish"
+                macd_color = "#ff6b35"
+                macd_action = "MACD below signal indicates downward pressure"
+                panel_type = "warning"
+            else:
+                macd_status = "Neutral"
+                macd_color = "#a855f7"
+                macd_action = "MACD near signal line, watch for direction"
+                panel_type = "info"
+            
+            bg_color, border_color = panel_colors[panel_type]
+            
+            st.markdown(f"""
+            <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
+                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
+                    MACD Signal ({macd_status})
+                </div>
+                <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                    <strong style="color: {macd_color};">{macd_action}</strong>. 
+                    MACD: {macd:.3f}, Signal: {macd_signal:.3f}. Based on real 12/26/9 period calculation.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            # Bollinger Bands Analysis
+            price = tech_values.get('price', 0)
+            bb_upper = tech_values.get('bb_upper', 0)
+            bb_lower = tech_values.get('bb_lower', 0)
+            
+            if bb_upper != bb_lower:
+                bb_position = (price - bb_lower) / (bb_upper - bb_lower)
                 
-                if rsi_type == "warning":
-                    st.warning(f"**{rsi_status}**\n\n{rsi_message}")
-                elif rsi_type == "success":
-                    st.success(f"**{rsi_status}**\n\n{rsi_message}")
+                if bb_position > 0.8:
+                    bb_status = "Near Upper Band"
+                    bb_color = "#ff6b35"
+                    bb_action = "Price near resistance, watch for reversal"
+                    panel_type = "warning"
+                elif bb_position < 0.2:
+                    bb_status = "Near Lower Band"
+                    bb_color = "#00ff88"
+                    bb_action = "Price near support, potential bounce zone"
+                    panel_type = "success"
                 else:
-                    st.info(f"**{rsi_status}**\n\n{rsi_message}")
+                    bb_status = "Middle Range"
+                    bb_color = "#a855f7"
+                    bb_action = "Price trading within normal band range"
+                    panel_type = "info"
+            else:
+                bb_status = "Calculating"
+                bb_color = "#a855f7"
+                bb_action = "Bollinger Bands data being calculated"
+                panel_type = "info"
             
-            with col2:
-                # MACD Analysis
-                if latest_macd > latest_signal:
-                    macd_status = "🟢 Bullish Signal"
-                    macd_message = f"MACD above signal line suggests upward momentum"
-                    st.success(f"**{macd_status}**\n\n{macd_message}")
-                elif latest_macd < latest_signal:
-                    macd_status = "🔴 Bearish Signal"
-                    macd_message = f"MACD below signal line suggests downward pressure"
-                    st.warning(f"**{macd_status}**\n\n{macd_message}")
-                else:
-                    macd_status = "🟡 Neutral"
-                    macd_message = f"MACD near signal line, awaiting direction"
-                    st.info(f"**{macd_status}**\n\n{macd_message}")
+            bg_color, border_color = panel_colors[panel_type]
             
-            with col3:
-                # Bollinger Bands Analysis
-                if bb_upper != bb_lower:
-                    bb_position = (current_price - bb_lower) / (bb_upper - bb_lower)
-                    
-                    if bb_position > 0.8:
-                        bb_status = "🔴 Near Upper Band"
-                        bb_message = f"Price near resistance level - potential reversal zone"
-                        st.warning(f"**{bb_status}**\n\n{bb_message}")
-                    elif bb_position < 0.2:
-                        bb_status = "🟢 Near Lower Band"
-                        bb_message = f"Price near support level - potential bounce zone"
-                        st.success(f"**{bb_status}**\n\n{bb_message}")
-                    else:
-                        bb_status = "🟡 Middle Range"
-                        bb_message = f"Price in normal range - no extreme levels"
-                        st.info(f"**{bb_status}**\n\n{bb_message}")
-                else:
-                    st.info("**Bollinger Bands**\n\nInsufficient data for analysis")
-            
-        except Exception as e:
-            st.error(f"Error calculating indicators: {str(e)}")
+            st.markdown(f"""
+            <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
+                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
+                    Bollinger Bands ({bb_status})
+                </div>
+                <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                    <strong style="color: {bb_color};">{bb_action}</strong>. 
+                    Current price: ${price:.2f}. Based on 20-period moving average with 2 standard deviations.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
     else:
-        st.error(f"❌ Cannot calculate technical indicators: {tech_error}")
+        # Technical data error
+        st.markdown(f"""
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); 
+                    border-radius: 12px; padding: 2rem; margin: 1rem 0; text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 1rem; color: #ff6b35;">⚠️</div>
+            <div style="font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem; color: #ffffff;">
+                Technical Analysis Unavailable
+            </div>
+            <div style="color: rgba(255, 255, 255, 0.9);">
+                Unable to calculate technical indicators for <strong>{display_symbol}</strong>. 
+                This requires extended historical data from Yahoo Finance.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-# Final status
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# FINAL STATUS SUMMARY
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
 st.markdown(f"""
 <div class="glass-panel" style="padding: 2rem; text-align: center; margin: 3rem 0;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">🚀</div>
     <h3 style="color: #ffffff; font-size: 1.8rem; font-weight: 800; margin-bottom: 1rem;">
-        Live Data Integration Complete
+        MarketLens Pro - Live Data Integration Complete
     </h3>
     <p style="color: rgba(255, 255, 255, 0.8); font-size: 1.1rem; margin-bottom: 1.5rem;">
-        All chart systems now use real Yahoo Finance data for {display_symbol}
+        All analysis modules operational with real-time Yahoo Finance data. 
+        Professional-grade market intelligence at your fingertips.
     </p>
     <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-        <span class="status-chip status-live">🟢 Real Price Data</span>
-        <span class="status-chip status-live">🟢 Live Volume</span>
-        <span class="status-chip status-live">🟢 Technical Indicators</span>
+        <span class="status-chip status-live">📊 Live Charts</span>
+        <span class="status-chip status-live">📈 Volume Analysis</span>
+        <span class="status-chip status-live">🎯 Technical Indicators</span>
+        <span class="status-chip status-live">⚡ Real-time Updates</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+
+
 
 
 
