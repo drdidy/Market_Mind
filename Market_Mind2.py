@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Tuple, Any
 APP_NAME = "MarketLens Pro"
 TAGLINE = "Enterprise SPX & Equities Forecasting"
 VERSION = "2024.1"
-COMPANY = "Quantum Trading Systems"
+COMPANY = "Max Pointe Consulting"
 
 # Timezone configuration
 ET = ZoneInfo("America/New_York")
@@ -341,5 +341,5 @@ with col1:
     st.metric("Sector", MAJOR_EQUITIES[selected_asset]['type'])
 
 with col2:
-    st.metric("Forecast Date", forecast_date)
-    st.metric("Previous Trading Day", previous_trading_day(forecast_date))
+    st.metric("Forecast Date", forecast_date.strftime("%B %d, %Y"))
+    st.metric("Previous Trading Day", previous_trading_day(forecast_date).strftime("%B %d, %Y"))
