@@ -775,3 +775,366 @@ div[data-testid="stExpander"] * {
 # Test that the CSS is working
 st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 12px; margin: 1rem 0;"><h3 style="color: #22d3ee !important;">✅ Part 2A Foundation CSS Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">The foundation styling is now active. You should see this text in white with a glass background.</p></div>', unsafe_allow_html=True)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 2B: INTERACTIVE COMPONENTS & ADVANCED UI ELEMENTS
+# Professional Interface Components with Modern Design Elements (Fixed for Streamlit)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Advanced UI components and interactive elements (builds on Part 2A)
+st.markdown("""
+<style>
+/* ========== METRIC CARDS & DASHBOARD COMPONENTS ========== */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+  padding: 0;
+}
+
+.metric-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.12) 0%, 
+    rgba(255, 255, 255, 0.06) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-align: center;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, 
+    var(--neon-cyan) 0%, 
+    var(--neon-violet) 33%,
+    var(--neon-green) 66%,
+    var(--neon-orange) 100%);
+  transform: scaleX(0);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 1.5rem 1.5rem 0 0;
+}
+
+.metric-card:hover {
+  transform: translateY(-12px) scale(1.03);
+  border-color: rgba(34, 211, 238, 0.4);
+  box-shadow: 
+    0 25px 50px rgba(34, 211, 238, 0.25),
+    0 0 0 1px rgba(34, 211, 238, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.metric-card:hover::before {
+  transform: scaleX(1);
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+}
+
+.metric-value {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 900;
+  color: #ffffff !important;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+  margin-bottom: 0.75rem;
+  line-height: 1;
+}
+
+.metric-change {
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.metric-positive { 
+  color: var(--neon-green) !important;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.metric-negative { 
+  color: var(--neon-orange) !important;
+  text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
+}
+
+.metric-neutral { 
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* ========== ENHANCED NAVIGATION SIDEBAR ========== */
+section[data-testid="stSidebar"]::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; width: 1px; height: 100%;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    var(--neon-cyan) 25%,
+    var(--neon-violet) 50%,
+    var(--neon-green) 75%,
+    transparent 100%);
+  animation: sidebar-glow 4s ease-in-out infinite;
+}
+
+@keyframes sidebar-glow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* Enhanced Radio Button Styling */
+section[data-testid="stSidebar"] .stRadio label {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.08) 0%, 
+    rgba(255, 255, 255, 0.03) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 1rem !important;
+  padding: 1rem !important;
+  margin: 0.25rem 0 !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+section[data-testid="stSidebar"] .stRadio label:hover {
+  background: linear-gradient(135deg, 
+    rgba(34, 211, 238, 0.15) 0%, 
+    rgba(168, 85, 247, 0.15) 100%) !important;
+  border-color: rgba(34, 211, 238, 0.4) !important;
+  color: #ffffff !important;
+  transform: translateX(6px) !important;
+  box-shadow: 
+    0 4px 12px rgba(34, 211, 238, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Enhanced Select Box Styling */
+section[data-testid="stSidebar"] .stSelectbox > div > div {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 1rem !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+section[data-testid="stSidebar"] .stSelectbox > div > div:hover {
+  border-color: rgba(34, 211, 238, 0.5) !important;
+  box-shadow: 
+    0 0 20px rgba(34, 211, 238, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ========== STATUS INDICATORS & CHIPS ========== */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 50px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 2px solid;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+.status-live {
+  background: linear-gradient(135deg, 
+    rgba(16, 185, 129, 0.25) 0%, 
+    rgba(5, 150, 105, 0.25) 100%);
+  border-color: var(--neon-green);
+  color: var(--neon-green) !important;
+  animation: pulse-glow-green 3s ease-in-out infinite;
+  box-shadow: 
+    0 0 20px rgba(16, 185, 129, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.status-warning {
+  background: linear-gradient(135deg, 
+    rgba(245, 158, 11, 0.25) 0%, 
+    rgba(217, 119, 6, 0.25) 100%);
+  border-color: var(--neon-orange);
+  color: var(--neon-orange) !important;
+  box-shadow: 
+    0 0 15px rgba(245, 158, 11, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.status-error {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.25) 0%, 
+    rgba(220, 38, 38, 0.25) 100%);
+  border-color: var(--neon-pink);
+  color: var(--neon-pink) !important;
+  box-shadow: 
+    0 0 15px rgba(239, 68, 68, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.status-success {
+  background: linear-gradient(135deg, 
+    rgba(16, 185, 129, 0.25) 0%, 
+    rgba(5, 150, 105, 0.25) 100%);
+  border-color: var(--neon-green);
+  color: var(--neon-green) !important;
+  box-shadow: 
+    0 0 20px rgba(16, 185, 129, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@keyframes pulse-glow-green {
+  0%, 100% { 
+    box-shadow: 
+      0 0 15px rgba(16, 185, 129, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  50% { 
+    box-shadow: 
+      0 0 30px rgba(16, 185, 129, 0.6),
+      0 0 60px rgba(16, 185, 129, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ========== ENHANCED BUTTON STYLING ========== */
+.stButton > button {
+  background: linear-gradient(135deg, 
+    rgba(34, 211, 238, 0.25) 0%, 
+    rgba(168, 85, 247, 0.25) 100%) !important;
+  border: 2px solid rgba(34, 211, 238, 0.5) !important;
+  border-radius: 1rem !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+  padding: 1rem 1.5rem !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  box-shadow: 
+    0 4px 12px rgba(34, 211, 238, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.stButton > button:hover {
+  border-color: var(--neon-cyan) !important;
+  background: linear-gradient(135deg, 
+    rgba(34, 211, 238, 0.35) 0%, 
+    rgba(168, 85, 247, 0.35) 100%) !important;
+  box-shadow: 
+    0 0 30px rgba(34, 211, 238, 0.5),
+    0 8px 24px rgba(34, 211, 238, 0.3),
+    inset 0 0 30px rgba(34, 211, 238, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-3px) scale(1.02) !important;
+}
+
+/* ========== ASSET ICONS & ANIMATIONS ========== */
+.asset-icon {
+  font-size: clamp(2.5rem, 6vw, 3.5rem);
+  text-shadow: 
+    0 0 20px rgba(255, 255, 255, 0.6),
+    0 0 40px rgba(34, 211, 238, 0.3);
+  display: inline-block;
+  animation: float-smooth 4s ease-in-out infinite;
+  margin-bottom: 1rem;
+  filter: brightness(1.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes float-smooth {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-8px) rotate(1deg); }
+  50% { transform: translateY(-12px) rotate(0deg); }
+  75% { transform: translateY(-6px) rotate(-1deg); }
+}
+
+.asset-icon-large {
+  font-size: clamp(3rem, 8vw, 5rem);
+  text-shadow: 
+    0 0 30px rgba(255, 255, 255, 0.8),
+    0 0 60px rgba(168, 85, 247, 0.4);
+  display: inline-block;
+  animation: float-large-complex 6s ease-in-out infinite;
+  margin-bottom: 1.5rem;
+  filter: brightness(1.2);
+}
+
+@keyframes float-large-complex {
+  0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+  16% { transform: translateY(-15px) rotate(2deg) scale(1.05); }
+  33% { transform: translateY(-20px) rotate(0deg) scale(1.08); }
+  50% { transform: translateY(-10px) rotate(-1deg) scale(1.03); }
+  66% { transform: translateY(-18px) rotate(1deg) scale(1.06); }
+  83% { transform: translateY(-8px) rotate(-2deg) scale(1.02); }
+}
+
+/* ========== HOVER UTILITIES ========== */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-6px) scale(1.02);
+  filter: brightness(1.1);
+}
+
+.hover-glow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow:hover {
+  box-shadow: 
+    0 0 20px rgba(34, 211, 238, 0.4),
+    0 0 40px rgba(34, 211, 238, 0.2);
+  border-color: rgba(34, 211, 238, 0.6);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Test that Part 2B interactive components are working
+st.markdown('<div style="color: #ffffff !important; text-align: center; padding: 1rem; background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%); border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 16px; margin: 1rem 0;"><h3 style="color: #22d3ee !important;">✅ Part 2B Interactive Components Loaded Successfully</h3><p style="color: rgba(255,255,255,0.8) !important;">Advanced interactive elements, animations, and hover effects are now active.</p></div>', unsafe_allow_html=True)
+
+
