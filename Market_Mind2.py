@@ -2275,3 +2275,474 @@ st.markdown(f"""
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 3: REAL MARKET DATA INTEGRATION
+# Live Yahoo Finance Data with Caching and Error Handling
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+import yfinance as yf
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import streamlit as st
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# REAL MARKET DATA FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=60, show_spinner=False)  # Cache for 1 minute
+def get_real_market_data(symbol: str) -> dict:
+    """Fetch real market data from Yahoo Finance."""
+    try:
+        ticker = yf.Ticker(symbol)
+        
+        # Get current quote data
+        info = ticker.info
+        hist = ticker.history(period="2d", interval="1m")
+        
+        if hist.empty:
+            raise ValueError(f"No data available for {symbol}")
+        
+        # Get latest price data
+        latest = hist.iloc[-1]
+        previous_close = info.get('previousClose', hist['Close'].iloc[-2] if len(hist) > 1 else latest['Close'])
+        
+        current_price = float(latest['Close'])
+        change = current_price - previous_close
+        change_pct = (change / previous_close) * 100 if previous_close != 0 else 0
+        
+        # Get additional data
+        volume = int(latest['Volume']) if 'Volume' in latest else 0
+        high_52w = info.get('fiftyTwoWeekHigh', current_price)
+        low_52w = info.get('fiftyTwoWeekLow', current_price)
+        
+        return {
+            'symbol': symbol,
+            'price': current_price,
+            'change': change,
+            'change_pct': change_pct,
+            'volume': volume,
+            'previous_close': previous_close,
+            'high_52w': high_52w,
+            'low_52w': low_52w,
+            'timestamp': datetime.now(),
+            'status': 'success'
+        }
+        
+    except Exception as e:
+        # Return fallback data with error status
+        return {
+            'symbol': symbol,
+            'price': 0.0,
+            'change': 0.0,
+            'change_pct': 0.0,
+            'volume': 0,
+            'previous_close': 0.0,
+            'high_52w': 0.0,
+            'low_52w': 0.0,
+            'timestamp': datetime.now(),
+            'status': 'error',
+            'error': str(e)
+        }
+
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
+def get_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") -> pd.DataFrame:
+    """Fetch historical price data from Yahoo Finance."""
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period=period, interval=interval)
+        
+        if hist.empty:
+            raise ValueError(f"No historical data available for {symbol}")
+        
+        # Reset index to make Date a column
+        hist = hist.reset_index()
+        hist['Symbol'] = symbol
+        
+        return hist
+        
+    except Exception as e:
+        # Return empty DataFrame on error
+        return pd.DataFrame()
+
+@st.cache_data(ttl=180, show_spinner=False)  # Cache for 3 minutes
+def get_intraday_data(symbol: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
+    """Fetch intraday data for charts."""
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period=period, interval=interval)
+        
+        if hist.empty:
+            raise ValueError(f"No intraday data available for {symbol}")
+        
+        hist = hist.reset_index()
+        hist['Symbol'] = symbol
+        
+        return hist
+        
+    except Exception as e:
+        return pd.DataFrame()
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# UPDATED CHART FUNCTIONS WITH REAL DATA
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_real_price_chart(symbol: str, title: str = "Price Chart"):
+    """Create price chart using real Yahoo Finance data."""
+    
+    import plotly.graph_objects as go
+    
+    # Get real historical data
+    df = get_historical_data(symbol, period="1mo", interval="1d")
+    
+    if df.empty:
+        # Fallback to demo data if real data fails
+        return create_demo_chart(symbol, title)
+    
+    # Calculate moving averages
+    df['SMA_20'] = df['Close'].rolling(window=20).mean()
+    df['SMA_50'] = df['Close'].rolling(window=50).mean()
+    
+    # Create the chart
+    fig = go.Figure()
+    
+    # Add price line
+    fig.add_trace(go.Scatter(
+        x=df['Date'] if 'Date' in df.columns else df.index,
+        y=df['Close'],
+        mode='lines',
+        name=symbol,
+        line=dict(
+            color='#22d3ee',
+            width=3
+        ),
+        hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
+    ))
+    
+    # Add 20-day SMA if we have enough data
+    if len(df) >= 20:
+        fig.add_trace(go.Scatter(
+            x=df['Date'] if 'Date' in df.columns else df.index,
+            y=df['SMA_20'],
+            mode='lines',
+            name='SMA 20',
+            line=dict(color='#ff6b35', width=1, dash='dot'),
+            hovertemplate='SMA 20: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    # Calculate proper Y-axis range
+    min_price = df['Close'].min()
+    max_price = df['Close'].max()
+    price_range = max_price - min_price
+    y_min = min_price - (price_range * 0.05)
+    y_max = max_price + (price_range * 0.05)
+    
+    # Chart styling
+    fig.update_layout(
+        title=dict(
+            text=title,
+            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            zeroline=False,
+            color='#ffffff'
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            zeroline=False,
+            color='#ffffff',
+            range=[y_min, y_max],
+            tickformat='$,.2f'
+        ),
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(0,0,0,0.5)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1
+        ),
+        margin=dict(l=60, r=40, t=50, b=40),
+        height=400,
+        hovermode='x unified'
+    )
+    
+    return fig
+
+def create_demo_chart(symbol: str, title: str):
+    """Fallback demo chart when real data is unavailable."""
+    
+    import plotly.graph_objects as go
+    from datetime import datetime, timedelta
+    import numpy as np
+    
+    # Demo data (as backup)
+    dates = [datetime.now() - timedelta(days=x) for x in range(30, 0, -1)]
+    
+    asset_data = {
+        "^GSPC": {"base": 6443, "volatility": 80},
+        "AAPL": {"base": 230, "volatility": 8},
+        "MSFT": {"base": 420, "volatility": 15},
+        "NVDA": {"base": 140, "volatility": 12},
+        "AMZN": {"base": 185, "volatility": 14},
+        "GOOGL": {"base": 175, "volatility": 10},
+        "META": {"base": 520, "volatility": 25},
+        "TSLA": {"base": 240, "volatility": 20},
+        "NFLX": {"base": 680, "volatility": 35},
+        "GOOG": {"base": 175, "volatility": 10},
+    }
+    
+    if symbol in asset_data:
+        base_price = asset_data[symbol]["base"]
+        volatility_range = asset_data[symbol]["volatility"]
+    else:
+        base_price = 200
+        volatility_range = 10
+    
+    prices = []
+    current_price = base_price
+    
+    for i in range(30):
+        trend = np.sin(i * 0.2) * (volatility_range * 0.3)
+        daily_change = np.random.normal(0, volatility_range * 0.25)
+        current_price += trend + daily_change
+        prices.append(current_price)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=dates,
+        y=prices,
+        mode='lines',
+        name=f"{symbol} (Demo)",
+        line=dict(color='#ff6b35', width=3, dash='dot'),
+        hovertemplate='<b>%{x}</b><br>Demo Price: $%{y:,.2f}<extra></extra>'
+    ))
+    
+    # Add warning annotation
+    fig.add_annotation(
+        text="⚠️ Demo Data - Real data unavailable",
+        xref="paper", yref="paper",
+        x=0.5, y=0.95,
+        showarrow=False,
+        font=dict(color='#ff6b35', size=12),
+        bgcolor='rgba(255, 107, 53, 0.1)',
+        bordercolor='#ff6b35',
+        borderwidth=1
+    )
+    
+    min_price = min(prices)
+    max_price = max(prices)
+    price_range = max_price - min_price
+    y_min = min_price - (price_range * 0.1)
+    y_max = max_price + (price_range * 0.1)
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{title} (Demo Mode)",
+            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff'
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff',
+            range=[y_min, y_max],
+            tickformat='$,.2f'
+        ),
+        showlegend=False,
+        margin=dict(l=60, r=40, t=50, b=40),
+        height=400
+    )
+    
+    return fig
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# UPDATED LIVE DATA DISPLAY
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def display_real_market_data():
+    """Display real market data for the selected asset."""
+    
+    current_asset = AppState.get_current_asset()
+    asset_info = MAJOR_EQUITIES[current_asset]
+    display_symbol = get_display_symbol(current_asset)
+    
+    # Get real market data
+    market_data = get_real_market_data(current_asset)
+    
+    if market_data['status'] == 'success':
+        # Real data available
+        price = market_data['price']
+        change = market_data['change']
+        change_pct = market_data['change_pct']
+        volume = market_data['volume']
+        
+        # Status indicators
+        data_status = "🟢 Live Data"
+        status_color = "#00ff88"
+        
+    else:
+        # Error getting real data
+        price = 0.0
+        change = 0.0
+        change_pct = 0.0
+        volume = 0
+        
+        data_status = "🔴 Data Error"
+        status_color = "#ff006e"
+    
+    # Display live price panel
+    change_color = "#00ff88" if change >= 0 else "#ff6b35"
+    change_icon = "↗" if change >= 0 else "↘"
+    
+    st.markdown(f"""
+    <div class="glass-panel" style="padding: 2rem; text-align: center; margin: 2rem 0; position: relative;">
+        <div style="position: absolute; top: 1rem; right: 1rem;">
+            <span style="background: {status_color}; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                {data_status}
+            </span>
+        </div>
+        <div class="asset-icon" style="font-size: 4rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
+        <h1 style="color: #ffffff; font-size: 3rem; margin: 0; font-family: 'JetBrains Mono', monospace;">
+            ${price:,.2f}
+        </h1>
+        <div style="color: {change_color}; font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">
+            {change_icon} ${change:+.2f} ({change_pct:+.2f}%)
+        </div>
+        <div style="color: rgba(255,255,255,0.7); font-size: 1rem;">
+            {display_symbol} • {asset_info['name']}
+        </div>
+        <div style="color: rgba(255,255,255,0.6); font-size: 0.875rem; margin-top: 1rem;">
+            Volume: {volume:,} • Updated: {market_data['timestamp'].strftime('%H:%M:%S')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    return market_data
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# DATA QUALITY INDICATOR
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def show_data_quality_status():
+    """Show data quality and connectivity status."""
+    
+    current_asset = AppState.get_current_asset()
+    
+    # Test connectivity to Yahoo Finance
+    market_data = get_real_market_data(current_asset)
+    
+    if market_data['status'] == 'success':
+        # Real data working
+        st.success(f"✅ **Live Data Connected** - Real-time {current_asset} data from Yahoo Finance")
+        
+        # Show data quality metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Data Source", "Yahoo Finance", "Live")
+            
+        with col2:
+            st.metric("Last Update", market_data['timestamp'].strftime('%H:%M:%S'), "Real-time")
+            
+        with col3:
+            st.metric("Data Quality", "High", "✅ Verified")
+            
+    else:
+        # Error with real data
+        st.error(f"❌ **Data Connection Error** - Using demo data for {current_asset}")
+        st.info(f"**Error Details:** {market_data.get('error', 'Unknown error')}")
+        
+        # Show fallback status
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Data Source", "Demo Mode", "Fallback")
+            
+        with col2:
+            st.metric("Status", "Simulated", "⚠️ Not Live")
+            
+        with col3:
+            st.metric("Data Quality", "Demo", "⚠️ Simulated")
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# EXECUTE PART 3 - REAL DATA INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Add data quality status section
+st.markdown(f"""
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">📡</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #00ff88 0%, #22d3ee 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Live Market Data
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Real-time data from Yahoo Finance with intelligent fallback</p>
+</div>
+<div class="section-divider"></div>
+""", unsafe_allow_html=True)
+
+# Display real market data
+market_data = display_real_market_data()
+
+# Show data quality status
+show_data_quality_status()
+
+# Update the charts to use real data
+st.markdown(f"""
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Live Charts & Analysis
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Real-time charting with live data integration</p>
+</div>
+<div class="section-divider"></div>
+""", unsafe_allow_html=True)
+
+# Real-time chart
+current_asset = AppState.get_current_asset()
+display_symbol = get_display_symbol(current_asset)
+
+st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+
+# Create chart with real data
+price_fig = create_real_price_chart(current_asset, f"{display_symbol} Live Price Chart")
+st.plotly_chart(price_fig, use_container_width=True, config=CHART_CONFIG)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Real data status
+if market_data['status'] == 'success':
+    st.success(f"📊 **Chart showing live {display_symbol} data** - Last updated: {market_data['timestamp'].strftime('%H:%M:%S')}")
+else:
+    st.warning(f"📊 **Chart showing demo {display_symbol} data** - Live data temporarily unavailable")
