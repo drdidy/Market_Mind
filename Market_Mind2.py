@@ -1,4 +1,13 @@
 # Market Lens - Part 1: Core Infrastructure
+import streamlit as st
+
+# Must be the very first Streamlit command
+st.set_page_config(
+    page_title="Market Lens",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 import streamlit as st
 import yfinance as yf
@@ -128,6 +137,127 @@ class UIFoundation:
             initial_sidebar_state="collapsed"
         )
         
+        st.markdown("""
+        <style>
+        .big-icon {
+            font-size: 80px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .medium-icon {
+            font-size: 60px;
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .symbol-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .symbol-name {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 10px 0;
+        }
+        
+        .status-good { color: #2ca02c; }
+        .status-warning { color: #ff7f0e; }
+        .status-danger { color: #d62728; }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    def main_navigation(self):
+        return option_menu(
+            menu_title=None,
+            options=["Dashboard", "SPX", "Stocks", "Trades", "Analytics"],
+            icons=["speedometer2", "graph-up-arrow", "building", "currency-exchange", "bar-chart"],
+            menu_icon="cast",
+            default_index=0,
+            orientation="horizontal",
+            styles={
+                "container": {"padding": "0!important", "background-color": "#fafafa"},
+                "icon": {"color": "orange", "font-size": "18px"},
+                "nav-link": {
+                    "font-size": "16px",
+                    "text-align": "center",
+                    "margin": "0px",
+                    "--hover-color": "#eee"
+                },
+                "nav-link-selected": {"background-color": "#1f77b4"},
+            }
+        )
+    
+    def display_large_symbol(self, symbol, price=None, change=None):
+        icon = self.icons.get(symbol, '📊')
+        name = self.names.get(symbol, symbol)
+        
+        st.markdown(f'<div class="big-icon">{icon}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="symbol-title">{symbol}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="symbol-name">{name}</div>', unsafe_allow_html=True)
+        
+        if price is not None:
+            change_color = "status-good" if change >= 0 else "status-danger"
+            change_text = f"+{change:.2%}" if change >= 0 else f"{change:.2%}"
+            
+            st.markdown(f"""
+            <div class="metric-container">
+                <div style="font-size: 32px; font-weight: bold;">${price:,.2f}</div>
+
+# Market Lens - Part 2: UI Foundation
+
+import streamlit as st
+from streamlit_option_menu import option_menu
+
+class UIFoundation:
+    def __init__(self):
+        self.colors = {
+            'primary': '#1f77b4',
+            'success': '#2ca02c', 
+            'danger': '#d62728',
+            'warning': '#ff7f0e',
+            'info': '#17a2b8',
+            'dark': '#343a40',
+            'light': '#f8f9fa'
+        }
+        
+        self.icons = {
+            '^GSPC': '📈',
+            'ES=F': '⚡',
+            'AAPL': '🍎',
+            'MSFT': '🖥️',
+            'NVDA': '🎮',
+            'AMZN': '📦',
+            'GOOGL': '🔍',
+            'TSLA': '🚗',
+            'META': '👥'
+        }
+        
+        self.names = {
+            '^GSPC': 'S&P 500',
+            'ES=F': 'E-mini S&P 500',
+            'AAPL': 'Apple',
+            'MSFT': 'Microsoft',
+            'NVDA': 'NVIDIA',
+            'AMZN': 'Amazon',
+            'GOOGL': 'Google',
+            'TSLA': 'Tesla',
+            'META': 'Meta'
+        }
+    
+    def setup_page(self):
         st.markdown("""
         <style>
         .big-icon {
