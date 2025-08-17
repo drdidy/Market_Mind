@@ -262,3 +262,157 @@ class UIFoundation:
 @st.cache_resource
 def get_ui():
     return UIFoundation()
+
+# Market Lens - Part 3: SPX Data Module
+
+import json
+
+class SPXDataModule:
+    def __init__(self, infrastructure):
+        self.infrastructure = infrastructure
+        self.spx_symbol = '^GSPC'
+        self.es_symbol = 'ES=F'
+        self.offset_cache = self.infrastructure.cache_dir / 'es_spx_offset.json'
+        
+    def get_spx_data(self):
+        return self.infrastructure.get_data(self.spx_symbol)
+    
+    def get_es_data(self):
+        return self.infrastructure.get_data(self.es_symbol)
+    
+    def calculate_es_spx_offset(self):
+        try:
+            now = datetime.now(self.infrastructure.timezone)
+            target_time = now.replace(hour=15, minute=0, second=0, microsecond=0)
+            
+            spx_data = self.get_spx_data()
+            es_data = self.get_es_data()
+            
+            if spx_data.empty or es_data.empty:
+                return self._load_cached_offset()
+            
+            spx_price = self._find_price_at_time(spx_data, target_time)
+            es_price = self._find_price_at_time(es_data, target_time)
+            
+            if spx_price is None or es_price is None:
+                return self._load_cached_offset()
+            
+            offset = spx_price - es_price
+            self._save_offset(offset)
+            return offset
+            
+        except Exception:
+            return self._load_cached_offset()
+    
+    def _find_price_at_time(self, data, target_time):
+        try:
+            window_start = target_time - timedelta(minutes=5)
+            window_end = target_time + timedelta(minutes=5)
+            
+            window_data = data[(data.index >= window_start) & (data.index <= window_end)]
+            
+            if window_data.empty:
+                return None
+            
+            time_diffs = abs(window_data.index - target_time)
+            closest_idx = time_diffs.argmin()
+            return window_data['Close'].iloc[closest_idx]
+            
+        except Exception:
+            return None
+    
+    def _save_offset(self, offset):
+        try:
+            offset_data = {
+                'offset': float(offset),
+                'timestamp': datetime.now().isoformat(),
+                'date': datetime.now().date().isoformat()
+            }
+            with open(self.offset_cache, 'w') as f:
+                json.dump(offset_data, f)
+        except Exception:
+            pass
+    
+    def _load_cached_offset(self):
+        try:
+            if self.offset_cache.exists():
+                with open(self.offset_cache, 'r') as f:
+                    data = json.load(f)
+                return data.get('offset', 15.0)
+        except Exception:
+            pass
+        return 15.0
+    
+    def convert_es_to_spx(self, es_price):
+        offset = self.calculate_es_spx_offset()
+        return es_price + offset
+    
+    def get_current_spx_price(self):
+        try:
+            spx_data = self.get_spx_data()
+            if not spx_data.empty:
+                return spx_data['Close'].iloc[-1]
+            
+            es_data = self.get_es_data()
+            if not es_data.empty:
+                es_price = es_data['Close'].iloc[-1]
+                return self.convert_es_to_spx(es_price)
+            
+            return None
+        except Exception:
+            return None
+    
+    def get_spx_change(self):
+        try:
+            spx_data = self.get_spx_data()
+            if not spx_data.empty and 'Change' in spx_data.columns:
+                return spx_data['Change'].iloc[-1]
+            return 0.0
+        except Exception:
+            return 0.0
+    
+    def get_es_change(self):
+        try:
+            es_data = self.get_es_data()
+            if not es_data.empty and 'Change' in es_data.columns:
+                return es_data['Change'].iloc[-1]
+            return 0.0
+        except Exception:
+            return 0.0
+    
+    def get_spx_volume(self):
+        try:
+            spx_data = self.get_spx_data()
+            if not spx_data.empty:
+                return spx_data['Volume'].iloc[-1]
+            return 0
+        except Exception:
+            return 0
+    
+    def get_es_volume(self):
+        try:
+            es_data = self.get_es_data()
+            if not es_data.empty:
+                return es_data['Volume'].iloc[-1]
+            return 0
+        except Exception:
+            return 0
+    
+    def is_data_fresh(self, max_age_minutes=5):
+        try:
+            spx_data = self.get_spx_data()
+            if spx_data.empty:
+                return False
+            
+            last_timestamp = spx_data.index[-1]
+            now = datetime.now(self.infrastructure.timezone)
+            age = (now - last_timestamp).total_seconds() / 60
+            
+            return age <= max_age_minutes
+        except Exception:
+            return False
+
+@st.cache_resource
+def get_spx_module():
+    infrastructure = get_infrastructure()
+    return SPXDataModule(infrastructure)
