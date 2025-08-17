@@ -658,6 +658,7 @@ def get_stock_module():
     infrastructure = get_infrastructure()
     return StockDataModule(infrastructure)
 
+
 # Market Lens - Part 5: SPX Channel Engine
 
 import json
@@ -765,11 +766,11 @@ class SPXChannelEngine:
         now = datetime.now(self.spx_module.infrastructure.timezone)
         return {
             'skyline': {
-                'price': 4520.0,
+                'price': 6050.0,  # Updated to current realistic levels
                 'timestamp': now.isoformat()
             },
             'baseline': {
-                'price': 4480.0,
+                'price': 5950.0,  # Updated to current realistic levels
                 'timestamp': now.isoformat()
             },
             'offset': 15.0,
@@ -2505,10 +2506,16 @@ def show_trades_page(ui, trade_mgmt, risk_mgmt, signals):
     risk_metrics = risk_mgmt.calculate_portfolio_risk_metrics()
     risk_summary = risk_mgmt.format_risk_summary(risk_metrics)
     
-    cols = st.columns(len(risk_summary))
-    for i, (key, value) in enumerate(risk_summary.items()):
-        with cols[i]:
-            st.metric(key, value)
+    # Fixed: Ensure we have valid columns
+    if risk_summary and len(risk_summary) > 0:
+        # Limit to max 6 columns for better display
+        num_cols = min(len(risk_summary), 6)
+        cols = st.columns(num_cols)
+        for i, (key, value) in enumerate(list(risk_summary.items())[:num_cols]):
+            with cols[i]:
+                st.metric(key, value)
+    else:
+        st.warning("Risk metrics unavailable")
     
     st.markdown("---")
     
