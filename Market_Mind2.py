@@ -2,23 +2,17 @@
 # Enterprise-Ready Market Forecasting Platform
 
 import streamlit as st
+import pandas as pd
+import numpy as np
+import yfinance as yf
 import json
 import os
 from datetime import datetime, timedelta
+import pytz
 from typing import Dict, Tuple, Optional, List
 import time
-
-# Handle imports gracefully
-try:
-    import pandas as pd
-    import numpy as np
-    import yfinance as yf
-    import pytz
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    DEPENDENCIES_AVAILABLE = True
-except ImportError as e:
-    DEPENDENCIES_AVAILABLE = False
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # ===========================
 # SESSION 1: FOUNDATION & BRANDING
@@ -75,89 +69,152 @@ def load_custom_css():
         margin-bottom: 2rem;
         box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
         text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .market-lens-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        pointer-events: none;
     }
     
     .market-lens-title {
         font-family: 'Inter', sans-serif;
-        font-size: 3rem;
+        font-size: 3.5rem;
         font-weight: 700;
         margin: 0;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        position: relative;
+        z-index: 1;
     }
     
     .market-lens-subtitle {
         font-family: 'Inter', sans-serif;
-        font-size: 1.2rem;
+        font-size: 1.3rem;
         font-weight: 400;
-        margin: 0.5rem 0 0 0;
-        opacity: 0.9;
+        margin: 1rem 0 0 0;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
     }
     
     /* Professional card styling */
     .metric-card {
         background: var(--card-bg-light);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 1.5rem;
+        border-radius: 16px;
+        padding: 2rem;
         margin: 1rem 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--success-color));
     }
     
     .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        transform: translateY(-4px);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
     }
     
     /* Status badges */
     .status-badge {
         display: inline-block;
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 25px;
         font-size: 0.875rem;
-        font-weight: 500;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
     
     .status-live {
-        background-color: #dcfce7;
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
         color: #166534;
+        border: 1px solid #16a34a;
     }
     
     .status-degraded {
-        background-color: #fef3c7;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         color: #92400e;
+        border: 1px solid #d97706;
     }
     
     .status-fallback {
-        background-color: #fee2e2;
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
         color: #991b1b;
+        border: 1px solid #dc2626;
     }
     
     /* Zone styling */
     .sell-zone {
         background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-        border-left: 4px solid var(--danger-color);
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        border: 2px solid var(--danger-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .sell-zone::before {
+        content: '🔴';
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 1.5rem;
     }
     
     .buy-zone {
         background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        border-left: 4px solid var(--success-color);
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        border: 2px solid var(--success-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .buy-zone::before {
+        content: '🟢';
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 1.5rem;
     }
     
     .between-zone {
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border-left: 4px solid var(--text-secondary);
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        border: 2px solid var(--text-secondary);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .between-zone::before {
+        content: '⚪';
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 1.5rem;
     }
     
     /* Hide Streamlit branding */
@@ -170,49 +227,88 @@ def load_custom_css():
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
         color: white;
         border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 500;
-        transition: all 0.2s ease;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .stButton > button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: var(--background-light);
-    }
-    
-    /* Table styling */
-    .stDataFrame {
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
     }
     
     /* Professional icons */
     .icon-large {
-        font-size: 4rem;
-        margin: 1rem;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        font-size: 5rem;
+        margin: 1.5rem;
+        text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        transition: transform 0.3s ease;
+    }
+    
+    .icon-large:hover {
+        transform: scale(1.1);
     }
     
     .spx-icon {
         color: #2563eb;
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+        border-radius: 50%;
+        padding: 1rem;
+        box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
     }
     
     .stock-icon {
         color: #059669;
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        border-radius: 50%;
+        padding: 1rem;
+        box-shadow: 0 8px 16px rgba(5, 150, 105, 0.3);
     }
     
-    /* Alert styling */
-    .stAlert {
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    .realtime-icon {
+        color: #d97706;
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-radius: 50%;
+        padding: 1rem;
+        box-shadow: 0 8px 16px rgba(217, 119, 6, 0.3);
+    }
+    
+    /* Feature showcase */
+    .feature-showcase {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 2rem 0;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border-color);
+    }
+    
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin: 2rem 0;
+    }
+    
+    /* Animation */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in {
+        animation: fadeInUp 0.6s ease-out;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -267,11 +363,8 @@ class MarketLensBranding:
 class MarketLensConfig:
     """Configuration constants for Market Lens"""
     
-    # Timezone (handle gracefully if pytz not available)
-    if DEPENDENCIES_AVAILABLE:
-        TIMEZONE = pytz.timezone('America/Chicago')  # Central Time
-    else:
-        TIMEZONE = None
+    # Timezone
+    TIMEZONE = pytz.timezone('America/Chicago')  # Central Time
     
     # Data intervals and caching
     CACHE_TTL = 300  # 5 minutes
@@ -291,7 +384,7 @@ class MarketLensConfig:
 def render_header():
     """Render the main Market Lens header with branding"""
     st.markdown("""
-    <div class="market-lens-header">
+    <div class="market-lens-header fade-in">
         <h1 class="market-lens-title">📈 Market Lens</h1>
         <p class="market-lens-subtitle">Professional Market Forecasting Platform</p>
     </div>
@@ -303,28 +396,28 @@ def render_large_icons():
     
     with col1:
         st.markdown("""
-        <div style="text-align: center; padding: 2rem;">
+        <div style="text-align: center; padding: 2rem;" class="fade-in">
             <div class="icon-large spx-icon">📊</div>
-            <h3 style="margin: 0; color: #2563eb;">SPX Index</h3>
-            <p style="color: #64748b; margin: 0.5rem 0 0 0;">S&P 500 Forecasting</p>
+            <h3 style="margin: 1rem 0 0.5rem 0; color: #2563eb; font-weight: 600;">SPX Index</h3>
+            <p style="color: #64748b; margin: 0; font-size: 1.1rem;">S&P 500 Forecasting</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown("""
-        <div style="text-align: center; padding: 2rem;">
+        <div style="text-align: center; padding: 2rem;" class="fade-in">
             <div class="icon-large stock-icon">🏢</div>
-            <h3 style="margin: 0; color: #059669;">Stocks</h3>
-            <p style="color: #64748b; margin: 0.5rem 0 0 0;">Individual Stock Analysis</p>
+            <h3 style="margin: 1rem 0 0.5rem 0; color: #059669; font-weight: 600;">Individual Stocks</h3>
+            <p style="color: #64748b; margin: 0; font-size: 1.1rem;">Big 7 Analysis</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown("""
-        <div style="text-align: center; padding: 2rem;">
-            <div class="icon-large" style="color: #d97706;">⚡</div>
-            <h3 style="margin: 0; color: #d97706;">Real-Time</h3>
-            <p style="color: #64748b; margin: 0.5rem 0 0 0;">Live Market Data</p>
+        <div style="text-align: center; padding: 2rem;" class="fade-in">
+            <div class="icon-large realtime-icon">⚡</div>
+            <h3 style="margin: 1rem 0 0.5rem 0; color: #d97706; font-weight: 600;">Real-Time Data</h3>
+            <p style="color: #64748b; margin: 0; font-size: 1.1rem;">Live Market Feeds</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -333,172 +426,201 @@ def render_status_badge(status: str) -> str:
     status_class = f"status-{status.lower()}"
     return f'<span class="status-badge {status_class}">{status}</span>'
 
-def show_dependency_error():
-    """Show dependency installation instructions"""
-    st.error("📦 **Dependencies Required**")
-    st.markdown("""
-    Please install the required packages to run Market Lens:
+def create_sample_forecast_table():
+    """Create a beautiful sample forecast table for demo"""
+    sample_data = {
+        'Time (CT)': ['08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00'],
+        'Skyline': [5850.25, 5852.50, 5854.75, 5857.00, 5859.25, 5861.50, 5863.75, 5866.00],
+        'Baseline': [5825.75, 5823.50, 5821.25, 5819.00, 5816.75, 5814.50, 5812.25, 5810.00],
+        'Current Zone': ['Sell Zone', 'Between', 'Buy Zone', 'Between', 'Sell Zone', 'Between', 'Buy Zone', 'Between'],
+        'Distance': ['-12.5 pts', '+5.2 pts', '+8.7 pts', '-2.1 pts', '-15.8 pts', '+3.4 pts', '+11.2 pts', '-1.8 pts']
+    }
     
-    ```bash
-    pip install streamlit pandas numpy yfinance pytz plotly openpyxl requests python-dateutil
-    ```
+    df = pd.DataFrame(sample_data)
     
-    Or use the requirements.txt file:
-    ```bash
-    pip install -r requirements.txt
-    ```
+    # Style the dataframe
+    styled_df = df.style.apply(
+        lambda x: ['background-color: #fee2e2; color: #991b1b' if v == 'Sell Zone' 
+                   else 'background-color: #dcfce7; color: #166534' if v == 'Buy Zone'
+                   else 'background-color: #f1f5f9; color: #64748b' for v in x], 
+        subset=['Current Zone']
+    ).format({
+        'Skyline': '{:.2f}',
+        'Baseline': '{:.2f}'
+    })
     
-    Then restart your Streamlit application.
-    """)
+    return styled_df
 
 def main():
     """Main application entry point for Session 1"""
     
-    # Load custom styling
-    load_custom_css()
-    
-    # Check dependencies first
-    if not DEPENDENCIES_AVAILABLE:
-        render_header()
-        show_dependency_error()
-        st.stop()
-    
     # Initialize configuration
     MarketLensConfig.ensure_data_dir()
+    
+    # Load custom styling
+    load_custom_css()
     
     # Render header
     render_header()
     
     # Welcome message for Session 1
     st.markdown("""
-    ## 🎯 Session 1: Foundation & Branding Complete!
+    <div class="feature-showcase fade-in">
+    <h2 style="color: #1e293b; margin-top: 0;">🎯 Session 1: Foundation & Branding Complete!</h2>
     
-    Welcome to **Market Lens** - your enterprise-grade market forecasting platform. This session establishes:
-    
-    ### ✅ What's Implemented:
-    - **Professional Branding**: Clean, enterprise-ready UI with Market Lens identity
-    - **Core Terminology**: Skyline (upper channel) and Baseline (lower channel) throughout
-    - **Visual Appeal**: Large, attractive icons and professional color scheme
-    - **Enterprise Styling**: Hover effects, gradients, and polished components
-    - **Configuration Structure**: Timezone (CT), caching, and data management setup
-    - **Big 7 Stocks**: Pre-configured with AAPL, MSFT, NVDA, AMZN, GOOGL, TSLA, META
-    - **Status System**: Live/Degraded/Fallback indicators for data reliability
-    
-    ### 🎨 Design Features:
-    """)
+    <p style="font-size: 1.2rem; color: #64748b; line-height: 1.6;">
+    Welcome to <strong>Market Lens</strong> - your enterprise-grade market forecasting platform. This session establishes the professional foundation that users will love to pay for.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Show the large icons
     render_large_icons()
     
+    # Feature highlights
+    st.markdown("""
+    <div class="feature-grid">
+        <div class="metric-card fade-in">
+            <h3 style="color: #2563eb; margin-top: 0;">🎨 Premium Design</h3>
+            <ul style="color: #64748b; line-height: 1.8;">
+                <li>Enterprise-grade CSS with animations</li>
+                <li>Professional color scheme & typography</li>
+                <li>Hover effects and smooth transitions</li>
+                <li>Clean, modern interface design</li>
+            </ul>
+        </div>
+        
+        <div class="metric-card fade-in">
+            <h3 style="color: #059669; margin-top: 0;">🏢 Enterprise Branding</h3>
+            <ul style="color: #64748b; line-height: 1.8;">
+                <li>Skyline/Baseline terminology</li>
+                <li>Status indicators & zone styling</li>
+                <li>Professional Market Lens identity</li>
+                <li>User-friendly language (no jargon)</li>
+            </ul>
+        </div>
+        
+        <div class="metric-card fade-in">
+            <h3 style="color: #d97706; margin-top: 0;">⚡ Ready for Scale</h3>
+            <ul style="color: #64748b; line-height: 1.8;">
+                <li>Big 7 stocks pre-configured</li>
+                <li>Chicago timezone setup</li>
+                <li>Data persistence structure</li>
+                <li>Extensible architecture</li>
+            </ul>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Demo status badges
-    st.markdown("### Status Indicators:")
+    st.markdown("### 📊 System Status Indicators:")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Data Status</h4>
+            <h4 style="margin-top: 0;">Data Feed</h4>
             {render_status_badge("Live")}
+            <p style="color: #64748b; margin: 0.5rem 0 0 0;">Real-time market data</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Market Status</h4>
+            <h4 style="margin-top: 0;">Forecast Engine</h4>
             {render_status_badge("Degraded")}
+            <p style="color: #64748b; margin: 0.5rem 0 0 0;">Using backup calculations</p>
         </div>
         """, unsafe_allow_html=True)
         
     with col3:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Forecast Status</h4>
+            <h4 style="margin-top: 0;">Export System</h4>
             {render_status_badge("Fallback")}
+            <p style="color: #64748b; margin: 0.5rem 0 0 0;">Limited functionality</p>
         </div>
         """, unsafe_allow_html=True)
     
     # Show zone styling examples
-    st.markdown("### Channel Zone Styling:")
+    st.markdown("### 🎯 Channel Zone Styling:")
     
     st.markdown("""
-    <div class="sell-zone">
-        <strong>🔴 Sell Zone (Skyline)</strong><br>
-        Price approaching or touching upper channel - potential short opportunity
+    <div class="sell-zone fade-in">
+        <h4 style="margin: 0 0 0.5rem 0; color: #991b1b;">Sell Zone (Skyline)</h4>
+        <p style="margin: 0; color: #7f1d1d;">Price approaching or touching upper channel - potential short opportunity with defined risk management.</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-    <div class="buy-zone">
-        <strong>🟢 Buy Zone (Baseline)</strong><br>
-        Price approaching or touching lower channel - potential long opportunity
+    <div class="buy-zone fade-in">
+        <h4 style="margin: 0 0 0.5rem 0; color: #166534;">Buy Zone (Baseline)</h4>
+        <p style="margin: 0; color: #14532d;">Price approaching or touching lower channel - potential long opportunity with favorable risk/reward.</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-    <div class="between-zone">
-        <strong>⚪ Between Channels</strong><br>
-        Price trading between Skyline and Baseline - neutral zone
+    <div class="between-zone fade-in">
+        <h4 style="margin: 0 0 0.5rem 0; color: #475569;">Between Channels</h4>
+        <p style="margin: 0; color: #64748b;">Price trading between Skyline and Baseline - neutral zone, wait for clear signals.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Configuration preview
-    st.markdown("### 🔧 Enterprise Configuration:")
+    # Interactive demo section
+    st.markdown("### 🚀 Interactive Forecast Preview:")
+    
+    if st.button("🎯 Preview Professional Forecast Table", help="See what your enterprise forecast tables will look like"):
+        st.markdown("**Sample SPX Forecast Table - Enterprise Format:**")
+        styled_table = create_sample_forecast_table()
+        st.dataframe(styled_table, use_container_width=True, hide_index=True)
+        
+        st.success("✅ This is the professional-grade forecast format your users will see in Sessions 2-8!")
+        st.info("💡 **Enterprise Features Coming:** Real-time data, Excel export, interactive charts, and advanced analytics!")
+    
+    # Configuration showcase
+    st.markdown("### 🔧 Enterprise Configuration Ready:")
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("""
-        **Data Management:**
+        **🛠️ Technical Foundation:**
         - Cache TTL: 5 minutes
-        - Retry attempts: 3
+        - Retry attempts: 3 with backoff
         - Timezone: America/Chicago
         - Data directory: `.market_lens/`
+        - Error handling: Graceful degradation
         """)
     
     with col2:
         st.markdown(f"""
-        **Big 7 Stocks Ready:**
-        {', '.join(MarketLensBranding.BIG_7_STOCKS.keys())}
-        
-        **SPX Symbols:**
-        - Index: ^GSPC
-        - Futures: ES=F
+        **📈 Market Coverage Ready:**
+        - **Big 7 Stocks:** {', '.join(MarketLensBranding.BIG_7_STOCKS.keys())}
+        - **SPX Index:** ^GSPC
+        - **ES Futures:** ES=F
+        - **Data Source:** yfinance (professional grade)
         """)
-    
-    # Interactive demo section
-    st.markdown("### 🚀 Interactive Preview:")
-    
-    # Sample forecast table preview
-    if st.button("🎯 Preview Forecast Table", help="See what the forecast tables will look like"):
-        sample_data = {
-            'Time (CT)': ['08:30', '09:00', '09:30', '10:00', '10:30'],
-            'Skyline': [5850.25, 5852.50, 5854.75, 5857.00, 5859.25],
-            'Baseline': [5825.75, 5823.50, 5821.25, 5819.00, 5816.75],
-            'Zone': ['Sell Zone', 'Between', 'Buy Zone', 'Between', 'Sell Zone'],
-            'Distance': ['-12.5 pts', '+5.2 pts', '+8.7 pts', '-2.1 pts', '-15.8 pts']
-        }
-        
-        # Create DataFrame for display
-        df_sample = pd.DataFrame(sample_data)
-        
-        st.markdown("**Sample SPX Forecast Table:**")
-        st.dataframe(df_sample, use_container_width=True)
-        
-        st.success("✅ This is how your professional forecast tables will look in Sessions 2-8!")
     
     # Next session preview
     st.markdown("""
-    ---
-    ### 🚀 Ready for Session 2?
+    <div class="feature-showcase fade-in">
+    <h3 style="color: #1e293b; margin-top: 0;">🚀 Ready for Session 2?</h3>
     
-    **Next up: Data Infrastructure & yfinance Integration**
-    - Real-time data fetching with robust error handling
-    - SPX (^GSPC) and ES Futures (ES=F) integration  
-    - 30-minute resampling and CT timezone handling
-    - Intelligent caching with retry mechanisms
-    - Data validation and fallback strategies
+    <h4 style="color: #2563eb;">Next: Data Infrastructure & Real-Time Feeds</h4>
+    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #2563eb;">
+        <ul style="margin: 0; color: #64748b; line-height: 1.8;">
+            <li><strong>Real-time data fetching</strong> with bulletproof error handling</li>
+            <li><strong>SPX (^GSPC) and ES Futures (ES=F)</strong> integration</li>
+            <li><strong>30-minute resampling</strong> and CT timezone handling</li>
+            <li><strong>Intelligent caching</strong> with retry mechanisms</li>
+            <li><strong>Data validation</strong> and fallback strategies</li>
+        </ul>
+    </div>
     
-    **Type "2" when you're ready to continue!**
-    """)
+    <p style="margin: 1.5rem 0 0 0; font-size: 1.2rem; font-weight: 600; color: #2563eb;">
+    Type "2" when you're ready to add the data engine! 🔥
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
