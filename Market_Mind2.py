@@ -2773,3 +2773,581 @@ def get_current_es_spx_offset() -> dict:
             "error": str(e),
             "data_quality": "Default"
         }
+
+
+
+
+
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 3B1: ENHANCED CHARTING & TECHNICAL ANALYSIS
+# Professional Charts with 8EMA/21EMA, Real Data Integration & Technical Indicators
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# TECHNICAL INDICATORS & CALCULATIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def calculate_ema(prices: pd.Series, period: int) -> pd.Series:
+    """Calculate Exponential Moving Average with proper EMA formula."""
+    return prices.ewm(span=period, adjust=False).mean()
+
+def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate comprehensive technical indicators including your preferred EMAs."""
+    df = df.copy()
+    
+    if 'Close' not in df.columns or len(df) < 21:
+        return df
+    
+    # Your preferred EMAs
+    df['EMA_8'] = calculate_ema(df['Close'], 8)
+    df['EMA_21'] = calculate_ema(df['Close'], 21)
+    
+    # EMA Cross Signals
+    df['EMA_Cross_Signal'] = 0
+    df['EMA_Cross_Signal'] = np.where(
+        (df['EMA_8'] > df['EMA_21']) & (df['EMA_8'].shift(1) <= df['EMA_21'].shift(1)), 
+        1,  # Bullish cross
+        np.where(
+            (df['EMA_8'] < df['EMA_21']) & (df['EMA_8'].shift(1) >= df['EMA_21'].shift(1)), 
+            -1,  # Bearish cross
+            0
+        )
+    )
+    
+    # Additional technical indicators
+    if len(df) >= 14:
+        # RSI calculation
+        delta = df['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df['RSI'] = 100 - (100 / (1 + rs))
+    
+    # Support and Resistance levels (recent highs/lows)
+    if len(df) >= 20:
+        df['Recent_High'] = df['High'].rolling(window=20).max()
+        df['Recent_Low'] = df['Low'].rolling(window=20).min()
+    
+    # Volume analysis
+    if 'Volume' in df.columns:
+        df['Avg_Volume_20'] = df['Volume'].rolling(window=20).mean()
+        df['Volume_Ratio'] = df['Volume'] / df['Avg_Volume_20']
+    
+    return df
+
+def detect_ema_cross_signals(df: pd.DataFrame) -> list:
+    """Detect recent EMA cross signals with detailed analysis."""
+    signals = []
+    
+    if 'EMA_Cross_Signal' not in df.columns:
+        return signals
+    
+    # Look for signals in the last 10 periods
+    recent_data = df.tail(10)
+    
+    for idx, row in recent_data.iterrows():
+        if row['EMA_Cross_Signal'] == 1:  # Bullish cross
+            signals.append({
+                'type': 'Bullish EMA Cross',
+                'date': row.get('Date', idx),
+                'price': row['Close'],
+                'ema_8': row['EMA_8'],
+                'ema_21': row['EMA_21'],
+                'signal_strength': 'Strong' if row.get('Volume_Ratio', 1) > 1.5 else 'Moderate',
+                'description': f"8EMA crossed above 21EMA at ${row['Close']:.2f}"
+            })
+        elif row['EMA_Cross_Signal'] == -1:  # Bearish cross
+            signals.append({
+                'type': 'Bearish EMA Cross',
+                'date': row.get('Date', idx),
+                'price': row['Close'],
+                'ema_8': row['EMA_8'],
+                'ema_21': row['EMA_21'],
+                'signal_strength': 'Strong' if row.get('Volume_Ratio', 1) > 1.5 else 'Moderate',
+                'description': f"8EMA crossed below 21EMA at ${row['Close']:.2f}"
+            })
+    
+    return signals
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ENHANCED CHART CREATION FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_professional_price_chart(symbol: str, title: str = "Price Chart", period: str = "1mo", interval: str = "1d"):
+    """Create professional price chart with 8EMA/21EMA and technical analysis."""
+    
+    # Get real historical data with technical indicators
+    df = get_enhanced_historical_data(symbol, period=period, interval=interval)
+    
+    if df.empty:
+        return create_fallback_demo_chart(symbol, title)
+    
+    # Calculate technical indicators
+    df = calculate_technical_indicators(df)
+    
+    # Create the chart
+    fig = go.Figure()
+    
+    # Add candlestick chart if we have OHLC data
+    if all(col in df.columns for col in ['Open', 'High', 'Low', 'Close']):
+        fig.add_trace(go.Candlestick(
+            x=df['Date'] if 'Date' in df.columns else df.index,
+            open=df['Open'],
+            high=df['High'],
+            low=df['Low'],
+            close=df['Close'],
+            name=symbol,
+            increasing_line_color='#00ff88',
+            decreasing_line_color='#ff006e',
+            increasing_fillcolor='rgba(0, 255, 136, 0.2)',
+            decreasing_fillcolor='rgba(255, 0, 110, 0.2)'
+        ))
+    else:
+        # Fallback to line chart
+        fig.add_trace(go.Scatter(
+            x=df['Date'] if 'Date' in df.columns else df.index,
+            y=df['Close'],
+            mode='lines',
+            name=symbol,
+            line=dict(color='#22d3ee', width=3),
+            hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    # Add your preferred EMAs
+    if 'EMA_8' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['Date'] if 'Date' in df.columns else df.index,
+            y=df['EMA_8'],
+            mode='lines',
+            name='8 EMA',
+            line=dict(color='#ff6b35', width=2),
+            hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    if 'EMA_21' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['Date'] if 'Date' in df.columns else df.index,
+            y=df['EMA_21'],
+            mode='lines',
+            name='21 EMA',
+            line=dict(color='#a855f7', width=2),
+            hovertemplate='21 EMA: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    # Add EMA cross signals
+    if 'EMA_Cross_Signal' in df.columns:
+        bullish_crosses = df[df['EMA_Cross_Signal'] == 1]
+        bearish_crosses = df[df['EMA_Cross_Signal'] == -1]
+        
+        if not bullish_crosses.empty:
+            fig.add_trace(go.Scatter(
+                x=bullish_crosses['Date'] if 'Date' in bullish_crosses.columns else bullish_crosses.index,
+                y=bullish_crosses['Close'],
+                mode='markers',
+                name='Bullish Cross',
+                marker=dict(symbol='triangle-up', size=12, color='#00ff88'),
+                hovertemplate='Bullish EMA Cross<br>Price: $%{y:,.2f}<extra></extra>'
+            ))
+        
+        if not bearish_crosses.empty:
+            fig.add_trace(go.Scatter(
+                x=bearish_crosses['Date'] if 'Date' in bearish_crosses.columns else bearish_crosses.index,
+                y=bearish_crosses['Close'],
+                mode='markers',
+                name='Bearish Cross',
+                marker=dict(symbol='triangle-down', size=12, color='#ff006e'),
+                hovertemplate='Bearish EMA Cross<br>Price: $%{y:,.2f}<extra></extra>'
+            ))
+    
+    # Calculate proper Y-axis range for better visibility
+    all_prices = df['Close'].dropna()
+    if 'High' in df.columns:
+        max_price = df['High'].max()
+        min_price = df['Low'].min()
+    else:
+        max_price = all_prices.max()
+        min_price = all_prices.min()
+    
+    price_range = max_price - min_price
+    y_padding = price_range * 0.05
+    y_min = min_price - y_padding
+    y_max = max_price + y_padding
+    
+    # Enhanced chart styling
+    fig.update_layout(
+        title=dict(
+            text=title,
+            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            zeroline=False,
+            color='#ffffff',
+            rangeslider=dict(visible=False)  # Remove range slider for cleaner look
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            zeroline=False,
+            color='#ffffff',
+            range=[y_min, y_max],
+            tickformat='$,.2f',
+            side='right'  # Move price axis to right side
+        ),
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(0,0,0,0.8)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1,
+            x=0.01,
+            y=0.99
+        ),
+        margin=dict(l=40, r=80, t=50, b=40),
+        height=500,
+        hovermode='x unified'
+    )
+    
+    return fig
+
+def create_volume_analysis_chart(symbol: str):
+    """Create volume analysis chart with volume profile and moving averages."""
+    
+    df = get_enhanced_historical_data(symbol, period="1mo", interval="1d")
+    
+    if df.empty or 'Volume' not in df.columns:
+        return create_fallback_volume_chart(symbol)
+    
+    # Calculate volume indicators
+    df = calculate_technical_indicators(df)
+    
+    fig = go.Figure()
+    
+    # Volume bars with color coding
+    colors = ['#00ff88' if close >= open_price else '#ff006e' 
+              for close, open_price in zip(df['Close'], df['Open'])]
+    
+    fig.add_trace(go.Bar(
+        x=df['Date'] if 'Date' in df.columns else df.index,
+        y=df['Volume'],
+        name='Volume',
+        marker=dict(color=colors, opacity=0.7),
+        hovertemplate='Volume: %{y:,.0f}<extra></extra>'
+    ))
+    
+    # Add volume moving average
+    if 'Avg_Volume_20' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['Date'] if 'Date' in df.columns else df.index,
+            y=df['Avg_Volume_20'],
+            mode='lines',
+            name='20-Day Avg Volume',
+            line=dict(color='#22d3ee', width=2, dash='dot'),
+            hovertemplate='Avg Volume: %{y:,.0f}<extra></extra>'
+        ))
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{symbol} Volume Analysis",
+            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff'
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickformat='.2s'  # Format large numbers (1M, 1K, etc.)
+        ),
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(0,0,0,0.8)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1
+        ),
+        margin=dict(l=60, r=40, t=50, b=40),
+        height=300
+    )
+    
+    return fig
+
+def create_rsi_momentum_chart(symbol: str):
+    """Create RSI momentum indicator chart."""
+    
+    df = get_enhanced_historical_data(symbol, period="3mo", interval="1d")
+    
+    if df.empty:
+        return None
+    
+    df = calculate_technical_indicators(df)
+    
+    if 'RSI' not in df.columns:
+        return None
+    
+    fig = go.Figure()
+    
+    # RSI line
+    fig.add_trace(go.Scatter(
+        x=df['Date'] if 'Date' in df.columns else df.index,
+        y=df['RSI'],
+        mode='lines',
+        name='RSI (14)',
+        line=dict(color='#22d3ee', width=2),
+        hovertemplate='RSI: %{y:.2f}<extra></extra>'
+    ))
+    
+    # RSI levels
+    fig.add_hline(y=70, line=dict(color='#ff006e', width=1, dash='dash'), annotation_text="Overbought (70)")
+    fig.add_hline(y=30, line=dict(color='#00ff88', width=1, dash='dash'), annotation_text="Oversold (30)")
+    fig.add_hline(y=50, line=dict(color='rgba(255,255,255,0.3)', width=1), annotation_text="Midline (50)")
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{symbol} RSI Momentum",
+            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff'
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff',
+            range=[0, 100],
+            tickmode='linear',
+            tick0=0,
+            dtick=10
+        ),
+        showlegend=False,
+        margin=dict(l=60, r=40, t=50, b=40),
+        height=250
+    )
+    
+    return fig
+
+def create_fallback_demo_chart(symbol: str, title: str):
+    """Enhanced fallback demo chart when real data is unavailable."""
+    
+    from datetime import datetime, timedelta
+    import numpy as np
+    
+    # Demo data with more realistic price action
+    dates = [datetime.now() - timedelta(days=x) for x in range(30, 0, -1)]
+    
+    asset_data = {
+        "^GSPC": {"base": 6443, "volatility": 80},
+        "AAPL": {"base": 230, "volatility": 8},
+        "MSFT": {"base": 420, "volatility": 15},
+        "NVDA": {"base": 140, "volatility": 12},
+        "AMZN": {"base": 185, "volatility": 14},
+        "GOOGL": {"base": 175, "volatility": 10},
+        "META": {"base": 520, "volatility": 25},
+        "TSLA": {"base": 240, "volatility": 20},
+        "NFLX": {"base": 680, "volatility": 35},
+        "GOOG": {"base": 175, "volatility": 10},
+    }
+    
+    config = asset_data.get(symbol, {"base": 200, "volatility": 10})
+    base_price = config["base"]
+    volatility = config["volatility"]
+    
+    # Generate more realistic OHLC data
+    prices = []
+    current_price = base_price
+    
+    for i in range(30):
+        # Add trend component
+        trend = np.sin(i * 0.15) * (volatility * 0.4)
+        daily_change = np.random.normal(0, volatility * 0.3)
+        
+        open_price = current_price
+        close_price = open_price + trend + daily_change
+        
+        # Generate realistic high/low
+        intraday_range = abs(close_price - open_price) + np.random.uniform(volatility * 0.1, volatility * 0.5)
+        high_price = max(open_price, close_price) + np.random.uniform(0, intraday_range * 0.3)
+        low_price = min(open_price, close_price) - np.random.uniform(0, intraday_range * 0.3)
+        
+        prices.append({
+            'Date': dates[i],
+            'Open': open_price,
+            'High': high_price,
+            'Low': low_price,
+            'Close': close_price,
+            'Volume': np.random.randint(1000000, 5000000)
+        })
+        
+        current_price = close_price
+    
+    demo_df = pd.DataFrame(prices)
+    demo_df = calculate_technical_indicators(demo_df)
+    
+    fig = go.Figure()
+    
+    # Candlestick chart
+    fig.add_trace(go.Candlestick(
+        x=demo_df['Date'],
+        open=demo_df['Open'],
+        high=demo_df['High'],
+        low=demo_df['Low'],
+        close=demo_df['Close'],
+        name=f"{symbol} (Demo)",
+        increasing_line_color='rgba(255, 107, 53, 0.8)',
+        decreasing_line_color='rgba(255, 107, 53, 0.8)',
+        increasing_fillcolor='rgba(255, 107, 53, 0.3)',
+        decreasing_fillcolor='rgba(255, 107, 53, 0.3)'
+    ))
+    
+    # Add EMAs
+    if 'EMA_8' in demo_df.columns:
+        fig.add_trace(go.Scatter(
+            x=demo_df['Date'],
+            y=demo_df['EMA_8'],
+            mode='lines',
+            name='8 EMA (Demo)',
+            line=dict(color='rgba(255, 107, 53, 0.7)', width=2, dash='dot')
+        ))
+    
+    if 'EMA_21' in demo_df.columns:
+        fig.add_trace(go.Scatter(
+            x=demo_df['Date'],
+            y=demo_df['EMA_21'],
+            mode='lines',
+            name='21 EMA (Demo)',
+            line=dict(color='rgba(168, 85, 247, 0.7)', width=2, dash='dot')
+        ))
+    
+    # Warning annotation
+    fig.add_annotation(
+        text="⚠️ Demo Data - Real data unavailable",
+        xref="paper", yref="paper",
+        x=0.5, y=0.95,
+        showarrow=False,
+        font=dict(color='#ff6b35', size=14, family='Space Grotesk'),
+        bgcolor='rgba(255, 107, 53, 0.1)',
+        bordercolor='#ff6b35',
+        borderwidth=2,
+        borderpad=10
+    )
+    
+    min_price = demo_df['Low'].min()
+    max_price = demo_df['High'].max()
+    price_range = max_price - min_price
+    y_min = min_price - (price_range * 0.05)
+    y_max = max_price + (price_range * 0.05)
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{title} (Demo Mode)",
+            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff',
+            rangeslider=dict(visible=False)
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff',
+            range=[y_min, y_max],
+            tickformat='$,.2f',
+            side='right'
+        ),
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(0,0,0,0.8)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1
+        ),
+        margin=dict(l=40, r=80, t=50, b=40),
+        height=500
+    )
+    
+    return fig
+
+def create_fallback_volume_chart(symbol: str):
+    """Fallback volume chart for demo mode."""
+    
+    from datetime import datetime, timedelta
+    import numpy as np
+    
+    dates = [datetime.now() - timedelta(days=x) for x in range(20, 0, -1)]
+    volumes = [np.random.randint(500000, 3000000) for _ in dates]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=dates,
+        y=volumes,
+        name='Volume (Demo)',
+        marker=dict(color='rgba(255, 107, 53, 0.7)')
+    ))
+    
+    fig.add_annotation(
+        text="⚠️ Demo Volume Data",
+        xref="paper", yref="paper",
+        x=0.5, y=0.95,
+        showarrow=False,
+        font=dict(color='#ff6b35', size=12),
+        bgcolor='rgba(255, 107, 53, 0.1)',
+        bordercolor='#ff6b35',
+        borderwidth=1
+    )
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{symbol} Volume (Demo)",
+            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff'
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=True,
+            color='#ffffff'
+        ),
+        showlegend=False,
+        margin=dict(l=60, r=40, t=50, b=40),
+        height=300
+    )
+    
+    return fig
+
+
+
+
