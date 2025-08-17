@@ -1152,7 +1152,7 @@ st.markdown('<div style="color: #ffffff !important; text-align: center; padding:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2C: UI FUNCTIONS & COMPONENT SYSTEM
+# MARKETLENS PRO - PART 2C: UI FUNCTIONS & COMPONENT SYSTEM (FULLY FIXED)
 # Interactive Components and Advanced UI Functions (Fixed for Streamlit)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
@@ -1348,45 +1348,6 @@ st.markdown("""
   50% { opacity: 1; }
 }
 
-/* ========== ENHANCED DATAFRAME STYLING ========== */
-.stDataFrame {
-  background: transparent !important;
-}
-
-.stDataFrame table {
-  background: transparent !important;
-  color: #ffffff !important;
-  border-radius: 0.75rem !important;
-  overflow: hidden !important;
-}
-
-.stDataFrame th {
-  background: linear-gradient(135deg, 
-    rgba(34, 211, 238, 0.15) 0%, 
-    rgba(168, 85, 247, 0.15) 100%) !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  border: none !important;
-  padding: 1rem !important;
-  font-size: 0.875rem !important;
-}
-
-.stDataFrame td {
-  background: rgba(255, 255, 255, 0.03) !important;
-  color: rgba(255, 255, 255, 0.9) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
-  padding: 0.75rem !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  font-size: 0.875rem !important;
-}
-
-.stDataFrame tr:hover td {
-  background: rgba(34, 211, 238, 0.1) !important;
-  color: #ffffff !important;
-}
-
 /* ========== SECTION DIVIDERS ========== */
 .section-divider {
   height: 1px;
@@ -1469,36 +1430,6 @@ st.markdown("""
   }
 }
 
-/* ========== LOADING STATES ========== */
-.loading-shimmer {
-  background: linear-gradient(90deg,
-    rgba(255, 255, 255, 0.08) 25%,
-    rgba(255, 255, 255, 0.18) 50%,
-    rgba(255, 255, 255, 0.08) 75%);
-  background-size: 200% 100%;
-  animation: shimmer-loading 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes shimmer-loading {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.pulse-animation {
-  animation: pulse-subtle 3s ease-in-out infinite;
-}
-
-@keyframes pulse-subtle {
-  0%, 100% { 
-    opacity: 0.8;
-    transform: scale(1);
-  }
-  50% { 
-    opacity: 1;
-    transform: scale(1.02);
-  }
-}
-
 /* ========== UTILITY CLASSES ========== */
 .text-center { text-align: center !important; }
 .text-left { text-align: left !important; }
@@ -1519,65 +1450,6 @@ st.markdown("""
 .text-2xl { font-size: 1.5rem !important; }
 .text-3xl { font-size: 1.875rem !important; }
 .text-4xl { font-size: 2.25rem !important; }
-
-.m-0 { margin: 0 !important; }
-.m-1 { margin: 0.25rem !important; }
-.m-2 { margin: 0.5rem !important; }
-.m-4 { margin: 1rem !important; }
-
-.p-0 { padding: 0 !important; }
-.p-1 { padding: 0.25rem !important; }
-.p-2 { padding: 0.5rem !important; }
-.p-4 { padding: 1rem !important; }
-
-/* ========== ACCESSIBILITY ========== */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.focus-visible:focus {
-  outline: 2px solid var(--neon-cyan);
-  outline-offset: 2px;
-}
-
-/* ========== FINAL ENHANCEMENT ANIMATIONS ========== */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in-up {
-  animation: fade-in-up 0.6s ease-out;
-}
-
-@keyframes scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.scale-in {
-  animation: scale-in 0.4s ease-out;
-}
 </style>
 """, unsafe_allow_html=True)
 
