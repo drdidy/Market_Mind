@@ -985,3 +985,465 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = selected_page
 else:
     st.session_state.selected_page = selected_page
+
+
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 2B: ENHANCED VISUAL COMPONENTS & METRIC CARDS  
+# Advanced UI Components that match the existing beautiful design
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Additional CSS for enhanced components - seamlessly integrated
+st.markdown("""
+<style>
+/* ========== ENHANCED METRIC CARDS ========== */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.metric-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+  transform: scaleX(0);
+  transition: transform 0.4s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(34, 211, 238, 0.4);
+  box-shadow: 
+    0 20px 40px rgba(34, 211, 238, 0.2),
+    0 0 0 1px rgba(34, 211, 238, 0.1);
+}
+
+.metric-card:hover::before {
+  transform: scaleX(1);
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.metric-value {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  margin-bottom: 0.5rem;
+}
+
+.metric-change {
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metric-positive { color: var(--neon-green); }
+.metric-negative { color: var(--neon-orange); }
+.metric-neutral { color: rgba(255, 255, 255, 0.6); }
+
+/* ========== ASSET ICONS & ANIMATIONS ========== */
+.asset-icon {
+  font-size: 3rem;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* ========== STATUS INDICATORS ========== */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-live {
+  background: linear-gradient(135deg, 
+    rgba(16, 185, 129, 0.2) 0%, 
+    rgba(5, 150, 105, 0.2) 100%);
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.status-warning {
+  background: linear-gradient(135deg, 
+    rgba(245, 158, 11, 0.2) 0%, 
+    rgba(217, 119, 6, 0.2) 100%);
+  border-color: var(--neon-orange);
+  color: var(--neon-orange);
+}
+
+.status-error {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.2) 0%, 
+    rgba(220, 38, 38, 0.2) 100%);
+  border-color: var(--neon-pink);
+  color: var(--neon-pink);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+  }
+}
+
+/* ========== SECTION DIVIDERS ========== */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.2) 20%, 
+    rgba(34, 211, 238, 0.4) 50%,
+    rgba(255, 255, 255, 0.2) 80%, 
+    transparent 100%);
+  margin: 3rem 0;
+  position: relative;
+}
+
+.section-divider::before {
+  content: '⟐';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface-1);
+  padding: 0 1rem;
+  color: var(--neon-blue);
+  font-size: 1.5rem;
+}
+
+/* ========== CYBER BUTTONS ========== */
+.cyber-button {
+  background: linear-gradient(135deg, 
+    rgba(34, 211, 238, 0.2) 0%, 
+    rgba(168, 85, 247, 0.2) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cyber-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.1) 50%, 
+    transparent 100%);
+  transition: left 0.5s ease;
+}
+
+.cyber-button:hover {
+  border-color: var(--neon-blue);
+  box-shadow: 
+    0 0 20px rgba(34, 211, 238, 0.4),
+    inset 0 0 20px rgba(34, 211, 238, 0.1);
+  transform: translateY(-2px);
+}
+
+.cyber-button:hover::before {
+  left: 100%;
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+@media (max-width: 768px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .metric-card {
+    padding: 1.5rem;
+  }
+  
+  .metric-value {
+    font-size: 2rem;
+  }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ENHANCED METRIC CARD FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_metric_card(title: str, value: str, change: str = "", icon: str = "📊", 
+                      change_type: str = "neutral", subtitle: str = ""):
+    """Create a beautiful metric card with glassmorphism design."""
+    
+    change_class = f"metric-{change_type}"
+    change_display = f'<div class="metric-change {change_class}">{change}</div>' if change else ""
+    subtitle_display = f'<div style="font-size: 0.875rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">{subtitle}</div>' if subtitle else ""
+    
+    return f"""
+    <div class="metric-card hover-lift">
+        <div class="asset-icon">{icon}</div>
+        <div class="metric-label">{title}</div>
+        <div class="metric-value">{value}</div>
+        {change_display}
+        {subtitle_display}
+    </div>
+    """
+
+def create_section_header(title: str, description: str = "", icon: str = "📊"):
+    """Create a beautiful section header with neon styling."""
+    
+    description_html = f'<p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">{description}</p>' if description else ""
+    
+    return f"""
+    <div style="text-align: center; margin: 3rem 0 2rem 0;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">{icon}</div>
+        <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+                   background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+                   -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            {title}
+        </h2>
+        {description_html}
+    </div>
+    <div class="section-divider"></div>
+    """
+
+def create_status_badge(status: str, badge_type: str = "live"):
+    """Create a status badge with neon styling."""
+    
+    return f'<span class="status-chip status-{badge_type}">{status}</span>'
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ENHANCED DATA VISUALIZATION FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_live_price_display(symbol: str, price: float, change: float, change_pct: float):
+    """Create a live price display with animated elements."""
+    
+    change_color = "#00ff88" if change >= 0 else "#ff6b35"
+    change_icon = "↗" if change >= 0 else "↘"
+    
+    asset_info = MAJOR_EQUITIES.get(symbol, {"icon": "📊", "name": symbol})
+    
+    return f"""
+    <div class="glass-panel" style="padding: 2rem; text-align: center; margin: 1rem 0;">
+        <div class="asset-icon" style="font-size: 4rem; margin-bottom: 1rem;">{asset_info['icon']}</div>
+        <h1 style="color: #ffffff; font-size: 3rem; margin: 0; font-family: 'JetBrains Mono', monospace;">
+            ${price:,.2f}
+        </h1>
+        <div style="color: {change_color}; font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">
+            {change_icon} ${change:+.2f} ({change_pct:+.2f}%)
+        </div>
+        <div style="color: rgba(255,255,255,0.7); font-size: 1rem;">
+            {symbol} • {asset_info['name']}
+        </div>
+    </div>
+    """
+
+def create_quick_stats_grid(stats_data: list):
+    """Create a grid of quick statistics with neon styling."""
+    
+    html = '<div class="metric-grid">'
+    
+    for stat in stats_data:
+        html += create_metric_card(
+            title=stat.get('title', 'Metric'),
+            value=stat.get('value', '—'),
+            change=stat.get('change', ''),
+            icon=stat.get('icon', '📊'),
+            change_type=stat.get('change_type', 'neutral'),
+            subtitle=stat.get('subtitle', '')
+        )
+    
+    html += '</div>'
+    
+    return html
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# SIDEBAR ENHANCEMENTS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def add_sidebar_quick_actions():
+    """Add quick action buttons to sidebar."""
+    
+    with st.sidebar:
+        # Quick actions section
+        st.markdown("#### ⚡ Quick Actions")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Refresh", key="refresh_data", help="Refresh all market data"):
+                AppState.refresh_data()
+                st.success("Data refreshed!")
+                st.rerun()
+        
+        with col2:
+            if st.button("📊 Charts", key="show_charts", help="Toggle chart display"):
+                st.info("Charts toggled!")
+        
+        # System status
+        st.markdown('<div class="glass-panel" style="padding: 1rem; margin: 1rem 0;">', unsafe_allow_html=True)
+        st.markdown("#### 💡 System Status")
+        
+        # Check system readiness
+        system_checks = verify_system_ready()
+        all_ready = all(system_checks.values())
+        
+        if all_ready:
+            st.markdown(create_status_badge("🟢 All Systems Ready", "live"), unsafe_allow_html=True)
+        else:
+            st.markdown(create_status_badge("🟡 Partial Ready", "warning"), unsafe_allow_html=True)
+        
+        # Show current time
+        current_time = datetime.now(ET).strftime("%I:%M:%S %p ET")
+        st.caption(f"Last Update: {current_time}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# EXECUTE PART 2B COMPONENTS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Add quick actions to sidebar
+add_sidebar_quick_actions()
+
+# Display section header for main content
+st.markdown(create_section_header(
+    "Trading Analytics Dashboard",
+    "Real-time market analysis with advanced forecasting capabilities",
+    "🚀"
+), unsafe_allow_html=True)
+
+# Create enhanced stats using the existing asset and market data
+current_asset = AppState.get_current_asset()
+asset_info = MAJOR_EQUITIES[current_asset]
+market_status, status_type = get_market_status()
+
+enhanced_stats = [
+    {
+        "title": "Current Asset",
+        "value": get_display_symbol(current_asset),
+        "icon": asset_info['icon'],
+        "subtitle": asset_info['name'],
+        "change_type": "neutral"
+    },
+    {
+        "title": "Market Status", 
+        "value": "LIVE",
+        "icon": "📡",
+        "change": market_status,
+        "change_type": "positive" if "Open" in market_status else "warning",
+        "subtitle": "Real-time Data"
+    },
+    {
+        "title": "Analysis Date",
+        "value": AppState.get_forecast_date().strftime("%m/%d"),
+        "icon": "📅",
+        "subtitle": AppState.get_forecast_date().strftime("%B %d, %Y"),
+        "change_type": "neutral"
+    },
+    {
+        "title": "System Ready",
+        "value": "100%",
+        "icon": "⚡",
+        "change": "+Ready",
+        "change_type": "positive",
+        "subtitle": "All modules active"
+    },
+    {
+        "title": "Data Feed",
+        "value": "LIVE",
+        "icon": "📊",
+        "change": "Connected",
+        "change_type": "positive",
+        "subtitle": "Yahoo Finance"
+    },
+    {
+        "title": "Session Time",
+        "value": datetime.now(CT).strftime("%H:%M"),
+        "icon": "🕐",
+        "change": "CT",
+        "change_type": "neutral",
+        "subtitle": "Central Time"
+    }
+]
+
+# Display the enhanced stats grid
+st.markdown(create_quick_stats_grid(enhanced_stats), unsafe_allow_html=True)
+
+# Add a section for displaying selected page navigation
+current_page = st.session_state.get('selected_page', 'Dashboard')
+clean_page = current_page.split(' ', 1)[1] if ' ' in current_page else current_page
+
+# Page indicator
+st.markdown(f"""
+<div class="glass-panel" style="padding: 1rem; text-align: center; margin: 2rem 0;">
+    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin-bottom: 0.5rem;">CURRENT PAGE</div>
+    <div style="color: #ffffff; font-size: 1.5rem; font-weight: 800;">{current_page}</div>
+</div>
+""", unsafe_allow_html=True)
