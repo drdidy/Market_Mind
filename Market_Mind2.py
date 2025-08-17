@@ -2756,34 +2756,5 @@ market_data = display_real_market_data()
 # Show data quality status
 show_data_quality_status()
 
-# Update the charts to use real data
-st.markdown(f"""
-<div style="text-align: center; margin: 3rem 0 2rem 0;">
-    <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
-    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
-               background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
-               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        Live Charts & Analysis
-    </h2>
-    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Real-time charting with live data integration</p>
-</div>
-<div class="section-divider"></div>
-""", unsafe_allow_html=True)
-
-# Real-time chart
-current_asset = AppState.get_current_asset()
-display_symbol = get_display_symbol(current_asset)
-
-st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-
-# Create chart with real data
-price_fig = create_real_price_chart(current_asset, f"{display_symbol} Live Price Chart")
-st.plotly_chart(price_fig, use_container_width=True, config=CHART_CONFIG)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Real data status
-if market_data['status'] == 'success':
-    st.success(f"📊 **Chart showing live {display_symbol} data** - Last updated: {market_data['timestamp'].strftime('%H:%M:%S')}")
-else:
-    st.warning(f"📊 **Chart showing demo {display_symbol} data** - Live data temporarily unavailable")
+# NOTE: Removed the "Live Charts & Analysis" header + chart + success/warning banner
+# to avoid duplicating the chart already shown in Part 2 tabs.
