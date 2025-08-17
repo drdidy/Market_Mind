@@ -80,11 +80,37 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'Get Help': 'https://quantumtradingsystems.com/support',
-        'Report a bug': 'https://quantumtradingsystems.com/bugs', 
+        'Get Help': 'https://maxpointeconsulting.com/support',
+        'Report a bug': 'https://maxpointeconsulting.com/bugs', 
         'About': f"{APP_NAME} v{VERSION} - Professional trading analytics platform"
     }
 )
+
+# 🔽 ADD THIS BLOCK IMMEDIATELY BELOW st.set_page_config
+def inject_global_styles():
+    st.markdown("""
+    <style>
+    /* Make metric labels/values/deltas readable on dark UI */
+    div[data-testid="stMetricLabel"] > div { color: rgba(255,255,255,0.7) !important; }
+    div[data-testid="stMetricValue"] { color: #e5e7eb !important; }
+    span[data-testid="stMetricDelta"] {
+      color: #00ff88 !important;
+      background: rgba(0,255,136,0.12);
+      padding: 2px 8px; border-radius: 999px; font-weight: 700;
+    }
+
+    /* Lighten text inside success/error/info banners */
+    div[role="alert"] * { color: #e5e7eb !important; }
+
+    /* Optional: make alert backgrounds fit dark glass UI */
+    div[role="alert"] { background: rgba(255,255,255,0.06) !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# call once
+if "css_injected" not in st.session_state:
+    inject_global_styles()
+    st.session_state.css_injected = True
 
 # ───────────────────────────────  CORE UTILITY FUNCTIONS  ───────────────────────────────
 def previous_trading_day(ref_d: date) -> date:
