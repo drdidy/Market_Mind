@@ -312,8 +312,13 @@ with col2:
     st.metric("Current Time", current_time)
 
 with col3:
-    st.metric("Company", "Max Pointe")
-    st.caption("Consulting")
+    st.markdown("""
+    <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: 1rem;">
+        <p style="color: rgb(49, 51, 63); font-size: 0.875rem; line-height: 1.6; margin: 0;">Company</p>
+        <p style="color: rgb(49, 51, 63); font-size: 1.875rem; font-weight: 600; line-height: 1; margin: 0.25rem 0 0 0;">Max Pointe</p>
+        <p style="color: rgb(49, 51, 63); font-size: 1.875rem; font-weight: 600; line-height: 1; margin: 0;">Consulting</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Sidebar controls
 with st.sidebar:
