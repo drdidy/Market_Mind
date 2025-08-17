@@ -2,17 +2,26 @@
 # Enterprise-Ready Market Forecasting Platform
 
 import streamlit as st
-import pandas as pd
-import numpy as np
-import yfinance as yf
 import json
 import os
 from datetime import datetime, timedelta
-import pytz
 from typing import Dict, Tuple, Optional, List
 import time
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+# Handle optional imports gracefully for Session 1
+try:
+    import pandas as pd
+    import numpy as np
+    import yfinance as yf
+    import pytz
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    DEPENDENCIES_AVAILABLE = True
+except ImportError as e:
+    DEPENDENCIES_AVAILABLE = False
+    missing_deps = str(e)
+    st.error(f"⚠️ Missing dependencies: {missing_deps}")
+    st.info("Please install requirements: `pip install -r requirements.txt`")
 
 # ===========================
 # SESSION 1: FOUNDATION & BRANDING
@@ -254,8 +263,11 @@ class MarketLensBranding:
 class MarketLensConfig:
     """Configuration constants for Market Lens"""
     
-    # Timezone
-    TIMEZONE = pytz.timezone('America/Chicago')  # Central Time
+    # Timezone (handle gracefully if pytz not available)
+    try:
+        TIMEZONE = pytz.timezone('America/Chicago')  # Central Time
+    except:
+        TIMEZONE = None  # Will be handled in Session 2
     
     # Data intervals and caching
     CACHE_TTL = 300  # 5 minutes
@@ -325,6 +337,21 @@ def main():
     
     # Load custom styling
     load_custom_css()
+    
+    # Check dependencies
+    if not DEPENDENCIES_AVAILABLE:
+        st.markdown("""
+        ## 🚨 Setup Required
+        
+        Please install the required dependencies first:
+        
+        ```bash
+        pip install -r requirements.txt
+        ```
+        
+        Then restart your Streamlit app.
+        """)
+        st.stop()
     
     # Render header
     render_header()
@@ -400,3 +427,21 @@ def main():
         Price trading between Skyline and Baseline - neutral zone
     </div>
     """, unsafe_allow_html=True)
+    
+    # Next session preview
+    st.markdown("""
+    ---
+    ### 🚀 Ready for Session 2?
+    
+    **Next up: Data Infrastructure & yfinance Integration**
+    - Real-time data fetching with robust error handling
+    - SPX (^GSPC) and ES Futures (ES=F) integration  
+    - 30-minute resampling and CT timezone handling
+    - Intelligent caching with retry mechanisms
+    - Data validation and fallback strategies
+    
+    **Type "2" when you're ready to continue!**
+    """)
+
+if __name__ == "__main__":
+    main()
