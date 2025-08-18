@@ -1075,6 +1075,20 @@ else:
 # Additional CSS for enhanced components - seamlessly integrated
 st.markdown("""
 <style>
+/* ===== 2B SCOPED TEXT SAFETY PATCH (keeps text readable on all pages) ===== */
+/* Ensure anything inside metric cards / glass panels is light text by default,
+   without touching the rest of your app. Only kicks in when child elements
+   don't already declare a color inline. */
+.main .block-container .metric-card,
+.main .block-container .glass-panel{
+  color:#e5e7eb !important;
+}
+.main .block-container .metric-card *:not([style*="color"]),
+.main .block-container .glass-panel *:not([style*="color"]){
+  color:#e5e7eb !important;
+  -webkit-text-fill-color:#e5e7eb !important;
+}
+
 /* ========== ENHANCED METRIC CARDS ========== */
 .metric-grid {
   display: grid;
@@ -1125,7 +1139,7 @@ st.markdown("""
 .metric-label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.7) !important;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
@@ -1134,7 +1148,7 @@ st.markdown("""
 .metric-value {
   font-size: 2.5rem;
   font-weight: 900;
-  color: #ffffff;
+  color: #ffffff !important;
   font-family: 'JetBrains Mono', monospace;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
   margin-bottom: 0.5rem;
@@ -1146,11 +1160,12 @@ st.markdown("""
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* Note: color comes from modifier classes or inline styles you set. */
 }
 
-.metric-positive { color: var(--neon-green); }
-.metric-negative { color: var(--neon-orange); }
-.metric-neutral { color: rgba(255, 255, 255, 0.6); }
+.metric-positive { color: var(--neon-green) !important; }
+.metric-negative { color: var(--neon-orange) !important; }
+.metric-neutral  { color: rgba(255, 255, 255, 0.75) !important; }
 
 /* ========== ASSET ICONS & ANIMATIONS ========== */
 .asset-icon {
@@ -1158,6 +1173,7 @@ st.markdown("""
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
   display: inline-block;
   animation: float 3s ease-in-out infinite;
+  color:#ffffff !important; /* keep emoji text visible if it falls back to glyph */
 }
 
 @keyframes float {
@@ -1179,6 +1195,7 @@ st.markdown("""
   border: 1px solid;
   position: relative;
   overflow: hidden;
+  color:#e5e7eb !important; /* default safety */
 }
 
 .status-live {
@@ -1186,7 +1203,7 @@ st.markdown("""
     rgba(16, 185, 129, 0.2) 0%, 
     rgba(5, 150, 105, 0.2) 100%);
   border-color: var(--neon-green);
-  color: var(--neon-green);
+  color: var(--neon-green) !important;
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
@@ -1195,7 +1212,7 @@ st.markdown("""
     rgba(245, 158, 11, 0.2) 0%, 
     rgba(217, 119, 6, 0.2) 100%);
   border-color: var(--neon-orange);
-  color: var(--neon-orange);
+  color: var(--neon-orange) !important;
 }
 
 .status-error {
@@ -1203,7 +1220,7 @@ st.markdown("""
     rgba(239, 68, 68, 0.2) 0%, 
     rgba(220, 38, 38, 0.2) 100%);
   border-color: var(--neon-pink);
-  color: var(--neon-pink);
+  color: var(--neon-pink) !important;
 }
 
 @keyframes pulse-glow {
@@ -1234,7 +1251,8 @@ st.markdown("""
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  background: var(--surface-1);
+  /* fallback if --surface-1 isn't defined on this page */
+  background: var(--surface-1, rgba(15,15,35,0.95));
   padding: 0 1rem;
   color: var(--neon-blue);
   font-size: 1.5rem;
@@ -1248,7 +1266,7 @@ st.markdown("""
   border: 1px solid rgba(34, 211, 238, 0.4);
   border-radius: 12px;
   padding: 0.75rem 1.5rem;
-  color: #ffffff;
+  color: #ffffff !important;
   font-weight: 600;
   font-size: 0.875rem;
   text-transform: uppercase;
