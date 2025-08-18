@@ -86,6 +86,34 @@ st.set_page_config(
     }
 )
 
+def force_light_text_always():
+    st.markdown("""
+    <style>
+    /* Lock the app to light text regardless of OS theme */
+    :root{
+      --text:#e5e7eb !important;
+      --muted:rgba(255,255,255,.75) !important;
+      --subtle:rgba(255,255,255,.60) !important;
+      --link:#22d3ee !important;
+      --code-bg:rgba(255,255,255,.08) !important;
+    }
+    /* Neutralize any prior prefers-color-scheme override */
+    @media (prefers-color-scheme: light){
+      :root{
+        --text:#e5e7eb !important;
+        --muted:rgba(255,255,255,.75) !important;
+        --subtle:rgba(255,255,255,.60) !important;
+        --link:#22d3ee !important;
+        --code-bg:rgba(255,255,255,.08) !important;
+      }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+if "force_text" not in st.session_state:
+    force_light_text_always()
+    st.session_state.force_text = True
+
 def inject_global_text_styles():
     st.markdown("""
     <style>
