@@ -261,6 +261,49 @@ section[data-testid="stSidebar"] svg * {
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* ===== Force white + full opacity for ALL sidebar nav variants ===== */
+section[data-testid="stSidebar"] nav,
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
+section[data-testid="stSidebar"] [data-testid="stNavigation"] {
+  --text-color:#e5e7eb !important;
+  --primary-text-color:#e5e7eb !important;
+  --secondary-text-color:#e5e7eb !important;
+}
+
+/* Links, page items, and pager buttons/links */
+section[data-testid="stSidebar"] nav *,
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] *,
+section[data-testid="stSidebar"] [data-testid="stNavigation"] *,
+section[data-testid="stSidebar"] [data-testid^="stPageLink"] *,
+section[data-testid="stSidebar"] a,
+section[data-testid="stSidebar"] a *,
+section[data-testid="stSidebar"] [role="button"],
+section[data-testid="stSidebar"] [role="button"] *,
+section[data-testid="stSidebar"] [role="link"],
+section[data-testid="stSidebar"] [role="link"] * {
+  color:#e5e7eb !important;
+  -webkit-text-fill-color:#e5e7eb !important; /* defeats some internal styles */
+  opacity: 1 !important;                       /* many nav items lower opacity */
+}
+
+/* Icons in nav */
+section[data-testid="stSidebar"] svg,
+section[data-testid="stSidebar"] svg * { fill:#e5e7eb !important; stroke:#e5e7eb !important; }
+
+/* Optional: highlight active page */
+section[data-testid="stSidebar"] [aria-current="page"],
+section[data-testid="stSidebar"] [aria-current="page"] * {
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+  font-weight:700 !important;
+  opacity:1 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 
 
 # ───────────────────────────────  CORE UTILITY FUNCTIONS  ───────────────────────────────
