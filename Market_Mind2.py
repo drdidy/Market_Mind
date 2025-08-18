@@ -114,6 +114,44 @@ if "force_text" not in st.session_state:
     force_light_text_always()
     st.session_state.force_text = True
 
+st.markdown("""
+<style>
+/* Selectbox / Multiselect input text */
+[data-baseweb="select"] * { color:#e5e7eb !important; }
+
+/* The dropdown MENU lives in a portal (outside .stApp). Style it too. */
+[data-baseweb="popover"], [data-baseweb="menu"], [role="listbox"] {
+  background: rgba(17,24,39,.98) !important;
+  color:#e5e7eb !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+}
+[role="listbox"] * { color:#e5e7eb !important; }
+
+/* Radio / Checkbox labels */
+[data-baseweb="radio"] *, [data-baseweb="checkbox"] * { color:#e5e7eb !important; }
+
+/* Slider label/value */
+[data-testid="stSliderLabel"] *, .stSlider label, .stSlider span { color:#e5e7eb !important; }
+
+/* Expander summary text */
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary * { color:#e5e7eb !important; }
+
+/* Sidebar text */
+section[data-testid="stSidebar"] * { color:#e5e7eb !important; }
+
+/* Tables / DataFrames (Arrow + AG Grid) */
+[data-testid="stTable"] th, [data-testid="stTable"] td { color:#e5e7eb !important; }
+.stDataFrame [class^="ag-"], .stDataFrame [class*=" ag-"] { color:#e5e7eb !important; }
+
+/* Tooltips / toasts / spinner text */
+[role="tooltip"] *, [data-testid="stToast"] *, [data-testid="stSpinnerText"] { color:#e5e7eb !important; }
+
+/* Buttons (label color) */
+.stButton button, .stDownloadButton button { color:#e5e7eb !important; }
+</style>
+""", unsafe_allow_html=True)
+
+
 def inject_global_text_styles():
     st.markdown("""
     <style>
