@@ -2282,13 +2282,8 @@ st.markdown(f"""
 
 
 
-
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3A: CORE MARKET DATA FUNCTIONS
+# MARKETLENS PRO - PART 3A: CORE MARKET DATA FUNCTIONS (HARDENED)
 # Real Yahoo Finance Integration with Professional Error Handling
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
@@ -2296,7 +2291,6 @@ st.markdown(f"""
 def inject_global_styles():
     st.markdown("""
     <style>
-    /* Make metric labels/values/deltas readable on dark UI */
     div[data-testid="stMetricLabel"] > div { color: rgba(255,255,255,0.7) !important; }
     div[data-testid="stMetricValue"] { color: #e5e7eb !important; }
     span[data-testid="stMetricDelta"] {
@@ -2304,17 +2298,9 @@ def inject_global_styles():
       background: rgba(0,255,136,0.12);
       padding: 2px 8px; border-radius: 999px; font-weight: 700;
     }
-
-    /* Lighten text inside success/error/info banners */
     div[role="alert"] * { color: #e5e7eb !important; }
-
-    /* Optional: make alert backgrounds fit dark glass UI */
     div[role="alert"] { background: rgba(255,255,255,0.06) !important; }
-    
-    /* Fix all text visibility */
     .stMarkdown, .stText, .stCaption { color: rgba(255,255,255,0.9) !important; }
-    
-    /* Fix success/warning/error messages */
     .stSuccess, .stWarning, .stError, .stInfo { 
         color: #ffffff !important; 
         background: rgba(255,255,255,0.05) !important;
@@ -2333,107 +2319,84 @@ if "css_injected" not in st.session_state:
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 def validate_price_data(data: dict) -> bool:
-    """Validate if price data looks reasonable."""
     if data.get('status') != 'success':
         return False
-    
-    price = data.get('price', 0)
-    change_pct = data.get('change_pct', 0)
-    
-    # Basic sanity checks
-    if price <= 0 or price > 100000:  # Unreasonable price range
+    price = float(data.get('price', 0) or 0)
+    change_pct = float(data.get('change_pct', 0) or 0)
+    if price <= 0 or price > 100000:
         return False
-    
-    # Check if change is too extreme (>50% in one update)
     if abs(change_pct) > 50:
         return False
-    
-    # Check for NaN or infinite values
     if not np.isfinite(price) or not np.isfinite(change_pct):
         return False
-    
     return True
 
 def validate_symbol_format(symbol: str) -> bool:
-    """Validate symbol format and check if supported."""
-    if not symbol or len(symbol) > 10:
-        return False
-    
-    # Check if symbol is in our supported universe
-    return symbol.upper() in MAJOR_EQUITIES
+    """Relaxed validation so ES=F / indices don't get blocked."""
+    # FIX: Allow any non-empty reasonable ticker (don’t hard-fail if not in MAJOR_EQUITIES)
+    return bool(symbol) and len(symbol) <= 15
 
 def calculate_data_quality_score(data: dict, historical_data: pd.DataFrame = None) -> int:
-    """Calculate data quality score (0-100)."""
     score = 0
-    
-    # Base score for successful data retrieval
     if data.get('status') == 'success':
         score += 40
-    
-    # Price validation
     if validate_price_data(data):
         score += 30
-    
-    # Volume check
-    if data.get('volume', 0) > 0:
+    if int(data.get('volume', 0) or 0) > 0:
         score += 15
-    
-    # Timestamp freshness (within last 5 minutes)
-    timestamp = data.get('timestamp')
-    if timestamp and (datetime.now() - timestamp).total_seconds() < 300:
+    ts = data.get('timestamp')
+    if ts and (datetime.now() - ts).total_seconds() < 300:
         score += 15
-    
     return min(100, score)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # CORE MARKET DATA FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=60, show_spinner=False)  # Cache for 1 minute
+@st.cache_data(ttl=60, show_spinner=False)
 def get_real_market_data(symbol: str) -> dict:
-    """Fetch real market data from Yahoo Finance with validation."""
+    """Robust snapshot using daily bars (works on weekends/after-hours)."""
     try:
-        # Validate symbol first
         if not validate_symbol_format(symbol):
             raise ValueError(f"Invalid or unsupported symbol: {symbol}")
-        
-        ticker = yf.Ticker(symbol)
-        
-        # Get current quote data with timeout
-        info = ticker.info
-        hist = ticker.history(period="2d", interval="1m")
-        
-        if hist.empty:
+
+        # FIX: Use daily bars for robust last/prev close (minute bars can be empty on weekends)
+        df = yf.download(symbol, period="5d", interval="1d", progress=False, auto_adjust=False, threads=False)
+        if df is None or df.empty:
             raise ValueError(f"No price data available for {symbol}")
-        
-        # Get latest price data
-        latest = hist.iloc[-1]
-        previous_close = info.get('previousClose')
-        
-        # Fallback to historical close if no previous close
-        if previous_close is None and len(hist) > 1:
-            previous_close = hist['Close'].iloc[-2]
-        elif previous_close is None:
-            previous_close = latest['Close']
-        
-        current_price = float(latest['Close'])
-        change = current_price - previous_close
-        change_pct = (change / previous_close) * 100 if previous_close != 0 else 0
-        
-        # Get additional market data
-        volume = int(latest['Volume']) if 'Volume' in latest and pd.notna(latest['Volume']) else 0
-        high_52w = info.get('fiftyTwoWeekHigh', current_price)
-        low_52w = info.get('fiftyTwoWeekLow', current_price)
-        market_cap = info.get('marketCap', 0)
-        
-        # Build result dictionary
+
+        df = df.dropna()
+        close = df["Close"]
+        current_price = float(close.iloc[-1])
+        prev_close = float(close.iloc[-2]) if len(close) > 1 else current_price
+        change = current_price - prev_close
+        change_pct = (change / prev_close) * 100 if prev_close != 0 else 0.0
+
+        vol = df.get("Volume", pd.Series(dtype="float64"))
+        if isinstance(vol, pd.DataFrame): vol = vol.iloc[:, 0]
+        volume = int(pd.to_numeric(vol, errors="coerce").fillna(0).iloc[-1]) if len(vol) else 0
+
+        # Optional extras via info (guarded)
+        high_52w = 0.0
+        low_52w = 0.0
+        market_cap = 0
+        try:
+            info = yf.Ticker(symbol).info  # may be slow; guard in try
+            high_52w = float(info.get('fiftyTwoWeekHigh', current_price) or current_price)
+            low_52w = float(info.get('fiftyTwoWeekLow', current_price) or current_price)
+            market_cap = int(info.get('marketCap', 0) or 0)
+        except Exception:
+            high_52w = current_price
+            low_52w = current_price
+            market_cap = 0
+
         result = {
             'symbol': symbol,
             'price': current_price,
             'change': change,
             'change_pct': change_pct,
             'volume': volume,
-            'previous_close': previous_close,
+            'previous_close': prev_close,
             'high_52w': high_52w,
             'low_52w': low_52w,
             'market_cap': market_cap,
@@ -2441,94 +2404,64 @@ def get_real_market_data(symbol: str) -> dict:
             'status': 'success',
             'data_source': 'yahoo_finance'
         }
-        
-        # Validate the data before returning
         if not validate_price_data(result):
             raise ValueError("Price data failed validation checks")
-        
         return result
-        
+
     except Exception as e:
-        # Return structured error data
         return {
             'symbol': symbol,
-            'price': 0.0,
-            'change': 0.0,
-            'change_pct': 0.0,
-            'volume': 0,
-            'previous_close': 0.0,
-            'high_52w': 0.0,
-            'low_52w': 0.0,
-            'market_cap': 0,
-            'timestamp': datetime.now(),
-            'status': 'error',
-            'error': str(e),
-            'data_source': 'error'
+            'price': 0.0, 'change': 0.0, 'change_pct': 0.0, 'volume': 0,
+            'previous_close': 0.0, 'high_52w': 0.0, 'low_52w': 0.0, 'market_cap': 0,
+            'timestamp': datetime.now(), 'status': 'error', 'error': str(e), 'data_source': 'error'
         }
 
-@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
+@st.cache_data(ttl=300, show_spinner=False)
 def get_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") -> pd.DataFrame:
-    """Fetch historical price data with EMA calculations."""
     try:
         if not validate_symbol_format(symbol):
             raise ValueError(f"Invalid symbol: {symbol}")
-        
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period=period, interval=interval)
-        
-        if hist.empty:
+        df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=False, threads=False)
+        if df is None or df.empty:
             raise ValueError(f"No historical data available for {symbol}")
-        
-        # Reset index to make Date a column
-        hist = hist.reset_index()
-        hist['Symbol'] = symbol
-        
-        # Calculate EMAs (8 and 21 period)
-        if len(hist) >= 21:  # Need at least 21 periods for 21 EMA
-            hist['EMA_8'] = hist['Close'].ewm(span=8, adjust=False).mean()
-            hist['EMA_21'] = hist['Close'].ewm(span=21, adjust=False).mean()
-            
-            # EMA trend analysis
-            hist['EMA_Signal'] = np.where(hist['EMA_8'] > hist['EMA_21'], 1, -1)
-            hist['EMA_Crossover'] = hist['EMA_Signal'].diff()
-        
-        # Add data quality metadata
-        hist['Data_Quality'] = 'high'
-        hist['Last_Updated'] = datetime.now()
-        
-        return hist
-        
+
+        df = df.dropna().reset_index()
+        df['Symbol'] = symbol
+
+        if len(df) >= 21 and 'Close' in df:
+            df['EMA_8'] = pd.to_numeric(df['Close'], errors="coerce").ewm(span=8, adjust=False).mean()
+            df['EMA_21'] = pd.to_numeric(df['Close'], errors="coerce").ewm(span=21, adjust=False).mean()
+            df['EMA_Signal'] = np.where(df['EMA_8'] > df['EMA_21'], 1, -1)
+            df['EMA_Crossover'] = df['EMA_Signal'].diff()
+
+        df['Data_Quality'] = 'high'
+        df['Last_Updated'] = datetime.now()
+        return df
+
     except Exception as e:
         log_error(f"Historical data error for {symbol}: {str(e)}", "Data")
         return pd.DataFrame()
 
-@st.cache_data(ttl=180, show_spinner=False)  # Cache for 3 minutes  
+@st.cache_data(ttl=180, show_spinner=False)
 def get_intraday_data(symbol: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
-    """Fetch intraday data with EMA analysis."""
     try:
         if not validate_symbol_format(symbol):
             raise ValueError(f"Invalid symbol: {symbol}")
-        
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period=period, interval=interval, prepost=True)
-        
-        if hist.empty:
+        df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=False, threads=False, prepost=True)
+        if df is None or df.empty:
             raise ValueError(f"No intraday data available for {symbol}")
-        
-        hist = hist.reset_index()
-        hist['Symbol'] = symbol
-        
-        # Calculate short-term EMAs for intraday trading
-        if len(hist) >= 21:
-            hist['EMA_8'] = hist['Close'].ewm(span=8, adjust=False).mean()
-            hist['EMA_21'] = hist['Close'].ewm(span=21, adjust=False).mean()
-            
-            # Intraday momentum signals
-            hist['Momentum'] = hist['Close'].pct_change(periods=5) * 100
-            hist['EMA_Trend'] = np.where(hist['EMA_8'] > hist['EMA_21'], 'Bullish', 'Bearish')
-        
-        return hist
-        
+
+        df = df.dropna().reset_index()
+        df['Symbol'] = symbol
+
+        if len(df) >= 21 and 'Close' in df:
+            close = pd.to_numeric(df['Close'], errors="coerce")
+            df['EMA_8'] = close.ewm(span=8, adjust=False).mean()
+            df['EMA_21'] = close.ewm(span=21, adjust=False).mean()
+            df['Momentum'] = close.pct_change(periods=5) * 100
+            df['EMA_Trend'] = np.where(df['EMA_8'] > df['EMA_21'], 'Bullish', 'Bearish')
+        return df
+
     except Exception as e:
         log_error(f"Intraday data error for {symbol}: {str(e)}", "Data")
         return pd.DataFrame()
@@ -2539,57 +2472,38 @@ def get_intraday_data(symbol: str, period: str = "1d", interval: str = "5m") -> 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_market_session_info() -> dict:
-    """Get detailed market session information."""
     now_et = datetime.now(ET)
     now_ct = datetime.now(CT)
-    
-    # Get basic market status
     basic_status, status_type = get_market_status()
-    
-    # Determine trading session
-    if now_et.weekday() < 5:  # Weekday
+
+    if now_et.weekday() < 5:
         if time(4, 0) <= now_et.time() < time(9, 30):
-            session = "Pre-Market"
-            session_emoji = "🌅"
+            session, session_emoji = "Pre-Market", "🌅"
         elif time(9, 30) <= now_et.time() < time(16, 0):
-            session = "Regular Hours"
-            session_emoji = "📈"
+            session, session_emoji = "Regular Hours", "📈"
         elif time(16, 0) <= now_et.time() < time(20, 0):
-            session = "After Hours"
-            session_emoji = "🌆"
+            session, session_emoji = "After Hours", "🌆"
         else:
-            session = "Overnight"
-            session_emoji = "🌙"
+            session, session_emoji = "Overnight", "🌙"
     else:
-        session = "Weekend"
-        session_emoji = "📴"
-    
-    # Calculate time to next market event
-    if now_et.weekday() < 5:  # Weekday
+        session, session_emoji = "Weekend", "📴"
+
+    if now_et.weekday() < 5:
         market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
         market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-        
         if now_et < market_open:
-            next_event = "Market Open"
-            time_to_event = market_open - now_et
+            next_event, time_to_event = "Market Open", (market_open - now_et)
         elif now_et < market_close:
-            next_event = "Market Close"
-            time_to_event = market_close - now_et
+            next_event, time_to_event = "Market Close", (market_close - now_et)
         else:
-            # Next day market open
             next_open = market_open + timedelta(days=1)
-            next_event = "Next Market Open"
-            time_to_event = next_open - now_et
+            next_event, time_to_event = "Next Market Open", (next_open - now_et)
     else:
-        # Calculate time to Monday market open
-        days_until_monday = (7 - now_et.weekday()) % 7
-        if days_until_monday == 0:
-            days_until_monday = 1
+        days_until_monday = (7 - now_et.weekday()) % 7 or 1
         next_monday = now_et + timedelta(days=days_until_monday)
         next_open = next_monday.replace(hour=9, minute=30, second=0, microsecond=0)
-        next_event = "Monday Market Open"
-        time_to_event = next_open - now_et
-    
+        next_event, time_to_event = "Monday Market Open", (next_open - now_et)
+
     return {
         "status": basic_status,
         "session": session,
@@ -2607,27 +2521,20 @@ def get_market_session_info() -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 def get_system_health_metrics() -> dict:
-    """Get comprehensive system health metrics."""
-    
     current_asset = AppState.get_current_asset()
-    
-    # Test data connectivity
     market_data = get_real_market_data(current_asset)
     historical_data = get_historical_data(current_asset, period="5d")
-    
-    # Calculate metrics
+
     data_quality = calculate_data_quality_score(market_data, historical_data)
     api_status = "Connected" if market_data['status'] == 'success' else "Error"
-    
-    # Cache performance
+
     cache_stats = st.session_state.get('cache_stats', {"hits": 0, "misses": 0})
     total_requests = cache_stats['hits'] + cache_stats['misses']
     cache_hit_rate = (cache_stats['hits'] / total_requests * 100) if total_requests > 0 else 0
-    
-    # System performance
+
     session_start = st.session_state.get('last_refresh', datetime.now())
     uptime = datetime.now() - session_start
-    
+
     return {
         "data_quality": data_quality,
         "api_status": api_status,
@@ -2643,7 +2550,6 @@ def get_system_health_metrics() -> dict:
 # EXECUTE PART 3A - CORE DATA FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Display header
 st.markdown(f"""
 <div style="text-align: center; margin: 3rem 0 2rem 0;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">📡</div>
@@ -2657,434 +2563,312 @@ st.markdown(f"""
 <div class="section-divider"></div>
 """, unsafe_allow_html=True)
 
-# Get current asset and market data
 current_asset = AppState.get_current_asset()
 market_data = get_real_market_data(current_asset)
 session_info = get_market_session_info()
 health_metrics = get_system_health_metrics()
 
-# Display current market data
 st.markdown("#### 📊 Live Market Data")
-
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if market_data['status'] == 'success':
-        st.metric(
-            "Current Price", 
-            f"${market_data['price']:,.2f}",
-            f"{market_data['change']:+.2f}"
-        )
+        st.metric("Current Price", f"${market_data['price']:,.2f}", f"{market_data['change']:+.2f}")
     else:
         st.metric("Current Price", "Error", "No Data")
 
 with col2:
     if market_data['status'] == 'success':
-        st.metric(
-            "Change %", 
-            f"{market_data['change_pct']:+.2f}%",
-            "Real-time"
-        )
+        st.metric("Change %", f"{market_data['change_pct']:+.2f}%", "Real-time")
     else:
         st.metric("Change %", "—", "Error")
 
 with col3:
-    st.metric(
-        "Market Session",
-        session_info['session'],
-        session_info['session_emoji']
-    )
+    st.metric("Market Session", session_info['session'], session_info['session_emoji'])
 
 with col4:
     if market_data['status'] == 'success':
-        st.metric(
-            "Volume",
-            f"{market_data['volume']:,}",
-            "Shares"
-        )
+        st.metric("Volume", f"{market_data['volume']:,}", "Shares")
     else:
         st.metric("Volume", "—", "Error")
 
-# Display market session information
 st.markdown("#### ⏰ Market Session Details")
-
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric(
-        "Current Time ET",
-        session_info['timestamp_et'].strftime("%I:%M:%S %p"),
-        "Eastern Time"
-    )
-
+    st.metric("Current Time ET", session_info['timestamp_et'].strftime("%I:%M:%S %p"), "Eastern Time")
 with col2:
-    st.metric(
-        "Current Time CT", 
-        session_info['timestamp_ct'].strftime("%I:%M:%S %p"),
-        "Central Time"
-    )
-
+    st.metric("Current Time CT", session_info['timestamp_ct'].strftime("%I:%M:%S %p"), "Central Time")
 with col3:
     hours_to_event = session_info['time_to_event'].total_seconds() / 3600
-    st.metric(
-        session_info['next_event'],
-        f"{hours_to_event:.1f}h",
-        "Until Event"
-    )
+    st.metric(session_info['next_event'], f"{hours_to_event:.1f}h", "Until Event")
 
-# System health status
 st.markdown("#### 🔧 System Health Status")
-
 if market_data['status'] == 'success':
     st.success(f"✅ **Live Data Connected** - Real-time {current_asset} data from Yahoo Finance")
 else:
     st.error(f"❌ **Data Connection Error** - {market_data.get('error', 'Unknown error')}")
 
-# Health metrics display
 col1, col2, col3, col4 = st.columns(4)
+with col1: st.metric("Data Quality", f"{health_metrics['data_quality']}%", "Score")
+with col2: st.metric("API Status", health_metrics['api_status'], "Yahoo Finance")
+with col3: st.metric("Cache Hit Rate", f"{health_metrics['cache_hit_rate']:.1f}%", "Performance")
+with col4: st.metric("System Uptime", f"{health_metrics['uptime_minutes']:.1f}m", "Session")
 
-with col1:
-    st.metric("Data Quality", f"{health_metrics['data_quality']}%", "Score")
-
-with col2: 
-    st.metric("API Status", health_metrics['api_status'], "Yahoo Finance")
-
-with col3:
-    st.metric("Cache Hit Rate", f"{health_metrics['cache_hit_rate']:.1f}%", "Performance")
-
-with col4:
-    st.metric("System Uptime", f"{health_metrics['uptime_minutes']:.1f}m", "Session")
-
-# Data validation results
 if market_data['status'] == 'success':
-    validation_passed = validate_price_data(market_data)
-    if validation_passed:
-        st.info("✅ **Data Validation Passed** - Price data meets quality standards")
-    else:
-        st.warning("⚠️ **Data Validation Warning** - Price data may have quality issues")
+    st.info("✅ **Data Validation Passed** - Price data meets quality standards" if validate_price_data(market_data)
+            else "⚠️ **Data Validation Warning** - Price data may have quality issues")
 else:
     st.warning("⚠️ **Validation Skipped** - No valid data to validate")
 
-
-
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3B: ASIAN SESSION & ADVANCED DATA PROCESSING
-# ES Futures Analysis and Professional Data Processing Functions
+# MARKETLENS PRO - PART 3B: ASIAN SESSION & ADVANCED DATA PROCESSING (HARDENED)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
 # ASIAN SESSION DATA FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
+@st.cache_data(ttl=300, show_spinner=False)
 def get_es_spx_offset() -> float:
-    """Calculate current ES futures to SPX offset."""
+    """Estimate SPX - ES offset using recent data, with safe fallbacks."""
     try:
-        # Get current ES futures price
-        es_ticker = yf.Ticker("ES=F")
-        es_data = es_ticker.history(period="1d", interval="1m", prepost=True)
-        
-        # Get current SPX price
-        spx_ticker = yf.Ticker("^GSPC")
-        spx_data = spx_ticker.history(period="1d", interval="1m", prepost=True)
-        
-        if not es_data.empty and not spx_data.empty:
-            current_es = float(es_data['Close'].iloc[-1])
-            current_spx = float(spx_data['Close'].iloc[-1])
-            offset = current_spx - current_es
-            
-            return offset
-        else:
-            # Fallback to typical offset
-            return -23.5
-            
+        es = yf.download("ES=F", period="2d", interval="1h", progress=False, auto_adjust=False, threads=False)
+        spx = yf.download("^GSPC", period="2d", interval="1h", progress=False, auto_adjust=False, threads=False)
+        if es is not None and not es.empty and spx is not None and not spx.empty:
+            es_last = float(pd.to_numeric(es["Close"], errors="coerce").dropna().iloc[-1])
+            spx_last = float(pd.to_numeric(spx["Close"], errors="coerce").dropna().iloc[-1])
+            return spx_last - es_last
+        return -23.5
     except Exception as e:
         log_error(f"ES-SPX offset calculation error: {str(e)}", "Data")
         return -23.5
 
+def _ensure_tz_ct(series: pd.Series) -> pd.Series:
+    """Ensure a datetime series is tz-aware and converted to CT."""
+    s = pd.to_datetime(series, errors="coerce")
+    try:
+        if hasattr(s.dt, "tz") and s.dt.tz is not None:
+            return s.dt.tz_convert(CT)
+        return s.dt.tz_localize("UTC").dt.tz_convert(CT)
+    except Exception:
+        # last-resort: treat as naive UTC
+        return s.dt.tz_localize("UTC").dt.tz_convert(CT)
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_es_asian_session_data(target_date: date, timeframe: str = "30m") -> dict:
-    """Get ES futures data for Asian session (5-8 PM CT previous day)."""
+    """ES futures Asian session (5–8 PM CT prev day) using line-chart CLOSE swings."""
     try:
-        # Calculate Asian session window (previous day 5-8 PM CT)
         prev_day = target_date - timedelta(days=1)
-        
-        # Handle weekends - go back to Friday
         while prev_day.weekday() >= 5:
             prev_day -= timedelta(days=1)
-        
-        start_time = datetime.combine(prev_day, time(17, 0), tzinfo=CT)
-        end_time = datetime.combine(prev_day, time(20, 0), tzinfo=CT)
-        
-        # Get ES futures data with extended period for better coverage
-        es_ticker = yf.Ticker("ES=F")
-        es_data = es_ticker.history(period="7d", interval=timeframe, prepost=True)
-        
-        if es_data.empty:
+
+        start_ct = datetime.combine(prev_day, time(17, 0), tzinfo=CT)
+        end_ct   = datetime.combine(prev_day, time(20, 0), tzinfo=CT)
+
+        es = yf.download("ES=F", period="7d", interval=timeframe, progress=False, auto_adjust=False, threads=False, prepost=True)
+        if es is None or es.empty:
             return {"status": "error", "message": "No ES futures data available"}
-        
-        # Convert timezone and filter for Asian session
-        es_data_reset = es_data.reset_index()
-        es_data_reset['Datetime_CT'] = pd.to_datetime(es_data_reset['Datetime']).dt.tz_convert(CT)
-        
-        # Filter for Asian session window
-        asian_mask = (
-            (es_data_reset['Datetime_CT'] >= start_time) & 
-            (es_data_reset['Datetime_CT'] <= end_time)
-        )
-        asian_data = es_data_reset[asian_mask].copy()
-        
-        if asian_data.empty:
+
+        es = es.dropna().reset_index()
+        dtcol = 'Datetime' if 'Datetime' in es.columns else ('Date' if 'Date' in es.columns else es.columns[0])
+        es['Datetime_CT'] = _ensure_tz_ct(es[dtcol])
+
+        asian = es[(es['Datetime_CT'] >= start_ct) & (es['Datetime_CT'] <= end_ct)].copy()
+        if asian.empty:
             return {"status": "error", "message": f"No ES data found for Asian session on {prev_day.strftime('%Y-%m-%d')}"}
-        
-        # Find swing points using CLOSE prices (line chart compatibility)
-        highest_close_idx = asian_data['Close'].idxmax()
-        lowest_close_idx = asian_data['Close'].idxmin()
-        
-        es_high_close = float(asian_data.loc[highest_close_idx, 'Close'])
-        es_low_close = float(asian_data.loc[lowest_close_idx, 'Close'])
-        high_time = asian_data.loc[highest_close_idx, 'Datetime_CT']
-        low_time = asian_data.loc[lowest_close_idx, 'Datetime_CT']
-        
-        # Convert ES to SPX equivalent using current offset
+
+        close = pd.to_numeric(asian['Close'], errors="coerce")
+        if close.isna().all():
+            return {"status": "error", "message": "Close data unavailable in Asian session slice"}
+
+        hi_idx = close.idxmax()
+        lo_idx = close.idxmin()
+        es_high_close = float(close.loc[hi_idx])
+        es_low_close = float(close.loc[lo_idx])
+        high_time = asian.loc[hi_idx, 'Datetime_CT'].to_pydatetime()
+        low_time  = asian.loc[lo_idx, 'Datetime_CT'].to_pydatetime()
+
         offset = get_es_spx_offset()
         spx_high_equivalent = es_high_close + offset
-        spx_low_equivalent = es_low_close + offset
-        
-        # Calculate additional metrics
+        spx_low_equivalent  = es_low_close + offset
         asian_range = es_high_close - es_low_close
         time_between_extremes = abs((high_time - low_time).total_seconds() / 3600)
-        
+
         return {
             "status": "success",
             "es_high_close": es_high_close,
             "es_low_close": es_low_close,
             "spx_high_equivalent": spx_high_equivalent,
             "spx_low_equivalent": spx_low_equivalent,
-            "high_time_ct": high_time.to_pydatetime(),
-            "low_time_ct": low_time.to_pydatetime(),
+            "high_time_ct": high_time,
+            "low_time_ct": low_time,
             "asian_range": asian_range,
             "time_between_extremes": time_between_extremes,
             "es_spx_offset": offset,
-            "data_points": len(asian_data),
+            "data_points": int(len(asian)),
             "timeframe": timeframe.upper(),
             "session_date": prev_day,
             "method": "LINE_CHART_CLOSES"
         }
-        
+
     except Exception as e:
         log_error(f"Asian session data error: {str(e)}", "Data")
         return {"status": "error", "message": str(e)}
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_previous_day_ohlc(symbol: str, target_date: date) -> dict:
-    """Get previous trading day OHLC data with validation."""
+    """Previous trading day OHLC, with safe fallbacks."""
     try:
-        # Calculate previous trading day
         prev_day = target_date - timedelta(days=1)
-        while prev_day.weekday() >= 5:  # Skip weekends
+        while prev_day.weekday() >= 5:
             prev_day -= timedelta(days=1)
-        
-        ticker = yf.Ticker(symbol)
-        hist_data = ticker.history(period="1mo", interval="1d")
-        
-        if hist_data.empty:
+
+        df = yf.download(symbol, period="1mo", interval="1d", progress=False, auto_adjust=False, threads=False)
+        if df is None or df.empty:
             return {"status": "error", "message": f"No historical data for {symbol}"}
-        
-        # Find data for the previous trading day
-        hist_reset = hist_data.reset_index()
-        hist_reset['Date_Only'] = pd.to_datetime(hist_reset['Date']).dt.date
-        
-        # Try to find exact date first
-        exact_match = hist_reset[hist_reset['Date_Only'] == prev_day]
-        
-        if not exact_match.empty:
-            row = exact_match.iloc[-1]
+        df = df.dropna().reset_index()
+        df['Date_Only'] = pd.to_datetime(df['Date'], errors="coerce").dt.date
+
+        exact = df[df['Date_Only'] == prev_day]
+        if not exact.empty:
+            row = exact.iloc[-1]
             actual_date = prev_day
         else:
-            # Use most recent available data
-            row = hist_reset.iloc[-1]
-            actual_date = hist_reset['Date_Only'].iloc[-1]
-        
-        # Extract OHLC data
-        ohlc_data = {
-            "status": "success",
-            "symbol": symbol,
-            "date": actual_date,
-            "open": float(row["Open"]),
-            "high": float(row["High"]),
-            "low": float(row["Low"]),
-            "close": float(row["Close"]),
-            "volume": int(row["Volume"]) if "Volume" in row and pd.notna(row["Volume"]) else 0,
-            "range": float(row["High"] - row["Low"]),
-            "range_pct": float((row["High"] - row["Low"]) / row["Close"] * 100),
-            "body_size": float(abs(row["Close"] - row["Open"])),
-            "upper_wick": float(row["High"] - max(row["Open"], row["Close"])),
-            "lower_wick": float(min(row["Open"], row["Close"]) - row["Low"])
-        }
-        
-        # Add candle analysis
-        if row["Close"] > row["Open"]:
-            ohlc_data["candle_type"] = "Bullish"
-            ohlc_data["candle_color"] = "Green"
-        elif row["Close"] < row["Open"]:
-            ohlc_data["candle_type"] = "Bearish"
-            ohlc_data["candle_color"] = "Red"
+            row = df.iloc[-1]
+            actual_date = df['Date_Only'].iloc[-1]
+
+        open_v = float(row.get("Open", np.nan))
+        high_v = float(row.get("High", np.nan))
+        low_v  = float(row.get("Low", np.nan))
+        close_v= float(row.get("Close", np.nan))
+        vol_v  = int(row.get("Volume", 0) or 0)
+
+        rng = float(high_v - low_v) if np.isfinite(high_v) and np.isfinite(low_v) else 0.0
+        rng_pct = float((rng / close_v) * 100) if close_v else 0.0
+        body = float(abs(close_v - open_v)) if np.isfinite(close_v) and np.isfinite(open_v) else 0.0
+        upper = float(high_v - max(open_v, close_v)) if np.isfinite(high_v) else 0.0
+        lower = float(min(open_v, close_v) - low_v) if np.isfinite(low_v) else 0.0
+
+        if close_v > open_v:
+            candle_type, candle_color = "Bullish", "Green"
+        elif close_v < open_v:
+            candle_type, candle_color = "Bearish", "Red"
         else:
-            ohlc_data["candle_type"] = "Doji"
-            ohlc_data["candle_color"] = "Neutral"
-        
-        return ohlc_data
-        
+            candle_type, candle_color = "Doji", "Neutral"
+
+        return {
+            "status": "success", "symbol": symbol, "date": actual_date,
+            "open": open_v, "high": high_v, "low": low_v, "close": close_v,
+            "volume": vol_v, "range": rng, "range_pct": rng_pct, "body_size": body,
+            "upper_wick": upper, "lower_wick": lower, "candle_type": candle_type, "candle_color": candle_color
+        }
+
     except Exception as e:
         log_error(f"Previous day OHLC error for {symbol}: {str(e)}", "Data")
         return {"status": "error", "message": str(e)}
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# PROJECTION CALCULATION FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
+# PROJECTION CALCULATION FUNCTIONS (unchanged except safe types)
 
-def calculate_30min_blocks_advanced(from_dt: datetime, to_dt: datetime, 
-                                  exclude_weekends: bool = True) -> int:
-    """Calculate 30-minute blocks with weekend exclusion option."""
+def calculate_30min_blocks_advanced(from_dt: datetime, to_dt: datetime, exclude_weekends: bool = True) -> int:
     if from_dt >= to_dt:
         return 0
-    
     if not exclude_weekends:
-        # Simple calculation without weekend exclusion
-        total_seconds = (to_dt - from_dt).total_seconds()
-        return int(total_seconds // (30 * 60))
-    
-    # Complex calculation excluding weekends
+        return int((to_dt - from_dt).total_seconds() // (30 * 60))
     current_dt = from_dt
     total_blocks = 0
-    
     while current_dt < to_dt:
-        # Skip weekends
-        if current_dt.weekday() < 5:  # Monday = 0, Friday = 4
-            next_30min = current_dt + timedelta(minutes=30)
-            if next_30min <= to_dt:
+        if current_dt.weekday() < 5:
+            if current_dt + timedelta(minutes=30) <= to_dt:
                 total_blocks += 1
-        
         current_dt += timedelta(minutes=30)
-    
     return total_blocks
 
 def generate_rth_projection_slots(base_date: date) -> List[datetime]:
-    """Generate RTH time slots (8:30 AM - 2:30 PM CT) for projections."""
-    slots = []
-    start_time = datetime.combine(base_date, RTH_START, tzinfo=CT)
+    slots, start_time = [], datetime.combine(base_date, RTH_START, tzinfo=CT)
     current_time = start_time
-    
     while current_time.time() <= RTH_END:
         slots.append(current_time)
         current_time += timedelta(minutes=30)
-    
     return slots
 
-def calculate_price_projection(base_price: float, base_time: datetime, 
-                             target_time: datetime, slope_per_30min: float,
-                             exclude_weekends: bool = True) -> float:
-    """Calculate projected price using slope and time difference."""
+def calculate_price_projection(base_price: float, base_time: datetime, target_time: datetime, slope_per_30min: float, exclude_weekends: bool = True) -> float:
     blocks = calculate_30min_blocks_advanced(base_time, target_time, exclude_weekends)
-    projected_price = base_price + (slope_per_30min * blocks)
-    return projected_price
+    return base_price + (slope_per_30min * blocks)
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# TECHNICAL ANALYSIS FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
+# TECHNICAL ANALYSIS FUNCTIONS (EMA/Momentum)
 
 def calculate_ema_signals(price_data: pd.DataFrame) -> dict:
-    """Calculate EMA signals and crossovers."""
-    if len(price_data) < 21:
+    if len(price_data) < 21 or 'Close' not in price_data:
         return {"status": "insufficient_data", "message": "Need at least 21 periods for EMA calculation"}
-    
     try:
-        # Calculate EMAs
-        ema_8 = price_data['Close'].ewm(span=8, adjust=False).mean()
-        ema_21 = price_data['Close'].ewm(span=21, adjust=False).mean()
-        
-        # Current values
-        current_ema_8 = ema_8.iloc[-1]
-        current_ema_21 = ema_21.iloc[-1]
-        current_price = price_data['Close'].iloc[-1]
-        
-        # Trend determination
+        close = pd.to_numeric(price_data['Close'], errors="coerce")
+        ema_8 = close.ewm(span=8, adjust=False).mean()
+        ema_21 = close.ewm(span=21, adjust=False).mean()
+
+        current_ema_8 = float(ema_8.iloc[-1])
+        current_ema_21 = float(ema_21.iloc[-1])
+        current_price = float(close.iloc[-1])
+
         if current_ema_8 > current_ema_21:
             trend = "Bullish"
-            trend_strength = ((current_ema_8 - current_ema_21) / current_ema_21) * 100
+            trend_strength = ((current_ema_8 - current_ema_21) / current_ema_21) * 100 if current_ema_21 else 0.0
         else:
             trend = "Bearish"
-            trend_strength = ((current_ema_21 - current_ema_8) / current_ema_8) * 100
-        
-        # Crossover detection
-        prev_ema_8 = ema_8.iloc[-2] if len(ema_8) > 1 else current_ema_8
-        prev_ema_21 = ema_21.iloc[-2] if len(ema_21) > 1 else current_ema_21
-        
+            trend_strength = ((current_ema_21 - current_ema_8) / current_ema_8) * 100 if current_ema_8 else 0.0
+
+        prev_ema_8 = float(ema_8.iloc[-2]) if len(ema_8) > 1 else current_ema_8
+        prev_ema_21 = float(ema_21.iloc[-2]) if len(ema_21) > 1 else current_ema_21
+
         crossover = "None"
         if prev_ema_8 <= prev_ema_21 and current_ema_8 > current_ema_21:
             crossover = "Bullish"
         elif prev_ema_8 >= prev_ema_21 and current_ema_8 < current_ema_21:
             crossover = "Bearish"
-        
-        # Price relative to EMAs
-        price_vs_ema8 = ((current_price - current_ema_8) / current_ema_8) * 100
-        price_vs_ema21 = ((current_price - current_ema_21) / current_ema_21) * 100
-        
+
+        price_vs_ema8 = ((current_price - current_ema_8) / current_ema_8) * 100 if current_ema_8 else 0.0
+        price_vs_ema21 = ((current_price - current_ema_21) / current_ema_21) * 100 if current_ema_21 else 0.0
+
         return {
             "status": "success",
             "current_ema_8": current_ema_8,
             "current_ema_21": current_ema_21,
             "current_price": current_price,
             "trend": trend,
-            "trend_strength": abs(trend_strength),
+            "trend_strength": abs(float(trend_strength)),
             "crossover": crossover,
-            "price_vs_ema8": price_vs_ema8,
-            "price_vs_ema21": price_vs_ema21,
+            "price_vs_ema8": float(price_vs_ema8),
+            "price_vs_ema21": float(price_vs_ema21),
             "ema_distance": abs(current_ema_8 - current_ema_21),
-            "ema_distance_pct": abs(trend_strength)
+            "ema_distance_pct": abs(float(trend_strength))
         }
-        
+
     except Exception as e:
         log_error(f"EMA calculation error: {str(e)}", "Technical")
         return {"status": "error", "message": str(e)}
 
 def analyze_momentum_signals(price_data: pd.DataFrame) -> dict:
-    """Analyze momentum and volatility signals."""
-    if len(price_data) < 10:
+    if len(price_data) < 10 or 'Close' not in price_data:
         return {"status": "insufficient_data"}
-    
     try:
-        # Calculate momentum indicators
-        close_prices = price_data['Close']
-        
-        # Price momentum (5-period rate of change)
-        momentum_5 = close_prices.pct_change(periods=5) * 100
-        current_momentum = momentum_5.iloc[-1] if not momentum_5.empty else 0
-        
-        # Volatility (20-period rolling standard deviation)
-        volatility = close_prices.rolling(window=min(20, len(close_prices))).std()
-        current_volatility = volatility.iloc[-1] if not volatility.empty else 0
-        
-        # Average True Range approximation
-        high_low = price_data['High'] - price_data['Low']
-        avg_range = high_low.rolling(window=min(14, len(high_low))).mean()
-        current_atr = avg_range.iloc[-1] if not avg_range.empty else 0
-        
-        # Momentum classification
+        close = pd.to_numeric(price_data['Close'], errors="coerce")
+        momentum_5 = close.pct_change(periods=5) * 100
+        current_momentum = float(momentum_5.iloc[-1]) if not momentum_5.empty and pd.notna(momentum_5.iloc[-1]) else 0.0
+
+        volatility = close.rolling(window=min(20, len(close))).std()
+        current_volatility = float(volatility.iloc[-1]) if not volatility.empty and pd.notna(volatility.iloc[-1]) else 0.0
+
+        hl = pd.to_numeric(price_data['High'], errors="coerce") - pd.to_numeric(price_data['Low'], errors="coerce")
+        atr = hl.rolling(window=min(14, len(hl))).mean()
+        current_atr = float(atr.iloc[-1]) if not atr.empty and pd.notna(atr.iloc[-1]) else 0.0
+
         if abs(current_momentum) > 2.0:
             momentum_strength = "Strong"
         elif abs(current_momentum) > 0.5:
             momentum_strength = "Moderate"
         else:
             momentum_strength = "Weak"
-        
+
         momentum_direction = "Bullish" if current_momentum > 0 else "Bearish" if current_momentum < 0 else "Neutral"
-        
+
         return {
             "status": "success",
             "momentum_5": current_momentum,
@@ -3092,9 +2876,9 @@ def analyze_momentum_signals(price_data: pd.DataFrame) -> dict:
             "momentum_strength": momentum_strength,
             "volatility": current_volatility,
             "atr": current_atr,
-            "volatility_pct": (current_volatility / close_prices.iloc[-1]) * 100 if close_prices.iloc[-1] != 0 else 0
+            "volatility_pct": (current_volatility / float(close.iloc[-1])) * 100 if float(close.iloc[-1]) != 0 else 0.0
         }
-        
+
     except Exception as e:
         log_error(f"Momentum analysis error: {str(e)}", "Technical")
         return {"status": "error", "message": str(e)}
@@ -3103,7 +2887,6 @@ def analyze_momentum_signals(price_data: pd.DataFrame) -> dict:
 # EXECUTE PART 3B - ASIAN SESSION & ADVANCED PROCESSING
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Display header
 st.markdown(f"""
 <div style="text-align: center; margin: 3rem 0 2rem 0;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">🌏</div>
@@ -3117,231 +2900,93 @@ st.markdown(f"""
 <div class="section-divider"></div>
 """, unsafe_allow_html=True)
 
-# Get current asset and analysis data
 current_asset = AppState.get_current_asset()
 forecast_date = AppState.get_forecast_date()
 
-# Get Asian session data
 asian_data = get_es_asian_session_data(forecast_date, "30m")
 previous_day_data = get_previous_day_ohlc(current_asset, forecast_date)
 
-# Display Asian session results
 st.markdown("#### 🌏 Asian Session Swing Analysis (ES Futures)")
 
 if asian_data['status'] == 'success':
     st.success(f"✅ **Asian Session Data Retrieved** - {asian_data['data_points']} data points from {asian_data['session_date'].strftime('%Y-%m-%d')}")
-    
-    # Asian session metrics
     col1, col2, col3, col4 = st.columns(4)
-    
     with col1:
-        st.metric(
-            "ES High (Close)",
-            f"${asian_data['es_high_close']:,.2f}",
-            f"SPX: ${asian_data['spx_high_equivalent']:,.2f}"
-        )
-    
+        st.metric("ES High (Close)", f"${asian_data['es_high_close']:,.2f}", f"SPX: ${asian_data['spx_high_equivalent']:,.2f}")
     with col2:
-        st.metric(
-            "ES Low (Close)", 
-            f"${asian_data['es_low_close']:,.2f}",
-            f"SPX: ${asian_data['spx_low_equivalent']:,.2f}"
-        )
-    
+        st.metric("ES Low (Close)", f"${asian_data['es_low_close']:,.2f}", f"SPX: ${asian_data['spx_low_equivalent']:,.2f}")
     with col3:
-        st.metric(
-            "Asian Range",
-            f"${asian_data['asian_range']:.2f}",
-            f"{asian_data['timeframe']} Data"
-        )
-    
+        st.metric("Asian Range", f"${asian_data['asian_range']:.2f}", f"{asian_data['timeframe']} Data")
     with col4:
-        st.metric(
-            "Time Between Extremes",
-            f"{asian_data['time_between_extremes']:.1f}h",
-            "High to Low"
-        )
-    
-    # Time details
+        st.metric("Time Between Extremes", f"{asian_data['time_between_extremes']:.1f}h", "High to Low")
+
     st.markdown("#### ⏰ Asian Session Timing Details")
-    
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        st.metric(
-            "High Time (CT)",
-            asian_data['high_time_ct'].strftime("%I:%M %p"),
-            asian_data['high_time_ct'].strftime("%m/%d")
-        )
-    
+        st.metric("High Time (CT)", asian_data['high_time_ct'].strftime("%I:%M %p"), asian_data['high_time_ct'].strftime("%m/%d"))
     with col2:
-        st.metric(
-            "Low Time (CT)",
-            asian_data['low_time_ct'].strftime("%I:%M %p"), 
-            asian_data['low_time_ct'].strftime("%m/%d")
-        )
-    
+        st.metric("Low Time (CT)", asian_data['low_time_ct'].strftime("%I:%M %p"), asian_data['low_time_ct'].strftime("%m/%d"))
     with col3:
-        st.metric(
-            "ES-SPX Offset",
-            f"{asian_data['es_spx_offset']:+.1f}",
-            "Points"
-        )
-    
+        st.metric("ES-SPX Offset", f"{asian_data['es_spx_offset']:+.1f}", "Points")
 else:
     st.error(f"❌ **Asian Session Data Error** - {asian_data.get('message', 'Unknown error')}")
 
-# Display previous day analysis
 st.markdown("#### 📊 Previous Day OHLC Analysis")
-
 if previous_day_data['status'] == 'success':
     st.success(f"✅ **Previous Day Data Retrieved** - {previous_day_data['date'].strftime('%Y-%m-%d')} for {previous_day_data['symbol']}")
-    
-    # OHLC metrics
     col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "Previous High",
-            f"${previous_day_data['high']:,.2f}",
-            f"{previous_day_data['candle_color']} Candle"
-        )
-    
-    with col2:
-        st.metric(
-            "Previous Close",
-            f"${previous_day_data['close']:,.2f}",
-            f"Range: {previous_day_data['range_pct']:.2f}%"
-        )
-    
-    with col3:
-        st.metric(
-            "Previous Low",
-            f"${previous_day_data['low']:,.2f}",
-            f"Volume: {previous_day_data['volume']:,}"
-        )
-    
-    with col4:
-        st.metric(
-            "Daily Range",
-            f"${previous_day_data['range']:.2f}",
-            previous_day_data['candle_type']
-        )
-    
-    # Candle analysis
-    st.markdown("#### 🕯️ Candle Analysis")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric(
-            "Body Size",
-            f"${previous_day_data['body_size']:.2f}",
-            "Real Body"
-        )
-    
-    with col2:
-        st.metric(
-            "Upper Wick",
-            f"${previous_day_data['upper_wick']:.2f}",
-            "Top Shadow"
-        )
-    
-    with col3:
-        st.metric(
-            "Lower Wick", 
-            f"${previous_day_data['lower_wick']:.2f}",
-            "Bottom Shadow"
-        )
+    with col1: st.metric("Previous High", f"${previous_day_data['high']:,.2f}", f"{previous_day_data['candle_color']} Candle")
+    with col2: st.metric("Previous Close", f"${previous_day_data['close']:,.2f}", f"Range: {previous_day_data['range_pct']:.2f}%")
+    with col3: st.metric("Previous Low", f"${previous_day_data['low']:,.2f}", f"Volume: {previous_day_data['volume']:,}")
+    with col4: st.metric("Daily Range", f"${previous_day_data['range']:.2f}", previous_day_data['candle_type'])
 
+    st.markdown("#### 🕯️ Candle Analysis")
+    col1, col2, col3 = st.columns(3)
+    with col1: st.metric("Body Size", f"${previous_day_data['body_size']:.2f}", "Real Body")
+    with col2: st.metric("Upper Wick", f"${previous_day_data['upper_wick']:.2f}", "Top Shadow")
+    with col3: st.metric("Lower Wick", f"${previous_day_data['lower_wick']:.2f}", "Bottom Shadow")
 else:
     st.error(f"❌ **Previous Day Data Error** - {previous_day_data.get('message', 'Unknown error')}")
 
-# Technical analysis with EMAs
 st.markdown("#### 📈 Technical Analysis (8 EMA vs 21 EMA)")
-
-# Get historical data for EMA analysis
 historical_data = get_historical_data(current_asset, period="2mo", interval="1d")
 
 if not historical_data.empty:
     ema_signals = calculate_ema_signals(historical_data)
     momentum_signals = analyze_momentum_signals(historical_data)
-    
+
     if ema_signals['status'] == 'success':
         st.success("✅ **Technical Analysis Complete** - EMA signals calculated")
-        
         col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                "8 EMA",
-                f"${ema_signals['current_ema_8']:,.2f}",
-                f"Trend: {ema_signals['trend']}"
-            )
-        
-        with col2:
-            st.metric(
-                "21 EMA",
-                f"${ema_signals['current_ema_21']:,.2f}",
-                f"Strength: {ema_signals['trend_strength']:.2f}%"
-            )
-        
+        with col1: st.metric("8 EMA", f"${ema_signals['current_ema_8']:,.2f}", f"Trend: {ema_signals['trend']}")
+        with col2: st.metric("21 EMA", f"${ema_signals['current_ema_21']:,.2f}", f"Strength: {ema_signals['trend_strength']:.2f}%")
         with col3:
             crossover_display = "🔴 None" if ema_signals['crossover'] == "None" else f"{'🟢' if ema_signals['crossover'] == 'Bullish' else '🔴'} {ema_signals['crossover']}"
-            st.metric(
-                "EMA Crossover",
-                crossover_display,
-                "Signal"
-            )
-        
+            st.metric("EMA Crossover", crossover_display, "Signal")
         with col4:
             if momentum_signals['status'] == 'success':
-                momentum_color = "🟢" if momentum_signals['momentum_direction'] == "Bullish" else "🔴" if momentum_signals['momentum_direction'] == "Bearish" else "🟡"
-                st.metric(
-                    "Momentum",
-                    f"{momentum_color} {momentum_signals['momentum_strength']}",
-                    f"{momentum_signals['momentum_5']:+.2f}%"
-                )
+                mm_dir = momentum_signals['momentum_direction']
+                momentum_color = "🟢" if mm_dir == "Bullish" else "🔴" if mm_dir == "Bearish" else "🟡"
+                st.metric("Momentum", f"{momentum_color} {momentum_signals['momentum_strength']}", f"{momentum_signals['momentum_5']:+.2f}%")
             else:
                 st.metric("Momentum", "Error", "—")
-        
-        # Price relative to EMAs
+
         col1, col2 = st.columns(2)
-        
         with col1:
-            price_vs_8_color = "🟢" if ema_signals['price_vs_ema8'] > 0 else "🔴"
-            st.metric(
-                "Price vs 8 EMA",
-                f"{price_vs_8_color} {ema_signals['price_vs_ema8']:+.2f}%",
-                "Relative Position"
-            )
-        
+            pv8 = float(ema_signals['price_vs_ema8'])
+            st.metric("Price vs 8 EMA", f"{'🟢' if pv8>0 else '🔴'} {pv8:+.2f}%", "Relative Position")
         with col2:
-            price_vs_21_color = "🟢" if ema_signals['price_vs_ema21'] > 0 else "🔴"
-            st.metric(
-                "Price vs 21 EMA",
-                f"{price_vs_21_color} {ema_signals['price_vs_ema21']:+.2f}%",
-                "Relative Position"
-            )
-    
+            pv21 = float(ema_signals['price_vs_ema21'])
+            st.metric("Price vs 21 EMA", f"{'🟢' if pv21>0 else '🔴'} {pv21:+.2f}%", "Relative Position")
     else:
         st.error(f"❌ **EMA Analysis Error** - {ema_signals.get('message', 'Calculation failed')}")
-
 else:
     st.warning("⚠️ **No Historical Data** - Unable to perform technical analysis")
 
-# Projection readiness check
 st.markdown("#### 🎯 Projection System Readiness")
-
-projection_ready = (
-    asian_data['status'] == 'success' and 
-    previous_day_data['status'] == 'success'
-)
-
+projection_ready = (asian_data['status'] == 'success' and previous_day_data['status'] == 'success')
 if projection_ready:
     st.success("✅ **Projection System Ready** - All required data available for skyline/baseline calculations")
-    
-    # Show what data is available for projections
     st.info(f"""
     **Available for Projections:**
     - Asian Session Anchors: SPX High {asian_data['spx_high_equivalent']:,.2f} | SPX Low {asian_data['spx_low_equivalent']:,.2f}
@@ -3351,515 +2996,232 @@ if projection_ready:
 else:
     st.warning("⚠️ **Projection System Partial** - Some required data missing for complete analysis")
 
-
-
-
-
-
-
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3C: LIVE CHART INTEGRATION & DATA SYSTEM COMPLETION
-# Professional Chart System with Real Data and Final Integration
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# ADVANCED CHART FUNCTIONS WITH REAL DATA
+# MARKETLENS PRO - PART 3C: LIVE CHART INTEGRATION & DATA SYSTEM COMPLETION (HARDENED)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 def create_professional_price_chart(symbol: str, title: str = "Price Chart", show_emas: bool = True):
-    """Create professional price chart with real data and EMAs."""
-    
-    # Get real historical data
     df = get_historical_data(symbol, period="1mo", interval="1d")
-    
     if df.empty:
         return create_fallback_chart(symbol, title)
-    
-    # Ensure proper date column
+
     date_col = 'Date' if 'Date' in df.columns else df.index
-    
-    # Create the main chart
     fig = go.Figure()
-    
-    # Add main price line
     fig.add_trace(go.Scatter(
         x=df[date_col] if 'Date' in df.columns else df.index,
         y=df['Close'],
         mode='lines',
         name=f'{symbol} Price',
-        line=dict(
-            color='#22d3ee',
-            width=3
-        ),
+        line=dict(color='#22d3ee', width=3),
         hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
     ))
-    
-    # Add EMAs if requested and data is sufficient
+
     if show_emas and len(df) >= 21:
         if 'EMA_8' in df.columns:
             fig.add_trace(go.Scatter(
                 x=df[date_col] if 'Date' in df.columns else df.index,
                 y=df['EMA_8'],
-                mode='lines',
-                name='8 EMA',
+                mode='lines', name='8 EMA',
                 line=dict(color='#00ff88', width=2, dash='dot'),
                 hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
             ))
-        
         if 'EMA_21' in df.columns:
             fig.add_trace(go.Scatter(
                 x=df[date_col] if 'Date' in df.columns else df.index,
                 y=df['EMA_21'],
-                mode='lines',
-                name='21 EMA',
+                mode='lines', name='21 EMA',
                 line=dict(color='#ff6b35', width=2, dash='dash'),
                 hovertemplate='21 EMA: $%{y:,.2f}<extra></extra>'
             ))
-    
-    # Calculate optimal Y-axis range for better zoom
-    min_price = df['Close'].min()
-    max_price = df['Close'].max()
-    price_range = max_price - min_price
-    y_padding = price_range * 0.05
-    y_min = max(0, min_price - y_padding)
-    y_max = max_price + y_padding
-    
-    # Professional styling
+
+    min_price = float(pd.to_numeric(df['Close'], errors="coerce").min())
+    max_price = float(pd.to_numeric(df['Close'], errors="coerce").max())
+    pad = max((max_price - min_price) * 0.05, max_price * 0.005)
+
     fig.update_layout(
-        title=dict(
-            text=title,
-            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            zeroline=False,
-            color='#ffffff',
-            title="Date"
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            zeroline=False,
-            color='#ffffff',
-            range=[y_min, y_max],
-            tickformat='$,.2f',
-            title="Price"
-        ),
+        title=dict(text=title, font=dict(color='#ffffff', size=20, family='Space Grotesk'), x=0.5),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, zeroline=False, color='#ffffff', title="Date"),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, zeroline=False, color='#ffffff',
+                   range=[min_price - pad, max_price + pad], tickformat='$,.2f', title="Price"),
         showlegend=True,
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.7)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1,
-            font=dict(color='#ffffff')
-        ),
-        margin=dict(l=60, r=40, t=60, b=40),
-        height=450,
-        hovermode='x unified'
+        legend=dict(bgcolor='rgba(0,0,0,0.7)', bordercolor='rgba(255,255,255,0.2)', borderwidth=1, font=dict(color='#ffffff')),
+        margin=dict(l=60, r=40, t=60, b=40), height=450, hovermode='x unified'
     )
-    
     return fig
 
 def create_volume_chart_with_data(symbol: str):
-    """Create volume chart using real data."""
-    
-    # Get real historical data
     df = get_historical_data(symbol, period="1mo", interval="1d")
-    
     if df.empty:
         return create_fallback_volume_chart(symbol)
-    
-    # Ensure proper date column
     date_col = 'Date' if 'Date' in df.columns else df.index
-    
-    # Create volume chart
-    fig = go.Figure()
-    
-    # Color volume bars based on price change
+
     colors = []
     for i in range(len(df)):
         if i == 0:
-            colors.append('#a855f7')  # First bar neutral
+            colors.append('#a855f7')
         else:
-            if df['Close'].iloc[i] >= df['Close'].iloc[i-1]:
-                colors.append('#00ff88')  # Green for up days
-            else:
-                colors.append('#ff6b35')  # Orange for down days
-    
+            colors.append('#00ff88' if df['Close'].iloc[i] >= df['Close'].iloc[i-1] else '#ff6b35')
+
+    fig = go.Figure()
     fig.add_trace(go.Bar(
         x=df[date_col] if 'Date' in df.columns else df.index,
-        y=df['Volume'],
-        name='Volume',
-        marker=dict(
-            color=colors,
-            opacity=0.7
-        ),
+        y=df['Volume'], name='Volume', marker=dict(color=colors, opacity=0.7),
         hovertemplate='<b>%{x}</b><br>Volume: %{y:,}<extra></extra>'
     ))
-    
-    # Calculate volume moving average
+
     if len(df) >= 20:
-        df['Volume_MA'] = df['Volume'].rolling(window=20).mean()
+        vol_ma = pd.to_numeric(df['Volume'], errors="coerce").rolling(window=20).mean()
         fig.add_trace(go.Scatter(
             x=df[date_col] if 'Date' in df.columns else df.index,
-            y=df['Volume_MA'],
-            mode='lines',
-            name='Volume MA (20)',
+            y=vol_ma,
+            mode='lines', name='Volume MA (20)',
             line=dict(color='#ffffff', width=2, dash='dot'),
             hovertemplate='Volume MA: %{y:,}<extra></extra>'
         ))
-    
+
     fig.update_layout(
-        title=dict(
-            text=f"{symbol} Volume Analysis",
-            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff',
-            title="Date"
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff',
-            title="Volume"
-        ),
+        title=dict(text=f"{symbol} Volume Analysis", font=dict(color='#ffffff', size=18, family='Space Grotesk'), x=0.5),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff', title="Date"),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff', title="Volume"),
         showlegend=True,
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.7)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1,
-            font=dict(color='#ffffff')
-        ),
-        margin=dict(l=60, r=40, t=50, b=40),
-        height=350
+        legend=dict(bgcolor='rgba(0,0,0,0.7)', bordercolor='rgba(255,255,255,0.2)', borderwidth=1, font=dict(color='#ffffff')),
+        margin=dict(l=60, r=40, t=50, b=40), height=350
     )
-    
     return fig
 
 def create_intraday_momentum_chart(symbol: str):
-    """Create intraday momentum chart with real data."""
-    
-    # Get intraday data
     df = get_intraday_data(symbol, period="1d", interval="5m")
-    
     if df.empty:
         return create_fallback_momentum_chart(symbol)
-    
-    # Ensure proper datetime column
+
+    from plotly.subplots import make_subplots
     datetime_col = 'Datetime' if 'Datetime' in df.columns else df.index
-    
-    # Create momentum chart
-    fig = make_subplots(
-        rows=2, cols=1,
-        subplot_titles=('Price Action', 'Momentum Indicator'),
-        vertical_spacing=0.15,
-        row_heights=[0.7, 0.3]
-    )
-    
-    # Price chart with EMAs
-    fig.add_trace(
-        go.Scatter(
-            x=df[datetime_col] if 'Datetime' in df.columns else df.index,
-            y=df['Close'],
-            mode='lines',
-            name='Price',
-            line=dict(color='#22d3ee', width=2),
-            hovertemplate='Price: $%{y:,.2f}<extra></extra>'
-        ),
-        row=1, col=1
-    )
-    
-    # Add EMAs if available
+    fig = make_subplots(rows=2, cols=1, subplot_titles=('Price Action', 'Momentum Indicator'), vertical_spacing=0.15, row_heights=[0.7, 0.3])
+
+    fig.add_trace(go.Scatter(
+        x=df[datetime_col] if 'Datetime' in df.columns else df.index,
+        y=df['Close'], mode='lines', name='Price',
+        line=dict(color='#22d3ee', width=2),
+        hovertemplate='Price: $%{y:,.2f}<extra></extra>'
+    ), row=1, col=1)
+
     if 'EMA_8' in df.columns and len(df) >= 21:
-        fig.add_trace(
-            go.Scatter(
-                x=df[datetime_col] if 'Datetime' in df.columns else df.index,
-                y=df['EMA_8'],
-                mode='lines',
-                name='8 EMA',
-                line=dict(color='#00ff88', width=1),
-                hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
-            ),
-            row=1, col=1
-        )
-    
-    # Momentum indicator
+        fig.add_trace(go.Scatter(
+            x=df[datetime_col] if 'Datetime' in df.columns else df.index,
+            y=df['EMA_8'], mode='lines', name='8 EMA',
+            line=dict(color='#00ff88', width=1),
+            hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
+        ), row=1, col=1)
+
     if 'Momentum' in df.columns:
-        # Color momentum bars
         momentum_colors = ['#00ff88' if x > 0 else '#ff6b35' for x in df['Momentum']]
-        
-        fig.add_trace(
-            go.Bar(
-                x=df[datetime_col] if 'Datetime' in df.columns else df.index,
-                y=df['Momentum'],
-                name='Momentum',
-                marker=dict(color=momentum_colors, opacity=0.7),
-                hovertemplate='Momentum: %{y:+.2f}%<extra></extra>'
-            ),
-            row=2, col=1
-        )
-        
-        # Add zero line
+        fig.add_trace(go.Bar(
+            x=df[datetime_col] if 'Datetime' in df.columns else df.index,
+            y=df['Momentum'], name='Momentum',
+            marker=dict(color=momentum_colors, opacity=0.7),
+            hovertemplate='Momentum: %{y:+.2f}%<extra></extra>'
+        ), row=2, col=1)
         fig.add_hline(y=0, line_dash="dash", line_color="white", opacity=0.5, row=2, col=1)
-    
-    # Update layout
+
     fig.update_layout(
-        title=dict(
-            text=f"{symbol} Intraday Momentum Analysis",
-            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
+        title=dict(text=f"{symbol} Intraday Momentum Analysis", font=dict(color='#ffffff', size=18, family='Space Grotesk'), x=0.5),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff', family='Space Grotesk'),
         showlegend=True,
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.7)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1,
-            font=dict(color='#ffffff')
-        ),
-        height=500,
-        hovermode='x unified'
+        legend=dict(bgcolor='rgba(0,0,0,0.7)', bordercolor='rgba(255,255,255,0.2)', borderwidth=1, font=dict(color='#ffffff')),
+        height=500, hovermode='x unified'
     )
-    
-    # Update axes
-    fig.update_xaxes(
-        gridcolor='rgba(255,255,255,0.1)',
-        showgrid=True,
-        color='#ffffff'
-    )
-    fig.update_yaxes(
-        gridcolor='rgba(255,255,255,0.1)',
-        showgrid=True,
-        color='#ffffff'
-    )
-    
+    fig.update_xaxes(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff')
+    fig.update_yaxes(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff')
     return fig
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# FALLBACK CHART FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
+# FALLBACK CHART FUNCTIONS (unchanged)
 
 def create_fallback_chart(symbol: str, title: str):
-    """Fallback chart when real data is unavailable."""
-    
-    # Generate demo data
     dates = pd.date_range(start=datetime.now() - timedelta(days=30), end=datetime.now(), freq='D')
-    
-    # Asset-specific demo data
-    demo_params = {
-        "^GSPC": {"base": 6443, "volatility": 80},
-        "AAPL": {"base": 230, "volatility": 8},
-        "MSFT": {"base": 420, "volatility": 15},
-        "NVDA": {"base": 140, "volatility": 12},
-        "AMZN": {"base": 185, "volatility": 14},
-    }
-    
+    demo_params = {"^GSPC": {"base": 6443, "volatility": 80}, "AAPL": {"base": 230, "volatility": 8},
+                   "MSFT": {"base": 420, "volatility": 15}, "NVDA": {"base": 140, "volatility": 12},
+                   "AMZN": {"base": 185, "volatility": 14}}
     params = demo_params.get(symbol, {"base": 200, "volatility": 10})
-    
-    # Generate realistic price movement
     prices = []
     current_price = params["base"]
-    
     for i in range(len(dates)):
         trend = np.sin(i * 0.1) * (params["volatility"] * 0.2)
         daily_change = np.random.normal(0, params["volatility"] * 0.15)
         current_price += trend + daily_change
-        prices.append(max(current_price, params["base"] * 0.5))  # Prevent negative prices
-    
+        prices.append(max(current_price, params["base"] * 0.5))
     fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=dates,
-        y=prices,
-        mode='lines',
-        name=f"{symbol} (Demo)",
-        line=dict(color='#ff6b35', width=3, dash='dot'),
-        hovertemplate='<b>%{x}</b><br>Demo Price: $%{y:,.2f}<extra></extra>'
-    ))
-    
-    # Add demo warning
-    fig.add_annotation(
-        text="⚠️ Demo Data - Real data unavailable",
-        xref="paper", yref="paper",
-        x=0.02, y=0.98,
-        showarrow=False,
-        font=dict(color='#ff6b35', size=12),
-        bgcolor='rgba(255, 107, 53, 0.1)',
-        bordercolor='#ff6b35',
-        borderwidth=1,
-        align="left"
-    )
-    
-    # Calculate Y range
-    min_price = min(prices)
-    max_price = max(prices)
-    price_range = max_price - min_price
-    y_min = max(0, min_price - (price_range * 0.1))
-    y_max = max_price + (price_range * 0.1)
-    
+    fig.add_trace(go.Scatter(x=dates, y=prices, mode='lines', name=f"{symbol} (Demo)", line=dict(color='#ff6b35', width=3, dash='dot'),
+                             hovertemplate='<b>%{x}</b><br>Demo Price: $%{y:,.2f}<extra></extra>'))
+    fig.add_annotation(text="⚠️ Demo Data - Real data unavailable", xref="paper", yref="paper", x=0.02, y=0.98,
+                       showarrow=False, font=dict(color='#ff6b35', size=12),
+                       bgcolor='rgba(255, 107, 53, 0.1)', bordercolor='#ff6b35', borderwidth=1, align="left")
+    min_price, max_price = min(prices), max(prices)
+    pad = max((max_price - min_price) * 0.1, max_price * 0.01)
     fig.update_layout(
-        title=dict(
-            text=f"{title} (Demo Mode)",
-            font=dict(color='#ffffff', size=20, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff'
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff',
-            range=[y_min, y_max],
-            tickformat='$,.2f'
-        ),
-        showlegend=False,
-        margin=dict(l=60, r=40, t=60, b=40),
-        height=450
+        title=dict(text=f"{title} (Demo Mode)", font=dict(color='#ffffff', size=20, family='Space Grotesk'), x=0.5),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff', range=[min_price - pad, max_price + pad], tickformat='$,.2f'),
+        showlegend=False, margin=dict(l=60, r=40, t=60, b=40), height=450
     )
-    
     return fig
 
 def create_fallback_volume_chart(symbol: str):
-    """Fallback volume chart with demo data."""
-    
     dates = pd.date_range(start=datetime.now() - timedelta(days=20), end=datetime.now(), freq='D')
     volumes = [np.random.randint(1000000, 5000000) for _ in dates]
-    
     fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        x=dates,
-        y=volumes,
-        name='Volume (Demo)',
-        marker=dict(color='#a855f7', opacity=0.7)
-    ))
-    
-    fig.add_annotation(
-        text="⚠️ Demo Volume Data",
-        xref="paper", yref="paper",
-        x=0.02, y=0.98,
-        showarrow=False,
-        font=dict(color='#a855f7', size=12),
-        bgcolor='rgba(168, 85, 247, 0.1)',
-        bordercolor='#a855f7',
-        borderwidth=1
-    )
-    
+    fig.add_trace(go.Bar(x=dates, y=volumes, name='Volume (Demo)', marker=dict(color='#a855f7', opacity=0.7)))
+    fig.add_annotation(text="⚠️ Demo Volume Data", xref="paper", yref="paper", x=0.02, y=0.98, showarrow=False,
+                       font=dict(color='#a855f7', size=12), bgcolor='rgba(168, 85, 247, 0.1)', bordercolor='#a855f7', borderwidth=1)
     fig.update_layout(
-        title=dict(
-            text=f"{symbol} Volume (Demo)",
-            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
+        title=dict(text=f"{symbol} Volume (Demo)", font=dict(color='#ffffff', size=18, family='Space Grotesk'), x=0.5),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff', family='Space Grotesk'),
         xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
         yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
-        showlegend=False,
-        height=350
+        showlegend=False, height=350
     )
-    
     return fig
 
 def create_fallback_momentum_chart(symbol: str):
-    """Fallback momentum chart with demo data."""
-    
     dates = pd.date_range(start=datetime.now() - timedelta(hours=6), end=datetime.now(), freq='5T')
     momentum = [np.random.normal(0, 1.5) for _ in dates]
-    
     fig = go.Figure()
-    
     momentum_colors = ['#00ff88' if x > 0 else '#ff6b35' for x in momentum]
-    
-    fig.add_trace(go.Bar(
-        x=dates,
-        y=momentum,
-        name='Momentum (Demo)',
-        marker=dict(color=momentum_colors, opacity=0.7)
-    ))
-    
+    fig.add_trace(go.Bar(x=dates, y=momentum, name='Momentum (Demo)', marker=dict(color=momentum_colors, opacity=0.7)))
     fig.add_hline(y=0, line_dash="dash", line_color="white", opacity=0.5)
-    
-    fig.add_annotation(
-        text="⚠️ Demo Momentum Data",
-        xref="paper", yref="paper",
-        x=0.02, y=0.98,
-        showarrow=False,
-        font=dict(color='#00ff88', size=12),
-        bgcolor='rgba(0, 255, 136, 0.1)',
-        bordercolor='#00ff88',
-        borderwidth=1
-    )
-    
+    fig.add_annotation(text="⚠️ Demo Momentum Data", xref="paper", yref="paper", x=0.02, y=0.98, showarrow=False,
+                       font=dict(color='#00ff88', size=12), bgcolor='rgba(0, 255, 136, 0.1)', bordercolor='#00ff88', borderwidth=1)
     fig.update_layout(
-        title=dict(
-            text=f"{symbol} Momentum (Demo)",
-            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
-            x=0.5
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff', family='Space Grotesk'),
+        title=dict(text=f"{symbol} Momentum (Demo)", font=dict(color='#ffffff', size=18, family='Space Grotesk'), x=0.5),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff', family='Space Grotesk'),
         xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
         yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
-        showlegend=False,
-        height=350
+        showlegend=False, height=350
     )
-    
     return fig
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# DATA INTEGRATION SUMMARY FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
+# DATA INTEGRATION SUMMARY
 
 def get_comprehensive_data_summary() -> dict:
-    """Get comprehensive summary of all data systems."""
-    
     current_asset = AppState.get_current_asset()
     forecast_date = AppState.get_forecast_date()
-    
-    # Test all data sources
     market_data = get_real_market_data(current_asset)
     historical_data = get_historical_data(current_asset)
     asian_data = get_es_asian_session_data(forecast_date)
     previous_day = get_previous_day_ohlc(current_asset, forecast_date)
-    
-    # Calculate overall system status
+
     data_sources = {
         "live_market": market_data['status'] == 'success',
         "historical": not historical_data.empty,
         "asian_session": asian_data['status'] == 'success',
         "previous_day": previous_day['status'] == 'success'
     }
-    
     successful_sources = sum(data_sources.values())
     total_sources = len(data_sources)
     system_health = (successful_sources / total_sources) * 100
-    
+
     return {
         "system_health": system_health,
         "data_sources": data_sources,
@@ -3871,11 +3233,8 @@ def get_comprehensive_data_summary() -> dict:
         "live_ready": data_sources["live_market"]
     }
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
 # EXECUTE PART 3C - LIVE CHARTS & FINAL INTEGRATION
-# ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Display header
 st.markdown(f"""
 <div style="text-align: center; margin: 3rem 0 2rem 0;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
@@ -3889,47 +3248,32 @@ st.markdown(f"""
 <div class="section-divider"></div>
 """, unsafe_allow_html=True)
 
-# Get current asset for charts
 current_asset = AppState.get_current_asset()
 display_symbol = get_display_symbol(current_asset)
 
-# Create chart tabs with real data
 tab1, tab2, tab3 = st.tabs(["📊 Price & EMAs", "📈 Volume Analysis", "⚡ Momentum"])
 
 with tab1:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    
-    # Controls for chart customization
     col1, col2 = st.columns([3, 1])
-    
     with col2:
         show_emas = st.checkbox("Show EMAs", value=True, help="Display 8 and 21 EMAs")
-    
-    # Create and display price chart
     price_fig = create_professional_price_chart(current_asset, f"{display_symbol} Price Analysis", show_emas)
     st.plotly_chart(price_fig, use_container_width=True, config=CHART_CONFIG)
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
 with tab2:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    
-    # Create and display volume chart
     volume_fig = create_volume_chart_with_data(current_asset)
     st.plotly_chart(volume_fig, use_container_width=True, config=CHART_CONFIG)
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
 with tab3:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    
-    # Create and display momentum chart
     momentum_fig = create_intraday_momentum_chart(current_asset)
     st.plotly_chart(momentum_fig, use_container_width=True, config=CHART_CONFIG)
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Final data system summary
 st.markdown(f"""
 <div style="text-align: center; margin: 3rem 0 2rem 0;">
     <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
@@ -3942,70 +3286,31 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Get comprehensive system summary
 system_summary = get_comprehensive_data_summary()
 
-# Display system health overview
 st.markdown("#### 🔧 System Health Overview")
-
 col1, col2, col3, col4 = st.columns(4)
-
 with col1:
     health_color = "🟢" if system_summary['system_health'] >= 75 else "🟡" if system_summary['system_health'] >= 50 else "🔴"
-    st.metric(
-        "System Health",
-        f"{health_color} {system_summary['system_health']:.0f}%",
-        f"{system_summary['successful_sources']}/{system_summary['total_sources']} Sources"
-    )
-
+    st.metric("System Health", f"{health_color} {system_summary['system_health']:.0f}%", f"{system_summary['successful_sources']}/{system_summary['total_sources']} Sources")
 with col2:
     quality_color = "🟢" if system_summary['market_data_quality'] >= 75 else "🟡" if system_summary['market_data_quality'] >= 50 else "🔴"
-    st.metric(
-        "Data Quality",
-        f"{quality_color} {system_summary['market_data_quality']}%",
-        "Market Data"
-    )
-
+    st.metric("Data Quality", f"{quality_color} {system_summary['market_data_quality']}%", "Market Data")
 with col3:
     projection_status = "🟢 Ready" if system_summary['projection_ready'] else "🔴 Incomplete"
-    st.metric(
-        "Projection System",
-        projection_status,
-        "Anchors Available"
-    )
-
+    st.metric("Projection System", projection_status, "Anchors Available")
 with col4:
     chart_status = "🟢 Active" if system_summary['chart_ready'] else "🔴 Unavailable"
-    st.metric(
-        "Chart System",
-        chart_status,
-        "Historical Data"
-    )
+    st.metric("Chart System", chart_status, "Historical Data")
 
-# Data source breakdown
 st.markdown("#### 📡 Data Source Status")
-
 data_sources = system_summary['data_sources']
-
 col1, col2, col3, col4 = st.columns(4)
+with col1: st.metric("Live Market", "🟢 Connected" if data_sources['live_market'] else "🔴 Error", "Yahoo Finance")
+with col2: st.metric("Historical Data", "🟢 Available" if data_sources['historical'] else "🔴 Missing", "Price History")
+with col3: st.metric("Asian Session", "🟢 Retrieved" if data_sources['asian_session'] else "🔴 Failed", "ES Futures")
+with col4: st.metric("Previous Day", "🟢 Retrieved" if data_sources['previous_day'] else "🔴 Failed", "OHLC Data")
 
-with col1:
-    live_status = "🟢 Connected" if data_sources['live_market'] else "🔴 Error"
-    st.metric("Live Market", live_status, "Yahoo Finance")
-
-with col2:
-    hist_status = "🟢 Available" if data_sources['historical'] else "🔴 Missing"
-    st.metric("Historical Data", hist_status, "Price History")
-
-with col3:
-    asian_status = "🟢 Retrieved" if data_sources['asian_session'] else "🔴 Failed"
-    st.metric("Asian Session", asian_status, "ES Futures")
-
-with col4:
-    prev_status = "🟢 Retrieved" if data_sources['previous_day'] else "🔴 Failed"
-    st.metric("Previous Day", prev_status, "OHLC Data")
-
-# Final system status
 if system_summary['system_health'] >= 75:
     st.success("✅ **Data System Fully Operational** - All core components functioning properly")
 elif system_summary['system_health'] >= 50:
@@ -4013,7 +3318,6 @@ elif system_summary['system_health'] >= 50:
 else:
     st.error("❌ **Data System Issues** - Multiple components need attention")
 
-# Summary information
 st.info(f"""
 **Data System Summary:**
 - Live Market Data: {'✅' if data_sources['live_market'] else '❌'} Real-time prices from Yahoo Finance
@@ -4024,33 +3328,9 @@ st.info(f"""
 - Projection Ready: {'✅' if system_summary['projection_ready'] else '❌'} Skyline/Baseline calculations
 """)
 
-# Performance metrics
 st.markdown("#### ⚡ Performance Metrics")
-
 performance_metrics = get_system_health_metrics()
-
 col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric(
-        "Cache Hit Rate",
-        f"{performance_metrics['cache_hit_rate']:.1f}%",
-        "Data Caching"
-    )
-
-with col2:
-    st.metric(
-        "Session Uptime",
-        f"{performance_metrics['uptime_minutes']:.1f}m",
-        "Current Session"
-    )
-
-with col3:
-    st.metric(
-        "Error Count",
-        f"{performance_metrics['error_count']}",
-        "Session Errors"
-    )
-
-
-
+with col1: st.metric("Cache Hit Rate", f"{performance_metrics['cache_hit_rate']:.1f}%", "Data Caching")
+with col2: st.metric("Session Uptime", f"{performance_metrics['uptime_minutes']:.1f}m", "Current Session")
+with col3: st.metric("Error Count", f"{performance_metrics['error_count']}", "Session Errors")
