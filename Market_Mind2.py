@@ -2287,14 +2287,6 @@ st.markdown(f"""
 # Core market data with validation and clean integration to Part 2 styling
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-from __future__ import annotations
-from datetime import datetime, date, time, timedelta
-from zoneinfo import ZoneInfo
-import pandas as pd
-import numpy as np
-import streamlit as st
-import yfinance as yf
-
 # ---- Timezones (safe if already defined) ----
 try:
     ET  # type: ignore
@@ -2776,9 +2768,6 @@ else:
 # MARKETLENS PRO - PART 3C (PLOTLY WHITE THEME)
 # Professional charts with live data (light-mode friendly)
 # ═══════════════════════════════════════════════════════════════════════════════════════
-
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
 
 def create_price_chart(symbol: str, title: str = "Price & EMAs", show_emas: bool = True):
     df = get_historical_data(symbol, period="1mo", interval="1d")
