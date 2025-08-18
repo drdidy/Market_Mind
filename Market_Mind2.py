@@ -2282,3 +2282,579 @@ st.markdown(f"""
 
 
 
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 3A (LIGHT MODE + ROBUST DATA)
+# Core market data with validation and clean integration to Part 2 styling
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+from __future__ import annotations
+from datetime import datetime, date, time, timedelta
+from zoneinfo import ZoneInfo
+import pandas as pd
+import numpy as np
+import streamlit as st
+import yfinance as yf
+
+# ---- Timezones (safe if already defined) ----
+try:
+    ET  # type: ignore
+except NameError:
+    ET = ZoneInfo("America/New_York")
+try:
+    CT  # type: ignore
+except NameError:
+    CT = ZoneInfo("America/Chicago")
+
+# ---- Light-mode micro fix (do NOT flip whole app to dark) ----
+def _light_mode_touchups():
+    st.markdown("""
+    <style>
+    /* Keep metrics/readouts readable on the light theme */
+    div[data-testid="stMetricLabel"] > div { color: #64748b !important; font-weight: 700; }
+    div[data-testid="stMetricValue"] { color: #0f172a !important; font-weight: 900; }
+    span[data-testid="stMetricDelta"] { font-weight: 700; border-radius: 999px; padding: 2px 8px; }
+    /* Streamlit alert chips stay readable on white cards */
+    div[role="alert"] * { color: #0f172a !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+if "mlp_light_fixes" not in st.session_state:
+    _light_mode_touchups()
+    st.session_state["mlp_light_fixes"] = True
+
+# ---- Helpers and validation ----
+def _fallback_asset():
+    # Try AppState if present, else ^GSPC
+    try:
+        return AppState.get_current_asset()  # type: ignore
+    except Exception:
+        return st.session_state.get("asset", "^GSPC")
+
+def _fallback_date():
+    try:
+        return AppState.get_forecast_date()  # type: ignore
+    except Exception:
+        return st.session_state.get("forecast_date", date.today())
+
+def validate_symbol_format(symbol: str) -> bool:
+    """Permissive validation (supports ^, =, -, ., /) to avoid blocking valid tickers like ^GSPC, ES=F."""
+    return isinstance(symbol, str) and 0 < len(symbol) <= 15
+
+def validate_price_data(data: dict) -> bool:
+    if data.get("status") != "success":
+        return False
+    price = float(data.get("price", 0) or 0)
+    change_pct = float(data.get("change_pct", 0) or 0)
+    if price <= 0 or price > 1_000_000:
+        return False
+    if not np.isfinite(price) or not np.isfinite(change_pct):
+        return False
+    if abs(change_pct) > 50:
+        return False
+    return True
+
+def calculate_data_quality_score(data: dict, hist: pd.DataFrame | None = None) -> int:
+    score = 0
+    if data.get("status") == "success": score += 40
+    if validate_price_data(data): score += 30
+    if float(data.get("volume", 0) or 0) >= 0: score += 15  # volume may be 0 for indices
+    ts = data.get("timestamp")
+    if isinstance(ts, datetime) and (datetime.now(ET) - ts).total_seconds() < 300: score += 15
+    return min(100, score)
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_real_market_data(symbol: str) -> dict:
+    """Live-ish quote via yfinance with robust fallbacks (1m→1d)."""
+    try:
+        if not validate_symbol_format(symbol):
+            raise ValueError(f"Invalid symbol: {symbol}")
+
+        tkr = yf.Ticker(symbol)
+
+        # Primary: 1m intraday (prepost too)
+        try:
+            intraday = tkr.history(period="1d", interval="1m", prepost=True)
+            if isinstance(intraday, pd.DataFrame) and not intraday.empty and "Close" in intraday.columns:
+                last = intraday.iloc[-1]
+                px = float(last["Close"])
+                ts_idx = intraday.index[-1]
+                ts = pd.Timestamp(ts_idx)
+                if ts.tz is None: ts = ts.tz_localize("UTC")
+                ts = ts.tz_convert(ET)
+                prev_close = float(intraday.iloc[-2]["Close"]) if len(intraday) > 1 else px
+                change = px - prev_close
+                change_pct = (change / prev_close) * 100 if prev_close else 0
+                vol = int(last["Volume"]) if "Volume" in intraday.columns and pd.notna(last["Volume"]) else 0
+                out = {
+                    "symbol": symbol,
+                    "price": px,
+                    "change": change,
+                    "change_pct": change_pct,
+                    "volume": vol,
+                    "previous_close": prev_close,
+                    "timestamp": ts.to_pydatetime(),
+                    "status": "success",
+                    "data_source": "yfinance:1m"
+                }
+                if validate_price_data(out):
+                    return out
+        except Exception:
+            pass
+
+        # Fallback: daily
+        daily = tkr.history(period="5d", interval="1d")
+        if isinstance(daily, pd.DataFrame) and not daily.empty and "Close" in daily.columns:
+            last = daily.iloc[-1]
+            px = float(last["Close"])
+            ts_idx = daily.index[-1]
+            ts = pd.Timestamp(ts_idx)
+            if ts.tz is None: ts = ts.tz_localize("UTC")
+            ts = ts.tz_convert(ET)
+            prev_close = float(daily.iloc[-2]["Close"]) if len(daily) > 1 else px
+            change = px - prev_close
+            change_pct = (change / prev_close) * 100 if prev_close else 0
+            vol = int(last["Volume"]) if "Volume" in daily.columns and pd.notna(last["Volume"]) else 0
+            return {
+                "symbol": symbol,
+                "price": px,
+                "change": change,
+                "change_pct": change_pct,
+                "volume": vol,
+                "previous_close": prev_close,
+                "timestamp": ts.to_pydatetime(),
+                "status": "success",
+                "data_source": "yfinance:1d"
+            }
+
+        raise RuntimeError("No data available")
+
+    except Exception as e:
+        return {
+            "symbol": symbol,
+            "price": 0.0, "change": 0.0, "change_pct": 0.0, "volume": 0,
+            "previous_close": 0.0, "timestamp": datetime.now(ET),
+            "status": "error", "error": str(e), "data_source": "error"
+        }
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_historical_data(symbol: str, period: str = "2mo", interval: str = "1d") -> pd.DataFrame:
+    """Historical with built-in EMA(8/21) + safe column handling."""
+    try:
+        tkr = yf.Ticker(symbol)
+        df = tkr.history(period=period, interval=interval)
+        if df is None or df.empty:
+            return pd.DataFrame()
+        df = df.reset_index()
+        # Normalize datetime column name
+        for c in ["Date", "Datetime"]:
+            if c in df.columns:
+                df.rename(columns={c: "Dt"}, inplace=True)
+                break
+        if "Dt" not in df.columns:
+            df["Dt"] = pd.to_datetime(df.index)
+
+        # EMAs when enough points
+        if "Close" in df.columns and len(df) >= 21:
+            df["EMA_8"]  = df["Close"].ewm(span=8, adjust=False).mean()
+            df["EMA_21"] = df["Close"].ewm(span=21, adjust=False).mean()
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=180, show_spinner=False)
+def get_intraday_data(symbol: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
+    """Intraday with 8/21 EMAs + 5-bar Momentum (%)."""
+    try:
+        tkr = yf.Ticker(symbol)
+        df = tkr.history(period=period, interval=interval, prepost=True)
+        if df is None or df.empty:
+            return pd.DataFrame()
+        df = df.reset_index()
+        # Normalize time column
+        for c in ["Datetime", "Date"]:
+            if c in df.columns:
+                df.rename(columns={c: "Dt"}, inplace=True)
+                break
+        if "Dt" not in df.columns:
+            df["Dt"] = pd.to_datetime(df.index)
+
+        if "Close" in df.columns and len(df) >= 21:
+            df["EMA_8"] = df["Close"].ewm(span=8, adjust=False).mean()
+            df["EMA_21"] = df["Close"].ewm(span=21, adjust=False).mean()
+            df["Momentum"] = df["Close"].pct_change(periods=5) * 100
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_market_session_info() -> dict:
+    now_et = datetime.now(ET)
+    now_ct = datetime.now(CT)
+
+    # Session
+    if now_et.weekday() < 5:
+        if time(4,0) <= now_et.time() < time(9,30): sess, emoji = "Pre-Market", "🌅"
+        elif time(9,30) <= now_et.time() < time(16,0): sess, emoji = "Regular Hours", "📈"
+        elif time(16,0) <= now_et.time() < time(20,0): sess, emoji = "After Hours", "🌆"
+        else: sess, emoji = "Overnight", "🌙"
+    else:
+        sess, emoji = "Weekend", "📴"
+
+    # Next event
+    market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+    if now_et.weekday() < 5:
+        if now_et < market_open:
+            next_event, delta = "Market Open", (market_open - now_et)
+        elif now_et < market_close:
+            next_event, delta = "Market Close", (market_close - now_et)
+        else:
+            next_event, delta = "Next Market Open", ((market_open + timedelta(days=1)) - now_et)
+    else:
+        # to Monday 9:30 ET
+        days = (7 - now_et.weekday()) % 7 or 1
+        next_open = (now_et + timedelta(days=days)).replace(hour=9, minute=30, second=0, microsecond=0)
+        next_event, delta = "Monday Market Open", (next_open - now_et)
+
+    return {
+        "session": sess,
+        "session_emoji": emoji,
+        "timestamp_et": now_et,
+        "timestamp_ct": now_ct,
+        "next_event": next_event,
+        "time_to_event": delta,
+        "is_trading": sess in ["Pre-Market", "Regular Hours", "After Hours"],
+        "market_day": now_et.weekday() < 5
+    }
+
+def get_system_health_metrics() -> dict:
+    asset = _fallback_asset()
+    md = get_real_market_data(asset)
+    hd = get_historical_data(asset, period="5d", interval="1d")
+    dq = calculate_data_quality_score(md, hd)
+    uptime = (datetime.now(ET) - st.session_state.get("session_start_et", datetime.now(ET))).total_seconds()/60
+    return {
+        "data_quality": dq,
+        "api_status": "Connected" if md.get("status") == "success" else "Error",
+        "cache_hit_rate": 0.0,   # (Left simple; wire to your cache stats if you track them)
+        "uptime_minutes": uptime,
+        "historical_data_points": len(hd),
+        "last_update": md.get("timestamp", datetime.now(ET)),
+        "error_count": 0,
+        "system_load": dq
+    }
+
+# ---- UI: Live Market Data (light-friendly) ----
+st.markdown("## 📡 Core Market Data System")
+asset = _fallback_asset()
+md = get_real_market_data(asset)
+sess = get_market_session_info()
+health = get_system_health_metrics()
+
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    if md["status"] == "success":
+        st.metric("Current Price", f"${md['price']:,.2f}", f"{md['change']:+.2f}")
+    else:
+        st.metric("Current Price", "—", "Error")
+with col2:
+    if md["status"] == "success":
+        st.metric("Change %", f"{md['change_pct']:+.2f}%", "Latest")
+    else:
+        st.metric("Change %", "—", "Error")
+with col3:
+    st.metric("Market Session", sess["session"], sess["session_emoji"])
+with col4:
+    st.metric("Last Update (ET)", md.get("timestamp", datetime.now(ET)).strftime("%I:%M:%S %p"), "Time")
+
+st.markdown("### ⏰ Session Details")
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.metric("Current Time ET", sess["timestamp_et"].strftime("%I:%M:%S %p"), "Eastern")
+with c2:
+    st.metric("Current Time CT", sess["timestamp_ct"].strftime("%I:%M:%S %p"), "Central")
+with c3:
+    st.metric(sess["next_event"], f"{sess['time_to_event'].total_seconds()/3600:.1f}h", "Until")
+
+st.markdown("### 🔧 System Health")
+h1, h2, h3, h4 = st.columns(4)
+with h1: st.metric("Data Quality", f"{health['data_quality']}%", "Score")
+with h2: st.metric("API Status", health["api_status"], "yfinance")
+with h3: st.metric("Hist Points", str(health["historical_data_points"]), "Count")
+with h4: st.metric("Uptime", f"{health['uptime_minutes']:.1f}m", "Session")
+
+if md["status"] == "success":
+    st.info("✅ Data validation OK" if validate_price_data(md) else "⚠️ Price data looks odd")
+else:
+    st.warning(f"⚠️ Data error: {md.get('error','unknown')}")
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 3B (ASIAN SESSION LIKE WORKING APP)
+# ES futures overnight anchors (5–8 PM CT) with ES→SPX conversion via live offset
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+ES_SYMBOL = "ES=F"
+
+def previous_trading_day(ref_d: date) -> date:
+    d = ref_d - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_current_es_spx_offset() -> float:
+    """SPX - ES offset. Falls back to typical if missing."""
+    try:
+        es = yf.Ticker("ES=F").history(period="1d", interval="1m", prepost=True)
+        sp = yf.Ticker("^GSPC").history(period="1d", interval="1m", prepost=True)
+        if not es.empty and not sp.empty:
+            return float(sp["Close"].iloc[-1]) - float(es["Close"].iloc[-1])
+    except Exception:
+        pass
+    return -23.5
+
+def asian_window_ct(forecast_d: date) -> tuple[datetime, datetime]:
+    prior = forecast_d - timedelta(days=1)
+    return (
+        datetime.combine(prior, time(17, 0), tzinfo=CT),
+        datetime.combine(prior, time(20, 0), tzinfo=CT),
+    )
+
+@st.cache_data(ttl=300, show_spinner=False)
+def es_fetch_asian_data(start_ct: datetime, end_ct: datetime, interval: str = "30m") -> pd.DataFrame:
+    """Robust pull (tries 7d→1mo), normalizes datetime, filters to window, returns Open/High/Low/Close."""
+    try:
+        tkr = yf.Ticker(ES_SYMBOL)
+        raw = pd.DataFrame()
+        for period in ["7d", "1mo"]:
+            try:
+                raw = tkr.history(period=period, interval=interval, prepost=True)
+                if raw is not None and not raw.empty:
+                    break
+            except Exception:
+                continue
+        if raw is None or raw.empty:
+            return pd.DataFrame(columns=["Dt","Open","High","Low","Close"])
+
+        df = raw.reset_index()
+        # Find datetime column
+        dtcol = None
+        for c in ["Datetime", "Date", "index"]:
+            if c in df.columns:
+                dtcol = c
+                break
+        if dtcol is None:
+            return pd.DataFrame(columns=["Dt","Open","High","Low","Close"])
+
+        df.rename(columns={dtcol: "Dt"}, inplace=True)
+        df["Dt"] = pd.to_datetime(df["Dt"])
+        if df["Dt"].dt.tz is None:
+            df["Dt"] = df["Dt"].dt.tz_localize("UTC")
+        df["Dt"] = df["Dt"].dt.tz_convert(CT)
+
+        df = df[["Dt","Open","High","Low","Close"]].dropna()
+        mask = (df["Dt"] >= start_ct) & (df["Dt"] <= end_ct)
+        return df.loc[mask].sort_values("Dt").reset_index(drop=True)
+    except Exception:
+        return pd.DataFrame(columns=["Dt","Open","High","Low","Close"])
+
+@st.cache_data(ttl=300, show_spinner=False)
+def es_asian_anchors_as_spx(forecast_d: date, timeframe: str = "30m") -> dict | None:
+    """
+    Use CLOSE-only swing detection for perfect line-chart matching.
+    Returns SPX-equivalent close highs/lows + times.
+    """
+    try:
+        start_ct, end_ct = asian_window_ct(forecast_d)
+        es = es_fetch_asian_data(start_ct - timedelta(minutes=60), end_ct + timedelta(minutes=60), interval=timeframe)
+        if es.empty:
+            return None
+
+        hi_idx = es["Close"].idxmax()
+        lo_idx = es["Close"].idxmin()
+        es_hi = float(es.loc[hi_idx, "Close"])
+        es_lo = float(es.loc[lo_idx, "Close"])
+        off = get_current_es_spx_offset()
+
+        return {
+            "high_px": es_hi + off,
+            "high_time_ct": es.loc[hi_idx, "Dt"].to_pydatetime(),
+            "low_px": es_lo + off,
+            "low_time_ct": es.loc[lo_idx, "Dt"].to_pydatetime(),
+            "es_high_close_raw": es_hi,
+            "es_low_close_raw": es_lo,
+            "conversion_offset": off,
+            "timeframe": timeframe.upper(),
+            "data_points": len(es),
+            "method": "LINE_CHART_CLOSES",
+        }
+    except Exception:
+        return None
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_previous_day_ohlc(symbol: str, forecast_d: date) -> dict | None:
+    """Prev trading day OHLC with weekend skip and safe fallback."""
+    try:
+        prev_d = previous_trading_day(forecast_d)
+        df = yf.Ticker(symbol).history(period="1mo", interval="1d")
+        if df is None or df.empty: return None
+        df = df.reset_index()
+        df["_d"] = pd.to_datetime(df["Date"]).dt.date if "Date" in df.columns else pd.to_datetime(df["Datetime"]).dt.date
+        rows = df[df["_d"] == prev_d]
+        if rows.empty:
+            row = df.iloc[-1]
+            use_d = df["_d"].iloc[-1]
+        else:
+            row = rows.iloc[-1]
+            use_d = prev_d
+        return {
+            "symbol": symbol,
+            "date": use_d,
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume": int(row["Volume"]) if "Volume" in row else 0,
+        }
+    except Exception:
+        return None
+
+# ---- UI: Asian Session + Prior Day ----
+st.markdown("## 🌏 Asian Session Analysis (ES → SPX)")
+asset = _fallback_asset()
+fdate = _fallback_date()
+asian = es_asian_anchors_as_spx(fdate, "30m")
+prevd = get_previous_day_ohlc(asset, fdate)
+
+st.markdown("### ES Overnight Anchors (5–8 PM CT)")
+if asian:
+    c1,c2,c3,c4 = st.columns(4)
+    with c1: st.metric("ES High (Close)", f"${asian['es_high_close_raw']:,.2f}", "Raw ES")
+    with c2: st.metric("ES Low (Close)", f"${asian['es_low_close_raw']:,.2f}", "Raw ES")
+    with c3: st.metric("SPX High Eq.", f"${asian['high_px']:,.2f}", asian['timeframe'])
+    with c4: st.metric("SPX Low Eq.", f"${asian['low_px']:,.2f}", f"Offset {asian['conversion_offset']:+.1f}")
+    st.caption(f"High @ {asian['high_time_ct'].strftime('%-I:%M %p CT')} • Low @ {asian['low_time_ct'].strftime('%-I:%M %p CT')} • Points: {asian['data_points']}")
+else:
+    st.warning("Could not retrieve ES overnight window. (Symbol ES=F via yfinance)")
+
+st.markdown("### Previous Day OHLC")
+if prevd:
+    d1,d2,d3,d4 = st.columns(4)
+    with d1: st.metric("Prev High", f"${prevd['high']:,.2f}")
+    with d2: st.metric("Prev Close", f"${prevd['close']:,.2f}")
+    with d3: st.metric("Prev Low", f"${prevd['low']:,.2f}")
+    with d4:
+        rng = prevd["high"] - prevd["low"]
+        pct = (rng / prevd["close"])*100 if prevd["close"] else 0
+        st.metric("Daily Range", f"${rng:,.2f}", f"{pct:.2f}%")
+else:
+    st.warning("Previous-day OHLC unavailable for selected asset/date.")
+
+# ---- EMA snapshot (daily) ----
+st.markdown("### 📈 Technical Snapshot (8/21 EMA, Daily)")
+hist = get_historical_data(asset, period="2mo", interval="1d")
+if not hist.empty and "EMA_8" in hist and "EMA_21" in hist:
+    last = hist.iloc[-1]
+    e1,e2,e3 = st.columns(3)
+    with e1: st.metric("8 EMA", f"${last['EMA_8']:,.2f}")
+    with e2: st.metric("21 EMA", f"${last['EMA_21']:,.2f}")
+    with e3:
+        bias = "Bullish" if last["EMA_8"] > last["EMA_21"] else "Bearish"
+        st.metric("Trend", bias)
+else:
+    st.info("Not enough data for EMAs yet.")
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 3C (PLOTLY WHITE THEME)
+# Professional charts with live data (light-mode friendly)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+
+def create_price_chart(symbol: str, title: str = "Price & EMAs", show_emas: bool = True):
+    df = get_historical_data(symbol, period="1mo", interval="1d")
+    if df.empty or "Close" not in df.columns:
+        return go.Figure(layout=dict(template="plotly_white", title=f"{symbol} (No Data)"))
+    x = df["Dt"] if "Dt" in df.columns else df.index
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=df["Close"], mode="lines", name="Close"))
+    if show_emas and "EMA_8" in df and "EMA_21" in df:
+        fig.add_trace(go.Scatter(x=x, y=df["EMA_8"], mode="lines", name="EMA 8"))
+        fig.add_trace(go.Scatter(x=x, y=df["EMA_21"], mode="lines", name="EMA 21"))
+    fig.update_layout(
+        template="plotly_white",
+        title=title, height=420,
+        margin=dict(l=40,r=20,t=60,b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    return fig
+
+def create_volume_chart(symbol: str):
+    df = get_historical_data(symbol, period="1mo", interval="1d")
+    if df.empty or "Volume" not in df.columns:
+        return go.Figure(layout=dict(template="plotly_white", title=f"{symbol} Volume (No Data)"))
+    x = df["Dt"] if "Dt" in df.columns else df.index
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=x, y=df["Volume"], name="Volume", opacity=0.8))
+    if len(df) >= 20:
+        df["VolMA20"] = df["Volume"].rolling(20).mean()
+        fig.add_trace(go.Scatter(x=x, y=df["VolMA20"], name="Vol MA(20)", mode="lines"))
+    fig.update_layout(template="plotly_white", title=f"{symbol} Volume", height=340, margin=dict(l=40,r=20,t=50,b=40))
+    return fig
+
+def create_intraday_momentum(symbol: str):
+    df = get_intraday_data(symbol, period="1d", interval="5m")
+    if df.empty or "Close" not in df.columns:
+        return go.Figure(layout=dict(template="plotly_white", title=f"{symbol} Intraday (No Data)"))
+    x = df["Dt"] if "Dt" in df.columns else df.index
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.12,
+                        subplot_titles=("Price (5m)", "Momentum (5-bar ROC %)"),
+                        row_heights=[0.7, 0.3])
+    fig.add_trace(go.Scatter(x=x, y=df["Close"], name="Close", mode="lines"), row=1, col=1)
+    if "EMA_8" in df and "EMA_21" in df:
+        fig.add_trace(go.Scatter(x=x, y=df["EMA_8"], name="EMA 8", mode="lines"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=x, y=df["EMA_21"], name="EMA 21", mode="lines"), row=1, col=1)
+    if "Momentum" in df:
+        fig.add_trace(go.Bar(x=x, y=df["Momentum"], name="Momentum", opacity=0.8), row=2, col=1)
+    fig.update_layout(template="plotly_white", height=520, margin=dict(l=40,r=20,t=60,b=40), hovermode="x unified")
+    return fig
+
+# ---- UI: Tabs ----
+st.markdown("## 📈 Live Chart Integration")
+cur = _fallback_asset()
+tab1, tab2, tab3 = st.tabs(["📊 Price & EMAs", "📈 Volume", "⚡ Intraday Momentum"])
+
+with tab1:
+    show_emas = st.checkbox("Show EMAs", value=True)
+    st.plotly_chart(create_price_chart(cur, f"{cur} — Price & EMAs", show_emas), use_container_width=True)
+
+with tab2:
+    st.plotly_chart(create_volume_chart(cur), use_container_width=True)
+
+with tab3:
+    st.plotly_chart(create_intraday_momentum(cur), use_container_width=True)
+
+# ---- System overview (simple) ----
+st.markdown("### 🔎 Data System Status")
+md = get_real_market_data(cur)
+hist_ok = not get_historical_data(cur).empty
+asian_ok = es_asian_anchors_as_spx(_fallback_date()) is not None
+prev_ok = get_previous_day_ohlc(cur, _fallback_date()) is not None
+
+c1,c2,c3,c4 = st.columns(4)
+with c1: st.metric("Live Market", "🟢" if md.get("status")=="success" else "🔴", md.get("data_source",""))
+with c2: st.metric("Historical", "🟢" if hist_ok else "🔴", "Price/EMAs")
+with c3: st.metric("Asian Session", "🟢" if asian_ok else "🔴", "ES 5–8 PM CT")
+with c4: st.metric("Prev Day", "🟢" if prev_ok else "🔴", "OHLC")
+
+
+
