@@ -2323,662 +2323,1148 @@ st.markdown(f"""
 
 
 
-
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3A: MARKET DATA INTEGRATION
-# Real Yahoo Finance Data with Advanced Caching, Validation & Asian Session Support
+# MARKETLENS PRO - PART 3A: CORE MARKET DATA FUNCTIONS
+# Real Yahoo Finance Integration with Professional Error Handling
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
+# Text visibility fix for dark UI
+def inject_global_styles():
+    st.markdown("""
+    <style>
+    /* Make metric labels/values/deltas readable on dark UI */
+    div[data-testid="stMetricLabel"] > div { color: rgba(255,255,255,0.7) !important; }
+    div[data-testid="stMetricValue"] { color: #e5e7eb !important; }
+    span[data-testid="stMetricDelta"] {
+      color: #00ff88 !important;
+      background: rgba(0,255,136,0.12);
+      padding: 2px 8px; border-radius: 999px; font-weight: 700;
+    }
+
+    /* Lighten text inside success/error/info banners */
+    div[role="alert"] * { color: #e5e7eb !important; }
+
+    /* Optional: make alert backgrounds fit dark glass UI */
+    div[role="alert"] { background: rgba(255,255,255,0.06) !important; }
+    
+    /* Fix all text visibility */
+    .stMarkdown, .stText, .stCaption { color: rgba(255,255,255,0.9) !important; }
+    
+    /* Fix success/warning/error messages */
+    .stSuccess, .stWarning, .stError, .stInfo { 
+        color: #ffffff !important; 
+        background: rgba(255,255,255,0.05) !important;
+    }
+    .stSuccess *, .stWarning *, .stError *, .stInfo * { color: #ffffff !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Apply styles once
+if "css_injected" not in st.session_state:
+    inject_global_styles()
+    st.session_state.css_injected = True
+
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# DATA VALIDATION & QUALITY CONTROL
+# DATA VALIDATION FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-def validate_price_data(data: dict) -> tuple[bool, str]:
-    """Validate if price data looks reasonable and provide detailed feedback."""
-    if data['status'] != 'success':
-        return False, f"Data fetch failed: {data.get('error', 'Unknown error')}"
+def validate_price_data(data: dict) -> bool:
+    """Validate if price data looks reasonable."""
+    if data.get('status') != 'success':
+        return False
     
     price = data.get('price', 0)
     change_pct = data.get('change_pct', 0)
-    volume = data.get('volume', 0)
     
     # Basic sanity checks
-    if price <= 0:
-        return False, "Price cannot be zero or negative"
+    if price <= 0 or price > 100000:  # Unreasonable price range
+        return False
     
-    if price > 100000:
-        return False, f"Price {price:,.2f} appears unreasonably high"
-    
-    # Check for extreme movements (>50% in one update)
+    # Check if change is too extreme (>50% in one update)
     if abs(change_pct) > 50:
-        return False, f"Price change {change_pct:.2f}% appears unreasonably large"
+        return False
     
-    # Volume validation (if provided)
-    if volume < 0:
-        return False, "Volume cannot be negative"
+    # Check for NaN or infinite values
+    if not np.isfinite(price) or not np.isfinite(change_pct):
+        return False
     
-    # Asset-specific validation
-    symbol = data.get('symbol', '')
-    if symbol == '^GSPC' and (price < 1000 or price > 10000):
-        return False, f"SPX price {price:,.2f} outside expected range (1000-10000)"
-    elif symbol in ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'] and (price < 1 or price > 2000):
-        return False, f"{symbol} price {price:,.2f} outside expected range (1-2000)"
-    
-    return True, "Data validation passed"
+    return True
 
-def sanitize_market_data(raw_data: dict) -> dict:
-    """Clean and sanitize market data with type safety."""
+def validate_symbol_format(symbol: str) -> bool:
+    """Validate symbol format and check if supported."""
+    if not symbol or len(symbol) > 10:
+        return False
+    
+    # Check if symbol is in our supported universe
+    return symbol.upper() in MAJOR_EQUITIES
+
+def calculate_data_quality_score(data: dict, historical_data: pd.DataFrame = None) -> int:
+    """Calculate data quality score (0-100)."""
+    score = 0
+    
+    # Base score for successful data retrieval
+    if data.get('status') == 'success':
+        score += 40
+    
+    # Price validation
+    if validate_price_data(data):
+        score += 30
+    
+    # Volume check
+    if data.get('volume', 0) > 0:
+        score += 15
+    
+    # Timestamp freshness (within last 5 minutes)
+    timestamp = data.get('timestamp')
+    if timestamp and (datetime.now() - timestamp).total_seconds() < 300:
+        score += 15
+    
+    return min(100, score)
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# CORE MARKET DATA FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=60, show_spinner=False)  # Cache for 1 minute
+def get_real_market_data(symbol: str) -> dict:
+    """Fetch real market data from Yahoo Finance with validation."""
     try:
-        return {
-            'symbol': str(raw_data.get('symbol', '')).upper(),
-            'price': max(0.0, float(raw_data.get('price', 0.0))),
-            'change': float(raw_data.get('change', 0.0)),
-            'change_pct': float(raw_data.get('change_pct', 0.0)),
-            'volume': max(0, int(raw_data.get('volume', 0))),
-            'previous_close': max(0.0, float(raw_data.get('previous_close', 0.0))),
-            'high_52w': max(0.0, float(raw_data.get('high_52w', 0.0))),
-            'low_52w': max(0.0, float(raw_data.get('low_52w', 0.0))),
-            'timestamp': raw_data.get('timestamp', datetime.now()),
-            'status': raw_data.get('status', 'unknown'),
-            'error': raw_data.get('error', None)
-        }
-    except (ValueError, TypeError) as e:
-        return {
-            'symbol': str(raw_data.get('symbol', '')),
-            'price': 0.0, 'change': 0.0, 'change_pct': 0.0, 'volume': 0,
-            'previous_close': 0.0, 'high_52w': 0.0, 'low_52w': 0.0,
-            'timestamp': datetime.now(), 'status': 'sanitization_error',
-            'error': f"Data sanitization failed: {str(e)}"
-        }
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# ENHANCED MARKET STATUS DETECTION
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-@st.cache_data(ttl=60, show_spinner=False)
-def get_enhanced_market_status() -> dict:
-    """Enhanced market status with detailed session detection and trading hours."""
-    now_et = datetime.now(ET)
-    now_ct = datetime.now(CT)
-    
-    # Get basic market status
-    basic_status, status_type = get_market_status()
-    
-    # Detailed session detection
-    if now_et.weekday() < 5:  # Monday to Friday
-        current_time = now_et.time()
+        # Validate symbol first
+        if not validate_symbol_format(symbol):
+            raise ValueError(f"Invalid or unsupported symbol: {symbol}")
         
-        if time(4, 0) <= current_time < time(9, 30):
-            session = "Pre-Market"
-            session_icon = "🌅"
-            next_event = "Market Open"
-            next_time = "9:30 AM ET"
-        elif time(9, 30) <= current_time < time(16, 0):
-            session = "Regular Trading Hours"
-            session_icon = "🔔"
-            next_event = "Market Close"
-            next_time = "4:00 PM ET"
-        elif time(16, 0) <= current_time < time(20, 0):
-            session = "After Hours"
-            session_icon = "🌆"
-            next_event = "Extended Hours End"
-            next_time = "8:00 PM ET"
-        else:
-            session = "Overnight"
-            session_icon = "🌙"
-            next_event = "Pre-Market Open"
-            next_time = "4:00 AM ET"
-    else:
-        session = "Weekend"
-        session_icon = "📴"
-        # Calculate next trading day
-        days_until_monday = (7 - now_et.weekday()) % 7
-        if days_until_monday == 0:
-            days_until_monday = 1  # If it's Sunday, next trading day is Monday
-        next_event = "Market Open"
-        next_time = "Next Monday 9:30 AM ET"
-    
-    # Trading activity level
-    if session in ["Regular Trading Hours"]:
-        activity_level = "High"
-        activity_color = "#00ff88"
-    elif session in ["Pre-Market", "After Hours"]:
-        activity_level = "Moderate"
-        activity_color = "#ff6b35"
-    else:
-        activity_level = "Low"
-        activity_color = "#64748b"
-    
-    # Calculate time until next major event
+        ticker = yf.Ticker(symbol)
+        
+        # Get current quote data with timeout
+        info = ticker.info
+        hist = ticker.history(period="2d", interval="1m")
+        
+        if hist.empty:
+            raise ValueError(f"No price data available for {symbol}")
+        
+        # Get latest price data
+        latest = hist.iloc[-1]
+        previous_close = info.get('previousClose')
+        
+        # Fallback to historical close if no previous close
+        if previous_close is None and len(hist) > 1:
+            previous_close = hist['Close'].iloc[-2]
+        elif previous_close is None:
+            previous_close = latest['Close']
+        
+        current_price = float(latest['Close'])
+        change = current_price - previous_close
+        change_pct = (change / previous_close) * 100 if previous_close != 0 else 0
+        
+        # Get additional market data
+        volume = int(latest['Volume']) if 'Volume' in latest and pd.notna(latest['Volume']) else 0
+        high_52w = info.get('fiftyTwoWeekHigh', current_price)
+        low_52w = info.get('fiftyTwoWeekLow', current_price)
+        market_cap = info.get('marketCap', 0)
+        
+        # Build result dictionary
+        result = {
+            'symbol': symbol,
+            'price': current_price,
+            'change': change,
+            'change_pct': change_pct,
+            'volume': volume,
+            'previous_close': previous_close,
+            'high_52w': high_52w,
+            'low_52w': low_52w,
+            'market_cap': market_cap,
+            'timestamp': datetime.now(),
+            'status': 'success',
+            'data_source': 'yahoo_finance'
+        }
+        
+        # Validate the data before returning
+        if not validate_price_data(result):
+            raise ValueError("Price data failed validation checks")
+        
+        return result
+        
+    except Exception as e:
+        # Return structured error data
+        return {
+            'symbol': symbol,
+            'price': 0.0,
+            'change': 0.0,
+            'change_pct': 0.0,
+            'volume': 0,
+            'previous_close': 0.0,
+            'high_52w': 0.0,
+            'low_52w': 0.0,
+            'market_cap': 0,
+            'timestamp': datetime.now(),
+            'status': 'error',
+            'error': str(e),
+            'data_source': 'error'
+        }
+
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
+def get_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") -> pd.DataFrame:
+    """Fetch historical price data with EMA calculations."""
     try:
-        if session != "Weekend":
-            if session == "Pre-Market":
-                market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
-                time_until_event = market_open - now_et
-            elif session == "Regular Trading Hours":
-                market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-                time_until_event = market_close - now_et
-            elif session == "After Hours":
-                extended_close = now_et.replace(hour=20, minute=0, second=0, microsecond=0)
-                time_until_event = extended_close - now_et
-            else:  # Overnight
-                next_premarket = (now_et + timedelta(days=1)).replace(hour=4, minute=0, second=0, microsecond=0)
-                time_until_event = next_premarket - now_et
-            
-            hours_until = int(time_until_event.total_seconds() // 3600)
-            minutes_until = int((time_until_event.total_seconds() % 3600) // 60)
-            time_until_str = f"{hours_until:02d}:{minutes_until:02d}"
-        else:
-            time_until_str = "Weekend"
-    except:
-        time_until_str = "Unknown"
-    
-    return {
-        "status": basic_status,
-        "status_type": status_type,
-        "session": session,
-        "session_icon": session_icon,
-        "activity_level": activity_level,
-        "activity_color": activity_color,
-        "next_event": next_event,
-        "next_time": next_time,
-        "time_until_event": time_until_str,
-        "timestamp_et": now_et,
-        "timestamp_ct": now_ct,
-        "is_trading_hours": session == "Regular Trading Hours",
-        "is_extended_hours": session in ["Pre-Market", "After Hours"],
-        "is_market_day": now_et.weekday() < 5
-    }
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# ENHANCED REAL MARKET DATA FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-@st.cache_data(ttl=60, show_spinner=False)
-def get_real_market_data(symbol: str, retry_count: int = 3) -> dict:
-    """Fetch real market data from Yahoo Finance with enhanced error handling and validation."""
-    
-    for attempt in range(retry_count):
-        try:
-            ticker = yf.Ticker(symbol)
-            
-            # Get current quote data with timeout
-            info = ticker.info
-            hist = ticker.history(period="2d", interval="1m")
-            
-            if hist.empty:
-                if attempt < retry_count - 1:
-                    continue  # Retry on empty data
-                raise ValueError(f"No price data available for {symbol}")
-            
-            # Get latest price data
-            latest = hist.iloc[-1]
-            previous_close = info.get('previousClose')
-            
-            # Fallback to yesterday's close if previousClose not available
-            if previous_close is None or previous_close == 0:
-                if len(hist) > 1:
-                    previous_close = float(hist['Close'].iloc[-2])
-                else:
-                    previous_close = float(latest['Close'])
-            
-            current_price = float(latest['Close'])
-            change = current_price - previous_close
-            change_pct = (change / previous_close) * 100 if previous_close != 0 else 0
-            
-            # Get additional market data
-            volume = int(latest['Volume']) if 'Volume' in latest and pd.notna(latest['Volume']) else 0
-            high_52w = info.get('fiftyTwoWeekHigh', current_price)
-            low_52w = info.get('fiftyTwoWeekLow', current_price)
-            market_cap = info.get('marketCap', 0)
-            
-            # Get intraday high/low
-            day_high = float(latest['High']) if 'High' in latest else current_price
-            day_low = float(latest['Low']) if 'Low' in latest else current_price
-            
-            # Construct raw data
-            raw_data = {
-                'symbol': symbol,
-                'price': current_price,
-                'change': change,
-                'change_pct': change_pct,
-                'volume': volume,
-                'previous_close': previous_close,
-                'day_high': day_high,
-                'day_low': day_low,
-                'high_52w': high_52w,
-                'low_52w': low_52w,
-                'market_cap': market_cap,
-                'timestamp': datetime.now(),
-                'status': 'success',
-                'data_source': 'Yahoo Finance',
-                'attempt': attempt + 1
-            }
-            
-            # Sanitize the data
-            clean_data = sanitize_market_data(raw_data)
-            
-            # Validate the data
-            is_valid, validation_message = validate_price_data(clean_data)
-            
-            if is_valid:
-                clean_data['validation_status'] = 'passed'
-                clean_data['validation_message'] = validation_message
-                return clean_data
-            else:
-                if attempt < retry_count - 1:
-                    continue  # Retry on validation failure
-                clean_data['status'] = 'validation_failed'
-                clean_data['error'] = validation_message
-                return clean_data
-            
-        except Exception as e:
-            error_msg = f"Attempt {attempt + 1}/{retry_count}: {str(e)}"
-            
-            if attempt < retry_count - 1:
-                # Log the attempt but continue retrying
-                continue
-            else:
-                # Final attempt failed, return error data
-                return sanitize_market_data({
-                    'symbol': symbol,
-                    'price': 0.0, 'change': 0.0, 'change_pct': 0.0, 'volume': 0,
-                    'previous_close': 0.0, 'day_high': 0.0, 'day_low': 0.0,
-                    'high_52w': 0.0, 'low_52w': 0.0, 'market_cap': 0,
-                    'timestamp': datetime.now(), 'status': 'error',
-                    'error': error_msg, 'data_source': 'Yahoo Finance (Failed)',
-                    'attempt': retry_count
-                })
-    
-    # This should never be reached, but just in case
-    return sanitize_market_data({
-        'symbol': symbol, 'status': 'unknown_error',
-        'error': 'Unexpected error in retry loop'
-    })
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_enhanced_historical_data(symbol: str, period: str = "1mo", interval: str = "1d") -> pd.DataFrame:
-    """Fetch historical data with enhanced error handling and data quality checks."""
-    try:
+        if not validate_symbol_format(symbol):
+            raise ValueError(f"Invalid symbol: {symbol}")
+        
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period=period, interval=interval)
         
         if hist.empty:
             raise ValueError(f"No historical data available for {symbol}")
         
-        # Data quality checks
-        if len(hist) < 5:  # Too few data points
-            st.warning(f"Limited historical data for {symbol}: only {len(hist)} data points available")
-        
-        # Check for data gaps
-        expected_days = {"1mo": 20, "3mo": 60, "6mo": 120, "1y": 250}
-        expected_count = expected_days.get(period, len(hist))
-        
-        if len(hist) < expected_count * 0.8:  # Missing more than 20% of expected data
-            st.info(f"Some historical data may be missing for {symbol}")
-        
-        # Reset index and add metadata
+        # Reset index to make Date a column
         hist = hist.reset_index()
         hist['Symbol'] = symbol
-        hist['DataQuality'] = 'Good' if len(hist) >= expected_count * 0.9 else 'Partial'
+        
+        # Calculate EMAs (8 and 21 period)
+        if len(hist) >= 21:  # Need at least 21 periods for 21 EMA
+            hist['EMA_8'] = hist['Close'].ewm(span=8, adjust=False).mean()
+            hist['EMA_21'] = hist['Close'].ewm(span=21, adjust=False).mean()
+            
+            # EMA trend analysis
+            hist['EMA_Signal'] = np.where(hist['EMA_8'] > hist['EMA_21'], 1, -1)
+            hist['EMA_Crossover'] = hist['EMA_Signal'].diff()
+        
+        # Add data quality metadata
+        hist['Data_Quality'] = 'high'
+        hist['Last_Updated'] = datetime.now()
         
         return hist
         
     except Exception as e:
-        st.error(f"Failed to fetch historical data for {symbol}: {str(e)}")
+        log_error(f"Historical data error for {symbol}: {str(e)}", "Data")
+        return pd.DataFrame()
+
+@st.cache_data(ttl=180, show_spinner=False)  # Cache for 3 minutes  
+def get_intraday_data(symbol: str, period: str = "1d", interval: str = "5m") -> pd.DataFrame:
+    """Fetch intraday data with EMA analysis."""
+    try:
+        if not validate_symbol_format(symbol):
+            raise ValueError(f"Invalid symbol: {symbol}")
+        
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period=period, interval=interval, prepost=True)
+        
+        if hist.empty:
+            raise ValueError(f"No intraday data available for {symbol}")
+        
+        hist = hist.reset_index()
+        hist['Symbol'] = symbol
+        
+        # Calculate short-term EMAs for intraday trading
+        if len(hist) >= 21:
+            hist['EMA_8'] = hist['Close'].ewm(span=8, adjust=False).mean()
+            hist['EMA_21'] = hist['Close'].ewm(span=21, adjust=False).mean()
+            
+            # Intraday momentum signals
+            hist['Momentum'] = hist['Close'].pct_change(periods=5) * 100
+            hist['EMA_Trend'] = np.where(hist['EMA_8'] > hist['EMA_21'], 'Bullish', 'Bearish')
+        
+        return hist
+        
+    except Exception as e:
+        log_error(f"Intraday data error for {symbol}: {str(e)}", "Data")
         return pd.DataFrame()
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# ASIAN SESSION DATA INTEGRATION (ES FUTURES)
+# MARKET STATUS FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
+@st.cache_data(ttl=60, show_spinner=False)
+def get_market_session_info() -> dict:
+    """Get detailed market session information."""
+    now_et = datetime.now(ET)
+    now_ct = datetime.now(CT)
+    
+    # Get basic market status
+    basic_status, status_type = get_market_status()
+    
+    # Determine trading session
+    if now_et.weekday() < 5:  # Weekday
+        if time(4, 0) <= now_et.time() < time(9, 30):
+            session = "Pre-Market"
+            session_emoji = "🌅"
+        elif time(9, 30) <= now_et.time() < time(16, 0):
+            session = "Regular Hours"
+            session_emoji = "📈"
+        elif time(16, 0) <= now_et.time() < time(20, 0):
+            session = "After Hours"
+            session_emoji = "🌆"
+        else:
+            session = "Overnight"
+            session_emoji = "🌙"
+    else:
+        session = "Weekend"
+        session_emoji = "📴"
+    
+    # Calculate time to next market event
+    if now_et.weekday() < 5:  # Weekday
+        market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+        market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+        
+        if now_et < market_open:
+            next_event = "Market Open"
+            time_to_event = market_open - now_et
+        elif now_et < market_close:
+            next_event = "Market Close"
+            time_to_event = market_close - now_et
+        else:
+            # Next day market open
+            next_open = market_open + timedelta(days=1)
+            next_event = "Next Market Open"
+            time_to_event = next_open - now_et
+    else:
+        # Calculate time to Monday market open
+        days_until_monday = (7 - now_et.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 1
+        next_monday = now_et + timedelta(days=days_until_monday)
+        next_open = next_monday.replace(hour=9, minute=30, second=0, microsecond=0)
+        next_event = "Monday Market Open"
+        time_to_event = next_open - now_et
+    
+    return {
+        "status": basic_status,
+        "session": session,
+        "session_emoji": session_emoji,
+        "timestamp_et": now_et,
+        "timestamp_ct": now_ct,
+        "is_trading": session in ["Pre-Market", "Regular Hours", "After Hours"],
+        "next_event": next_event,
+        "time_to_event": time_to_event,
+        "market_day": now_et.weekday() < 5
+    }
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# DATA QUALITY MONITORING
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def get_system_health_metrics() -> dict:
+    """Get comprehensive system health metrics."""
+    
+    current_asset = AppState.get_current_asset()
+    
+    # Test data connectivity
+    market_data = get_real_market_data(current_asset)
+    historical_data = get_historical_data(current_asset, period="5d")
+    
+    # Calculate metrics
+    data_quality = calculate_data_quality_score(market_data, historical_data)
+    api_status = "Connected" if market_data['status'] == 'success' else "Error"
+    
+    # Cache performance
+    cache_stats = st.session_state.get('cache_stats', {"hits": 0, "misses": 0})
+    total_requests = cache_stats['hits'] + cache_stats['misses']
+    cache_hit_rate = (cache_stats['hits'] / total_requests * 100) if total_requests > 0 else 0
+    
+    # System performance
+    session_start = st.session_state.get('last_refresh', datetime.now())
+    uptime = datetime.now() - session_start
+    
+    return {
+        "data_quality": data_quality,
+        "api_status": api_status,
+        "cache_hit_rate": cache_hit_rate,
+        "uptime_minutes": uptime.total_seconds() / 60,
+        "historical_data_points": len(historical_data),
+        "last_update": market_data.get('timestamp', datetime.now()),
+        "error_count": len(st.session_state.get('error_log', [])),
+        "system_load": min(100, (data_quality + cache_hit_rate) / 2)
+    }
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# EXECUTE PART 3A - CORE DATA FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Display header
+st.markdown(f"""
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">📡</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #00ff88 0%, #22d3ee 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Core Market Data System
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Real-time Yahoo Finance integration with professional validation</p>
+</div>
+<div class="section-divider"></div>
+""", unsafe_allow_html=True)
+
+# Get current asset and market data
+current_asset = AppState.get_current_asset()
+market_data = get_real_market_data(current_asset)
+session_info = get_market_session_info()
+health_metrics = get_system_health_metrics()
+
+# Display current market data
+st.markdown("#### 📊 Live Market Data")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if market_data['status'] == 'success':
+        st.metric(
+            "Current Price", 
+            f"${market_data['price']:,.2f}",
+            f"{market_data['change']:+.2f}"
+        )
+    else:
+        st.metric("Current Price", "Error", "No Data")
+
+with col2:
+    if market_data['status'] == 'success':
+        st.metric(
+            "Change %", 
+            f"{market_data['change_pct']:+.2f}%",
+            "Real-time"
+        )
+    else:
+        st.metric("Change %", "—", "Error")
+
+with col3:
+    st.metric(
+        "Market Session",
+        session_info['session'],
+        session_info['session_emoji']
+    )
+
+with col4:
+    if market_data['status'] == 'success':
+        st.metric(
+            "Volume",
+            f"{market_data['volume']:,}",
+            "Shares"
+        )
+    else:
+        st.metric("Volume", "—", "Error")
+
+# Display market session information
+st.markdown("#### ⏰ Market Session Details")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        "Current Time ET",
+        session_info['timestamp_et'].strftime("%I:%M:%S %p"),
+        "Eastern Time"
+    )
+
+with col2:
+    st.metric(
+        "Current Time CT", 
+        session_info['timestamp_ct'].strftime("%I:%M:%S %p"),
+        "Central Time"
+    )
+
+with col3:
+    hours_to_event = session_info['time_to_event'].total_seconds() / 3600
+    st.metric(
+        session_info['next_event'],
+        f"{hours_to_event:.1f}h",
+        "Until Event"
+    )
+
+# System health status
+st.markdown("#### 🔧 System Health Status")
+
+if market_data['status'] == 'success':
+    st.success(f"✅ **Live Data Connected** - Real-time {current_asset} data from Yahoo Finance")
+else:
+    st.error(f"❌ **Data Connection Error** - {market_data.get('error', 'Unknown error')}")
+
+# Health metrics display
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Data Quality", f"{health_metrics['data_quality']}%", "Score")
+
+with col2: 
+    st.metric("API Status", health_metrics['api_status'], "Yahoo Finance")
+
+with col3:
+    st.metric("Cache Hit Rate", f"{health_metrics['cache_hit_rate']:.1f}%", "Performance")
+
+with col4:
+    st.metric("System Uptime", f"{health_metrics['uptime_minutes']:.1f}m", "Session")
+
+# Data validation results
+if market_data['status'] == 'success':
+    validation_passed = validate_price_data(market_data)
+    if validation_passed:
+        st.info("✅ **Data Validation Passed** - Price data meets quality standards")
+    else:
+        st.warning("⚠️ **Data Validation Warning** - Price data may have quality issues")
+else:
+    st.warning("⚠️ **Validation Skipped** - No valid data to validate")
+
+
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# MARKETLENS PRO - PART 3B: ASIAN SESSION & ADVANCED DATA PROCESSING
+# ES Futures Analysis and Professional Data Processing Functions
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ASIAN SESSION DATA FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
+def get_es_spx_offset() -> float:
+    """Calculate current ES futures to SPX offset."""
+    try:
+        # Get current ES futures price
+        es_ticker = yf.Ticker("ES=F")
+        es_data = es_ticker.history(period="1d", interval="1m", prepost=True)
+        
+        # Get current SPX price
+        spx_ticker = yf.Ticker("^GSPC")
+        spx_data = spx_ticker.history(period="1d", interval="1m", prepost=True)
+        
+        if not es_data.empty and not spx_data.empty:
+            current_es = float(es_data['Close'].iloc[-1])
+            current_spx = float(spx_data['Close'].iloc[-1])
+            offset = current_spx - current_es
+            
+            return offset
+        else:
+            # Fallback to typical offset
+            return -23.5
+            
+    except Exception as e:
+        log_error(f"ES-SPX offset calculation error: {str(e)}", "Data")
+        return -23.5
+
 @st.cache_data(ttl=300, show_spinner=False)
-def get_es_asian_session_data(target_date: date) -> dict:
-    """Get ES futures data for Asian session (5-8 PM CT previous day) with swing detection."""
+def get_es_asian_session_data(target_date: date, timeframe: str = "30m") -> dict:
+    """Get ES futures data for Asian session (5-8 PM CT previous day)."""
     try:
         # Calculate Asian session window (previous day 5-8 PM CT)
         prev_day = target_date - timedelta(days=1)
+        
+        # Handle weekends - go back to Friday
+        while prev_day.weekday() >= 5:
+            prev_day -= timedelta(days=1)
+        
         start_time = datetime.combine(prev_day, time(17, 0), tzinfo=CT)
         end_time = datetime.combine(prev_day, time(20, 0), tzinfo=CT)
         
-        # Get ES futures data
-        es_ticker = yf.Ticker(ES_SYMBOL)
-        
-        # Fetch broader range to ensure we have data
-        es_data = es_ticker.history(period="7d", interval="30m", prepost=True)
+        # Get ES futures data with extended period for better coverage
+        es_ticker = yf.Ticker("ES=F")
+        es_data = es_ticker.history(period="7d", interval=timeframe, prepost=True)
         
         if es_data.empty:
-            return {
-                "status": "error", 
-                "message": "No ES futures data available",
-                "symbol": ES_SYMBOL
-            }
+            return {"status": "error", "message": "No ES futures data available"}
         
-        # Convert to CT timezone and filter for Asian session
-        es_data = es_data.reset_index()
-        es_data['Datetime_CT'] = pd.to_datetime(es_data['Datetime']).dt.tz_convert(CT)
+        # Convert timezone and filter for Asian session
+        es_data_reset = es_data.reset_index()
+        es_data_reset['Datetime_CT'] = pd.to_datetime(es_data_reset['Datetime']).dt.tz_convert(CT)
         
-        # Filter for the specific Asian session window
+        # Filter for Asian session window
         asian_mask = (
-            (es_data['Datetime_CT'] >= start_time) & 
-            (es_data['Datetime_CT'] <= end_time)
+            (es_data_reset['Datetime_CT'] >= start_time) & 
+            (es_data_reset['Datetime_CT'] <= end_time)
         )
-        asian_session = es_data[asian_mask].copy()
+        asian_data = es_data_reset[asian_mask].copy()
         
-        if asian_session.empty:
-            return {
-                "status": "error",
-                "message": f"No ES data found for Asian session {start_time} to {end_time}",
-                "symbol": ES_SYMBOL,
-                "window_start": start_time,
-                "window_end": end_time
-            }
+        if asian_data.empty:
+            return {"status": "error", "message": f"No ES data found for Asian session on {prev_day.strftime('%Y-%m-%d')}"}
         
-        # Find swing points using CLOSE prices (for line chart compatibility)
-        high_idx = asian_session['Close'].idxmax()
-        low_idx = asian_session['Close'].idxmin()
+        # Find swing points using CLOSE prices (line chart compatibility)
+        highest_close_idx = asian_data['Close'].idxmax()
+        lowest_close_idx = asian_data['Close'].idxmin()
         
-        high_price = float(asian_session.loc[high_idx, 'Close'])
-        low_price = float(asian_session.loc[low_idx, 'Close'])
-        high_time = asian_session.loc[high_idx, 'Datetime_CT']
-        low_time = asian_session.loc[low_idx, 'Datetime_CT']
+        es_high_close = float(asian_data.loc[highest_close_idx, 'Close'])
+        es_low_close = float(asian_data.loc[lowest_close_idx, 'Close'])
+        high_time = asian_data.loc[highest_close_idx, 'Datetime_CT']
+        low_time = asian_data.loc[lowest_close_idx, 'Datetime_CT']
         
-        # Calculate ES to SPX offset (typical offset around 25-30 points)
-        # This would normally be calculated using concurrent SPX data
-        spx_offset = -25.0  # Approximate offset, should be calculated dynamically
+        # Convert ES to SPX equivalent using current offset
+        offset = get_es_spx_offset()
+        spx_high_equivalent = es_high_close + offset
+        spx_low_equivalent = es_low_close + offset
         
-        # Convert ES prices to SPX equivalent
-        spx_high_equivalent = high_price + spx_offset
-        spx_low_equivalent = low_price + spx_offset
-        
-        # Additional metrics
-        asian_range = high_price - low_price
-        asian_duration = (end_time - start_time).total_seconds() / 3600  # hours
-        swing_duration = abs((high_time - low_time).total_seconds() / 3600)  # hours between swings
+        # Calculate additional metrics
+        asian_range = es_high_close - es_low_close
+        time_between_extremes = abs((high_time - low_time).total_seconds() / 3600)
         
         return {
             "status": "success",
-            "symbol": ES_SYMBOL,
-            "window_start": start_time,
-            "window_end": end_time,
-            "data_points": len(asian_session),
-            
-            # ES Raw Data
-            "es_high_price": high_price,
-            "es_low_price": low_price,
-            "es_high_time": high_time,
-            "es_low_time": low_time,
-            "es_range": asian_range,
-            
-            # SPX Equivalent Data (for strategy)
+            "es_high_close": es_high_close,
+            "es_low_close": es_low_close,
             "spx_high_equivalent": spx_high_equivalent,
             "spx_low_equivalent": spx_low_equivalent,
-            "spx_offset_used": spx_offset,
-            
-            # Analysis Metrics
-            "asian_duration_hours": asian_duration,
-            "swing_duration_hours": swing_duration,
-            "volatility_estimate": (asian_range / low_price) * 100,  # percentage
-            
-            # Data Quality
-            "data_quality": "Good" if len(asian_session) >= 6 else "Limited",  # 30m intervals for 3h = 6 points
-            "timestamp": datetime.now()
+            "high_time_ct": high_time.to_pydatetime(),
+            "low_time_ct": low_time.to_pydatetime(),
+            "asian_range": asian_range,
+            "time_between_extremes": time_between_extremes,
+            "es_spx_offset": offset,
+            "data_points": len(asian_data),
+            "timeframe": timeframe.upper(),
+            "session_date": prev_day,
+            "method": "LINE_CHART_CLOSES"
         }
         
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Error processing ES Asian session data: {str(e)}",
-            "symbol": ES_SYMBOL,
-            "error_details": str(e),
-            "timestamp": datetime.now()
-        }
+        log_error(f"Asian session data error: {str(e)}", "Data")
+        return {"status": "error", "message": str(e)}
 
-@st.cache_data(ttl=180, show_spinner=False)
-def get_current_es_spx_offset() -> dict:
-    """Calculate current ES to SPX offset for accurate conversions."""
+@st.cache_data(ttl=300, show_spinner=False)
+def get_previous_day_ohlc(symbol: str, target_date: date) -> dict:
+    """Get previous trading day OHLC data with validation."""
     try:
-        # Get current ES price
-        es_data = get_real_market_data(ES_SYMBOL)
-        spx_data = get_real_market_data("^GSPC")
+        # Calculate previous trading day
+        prev_day = target_date - timedelta(days=1)
+        while prev_day.weekday() >= 5:  # Skip weekends
+            prev_day -= timedelta(days=1)
         
-        if es_data['status'] == 'success' and spx_data['status'] == 'success':
-            current_offset = spx_data['price'] - es_data['price']
-            
-            return {
-                "status": "success",
-                "offset": current_offset,
-                "es_price": es_data['price'],
-                "spx_price": spx_data['price'],
-                "calculation_time": datetime.now(),
-                "data_quality": "Live"
-            }
+        ticker = yf.Ticker(symbol)
+        hist_data = ticker.history(period="1mo", interval="1d")
+        
+        if hist_data.empty:
+            return {"status": "error", "message": f"No historical data for {symbol}"}
+        
+        # Find data for the previous trading day
+        hist_reset = hist_data.reset_index()
+        hist_reset['Date_Only'] = pd.to_datetime(hist_reset['Date']).dt.date
+        
+        # Try to find exact date first
+        exact_match = hist_reset[hist_reset['Date_Only'] == prev_day]
+        
+        if not exact_match.empty:
+            row = exact_match.iloc[-1]
+            actual_date = prev_day
         else:
-            # Use historical average offset as fallback
-            return {
-                "status": "fallback",
-                "offset": -25.0,  # Historical average
-                "calculation_time": datetime.now(),
-                "data_quality": "Estimated"
-            }
-    
-    except Exception as e:
-        return {
-            "status": "error", 
-            "offset": -25.0,  # Safe fallback
-            "error": str(e),
-            "data_quality": "Default"
+            # Use most recent available data
+            row = hist_reset.iloc[-1]
+            actual_date = hist_reset['Date_Only'].iloc[-1]
+        
+        # Extract OHLC data
+        ohlc_data = {
+            "status": "success",
+            "symbol": symbol,
+            "date": actual_date,
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume": int(row["Volume"]) if "Volume" in row and pd.notna(row["Volume"]) else 0,
+            "range": float(row["High"] - row["Low"]),
+            "range_pct": float((row["High"] - row["Low"]) / row["Close"] * 100),
+            "body_size": float(abs(row["Close"] - row["Open"])),
+            "upper_wick": float(row["High"] - max(row["Open"], row["Close"])),
+            "lower_wick": float(min(row["Open"], row["Close"]) - row["Low"])
         }
-
-
-
-
-
-
-
-
-
+        
+        # Add candle analysis
+        if row["Close"] > row["Open"]:
+            ohlc_data["candle_type"] = "Bullish"
+            ohlc_data["candle_color"] = "Green"
+        elif row["Close"] < row["Open"]:
+            ohlc_data["candle_type"] = "Bearish"
+            ohlc_data["candle_color"] = "Red"
+        else:
+            ohlc_data["candle_type"] = "Doji"
+            ohlc_data["candle_color"] = "Neutral"
+        
+        return ohlc_data
+        
+    except Exception as e:
+        log_error(f"Previous day OHLC error for {symbol}: {str(e)}", "Data")
+        return {"status": "error", "message": str(e)}
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3B1: ENHANCED CHARTING & TECHNICAL ANALYSIS
-# Professional Charts with 8EMA/21EMA, Real Data Integration & Technical Indicators
+# PROJECTION CALCULATION FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# TECHNICAL INDICATORS & CALCULATIONS
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-def calculate_ema(prices: pd.Series, period: int) -> pd.Series:
-    """Calculate Exponential Moving Average with proper EMA formula."""
-    return prices.ewm(span=period, adjust=False).mean()
-
-def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """Calculate comprehensive technical indicators including your preferred EMAs."""
-    df = df.copy()
+def calculate_30min_blocks_advanced(from_dt: datetime, to_dt: datetime, 
+                                  exclude_weekends: bool = True) -> int:
+    """Calculate 30-minute blocks with weekend exclusion option."""
+    if from_dt >= to_dt:
+        return 0
     
-    if 'Close' not in df.columns or len(df) < 21:
-        return df
+    if not exclude_weekends:
+        # Simple calculation without weekend exclusion
+        total_seconds = (to_dt - from_dt).total_seconds()
+        return int(total_seconds // (30 * 60))
     
-    # Your preferred EMAs
-    df['EMA_8'] = calculate_ema(df['Close'], 8)
-    df['EMA_21'] = calculate_ema(df['Close'], 21)
+    # Complex calculation excluding weekends
+    current_dt = from_dt
+    total_blocks = 0
     
-    # EMA Cross Signals
-    df['EMA_Cross_Signal'] = 0
-    df['EMA_Cross_Signal'] = np.where(
-        (df['EMA_8'] > df['EMA_21']) & (df['EMA_8'].shift(1) <= df['EMA_21'].shift(1)), 
-        1,  # Bullish cross
-        np.where(
-            (df['EMA_8'] < df['EMA_21']) & (df['EMA_8'].shift(1) >= df['EMA_21'].shift(1)), 
-            -1,  # Bearish cross
-            0
+    while current_dt < to_dt:
+        # Skip weekends
+        if current_dt.weekday() < 5:  # Monday = 0, Friday = 4
+            next_30min = current_dt + timedelta(minutes=30)
+            if next_30min <= to_dt:
+                total_blocks += 1
+        
+        current_dt += timedelta(minutes=30)
+    
+    return total_blocks
+
+def generate_rth_projection_slots(base_date: date) -> List[datetime]:
+    """Generate RTH time slots (8:30 AM - 2:30 PM CT) for projections."""
+    slots = []
+    start_time = datetime.combine(base_date, RTH_START, tzinfo=CT)
+    current_time = start_time
+    
+    while current_time.time() <= RTH_END:
+        slots.append(current_time)
+        current_time += timedelta(minutes=30)
+    
+    return slots
+
+def calculate_price_projection(base_price: float, base_time: datetime, 
+                             target_time: datetime, slope_per_30min: float,
+                             exclude_weekends: bool = True) -> float:
+    """Calculate projected price using slope and time difference."""
+    blocks = calculate_30min_blocks_advanced(base_time, target_time, exclude_weekends)
+    projected_price = base_price + (slope_per_30min * blocks)
+    return projected_price
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# TECHNICAL ANALYSIS FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def calculate_ema_signals(price_data: pd.DataFrame) -> dict:
+    """Calculate EMA signals and crossovers."""
+    if len(price_data) < 21:
+        return {"status": "insufficient_data", "message": "Need at least 21 periods for EMA calculation"}
+    
+    try:
+        # Calculate EMAs
+        ema_8 = price_data['Close'].ewm(span=8, adjust=False).mean()
+        ema_21 = price_data['Close'].ewm(span=21, adjust=False).mean()
+        
+        # Current values
+        current_ema_8 = ema_8.iloc[-1]
+        current_ema_21 = ema_21.iloc[-1]
+        current_price = price_data['Close'].iloc[-1]
+        
+        # Trend determination
+        if current_ema_8 > current_ema_21:
+            trend = "Bullish"
+            trend_strength = ((current_ema_8 - current_ema_21) / current_ema_21) * 100
+        else:
+            trend = "Bearish"
+            trend_strength = ((current_ema_21 - current_ema_8) / current_ema_8) * 100
+        
+        # Crossover detection
+        prev_ema_8 = ema_8.iloc[-2] if len(ema_8) > 1 else current_ema_8
+        prev_ema_21 = ema_21.iloc[-2] if len(ema_21) > 1 else current_ema_21
+        
+        crossover = "None"
+        if prev_ema_8 <= prev_ema_21 and current_ema_8 > current_ema_21:
+            crossover = "Bullish"
+        elif prev_ema_8 >= prev_ema_21 and current_ema_8 < current_ema_21:
+            crossover = "Bearish"
+        
+        # Price relative to EMAs
+        price_vs_ema8 = ((current_price - current_ema_8) / current_ema_8) * 100
+        price_vs_ema21 = ((current_price - current_ema_21) / current_ema_21) * 100
+        
+        return {
+            "status": "success",
+            "current_ema_8": current_ema_8,
+            "current_ema_21": current_ema_21,
+            "current_price": current_price,
+            "trend": trend,
+            "trend_strength": abs(trend_strength),
+            "crossover": crossover,
+            "price_vs_ema8": price_vs_ema8,
+            "price_vs_ema21": price_vs_ema21,
+            "ema_distance": abs(current_ema_8 - current_ema_21),
+            "ema_distance_pct": abs(trend_strength)
+        }
+        
+    except Exception as e:
+        log_error(f"EMA calculation error: {str(e)}", "Technical")
+        return {"status": "error", "message": str(e)}
+
+def analyze_momentum_signals(price_data: pd.DataFrame) -> dict:
+    """Analyze momentum and volatility signals."""
+    if len(price_data) < 10:
+        return {"status": "insufficient_data"}
+    
+    try:
+        # Calculate momentum indicators
+        close_prices = price_data['Close']
+        
+        # Price momentum (5-period rate of change)
+        momentum_5 = close_prices.pct_change(periods=5) * 100
+        current_momentum = momentum_5.iloc[-1] if not momentum_5.empty else 0
+        
+        # Volatility (20-period rolling standard deviation)
+        volatility = close_prices.rolling(window=min(20, len(close_prices))).std()
+        current_volatility = volatility.iloc[-1] if not volatility.empty else 0
+        
+        # Average True Range approximation
+        high_low = price_data['High'] - price_data['Low']
+        avg_range = high_low.rolling(window=min(14, len(high_low))).mean()
+        current_atr = avg_range.iloc[-1] if not avg_range.empty else 0
+        
+        # Momentum classification
+        if abs(current_momentum) > 2.0:
+            momentum_strength = "Strong"
+        elif abs(current_momentum) > 0.5:
+            momentum_strength = "Moderate"
+        else:
+            momentum_strength = "Weak"
+        
+        momentum_direction = "Bullish" if current_momentum > 0 else "Bearish" if current_momentum < 0 else "Neutral"
+        
+        return {
+            "status": "success",
+            "momentum_5": current_momentum,
+            "momentum_direction": momentum_direction,
+            "momentum_strength": momentum_strength,
+            "volatility": current_volatility,
+            "atr": current_atr,
+            "volatility_pct": (current_volatility / close_prices.iloc[-1]) * 100 if close_prices.iloc[-1] != 0 else 0
+        }
+        
+    except Exception as e:
+        log_error(f"Momentum analysis error: {str(e)}", "Technical")
+        return {"status": "error", "message": str(e)}
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# EXECUTE PART 3B - ASIAN SESSION & ADVANCED PROCESSING
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# Display header
+st.markdown(f"""
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">🌏</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #a855f7 0%, #00ff88 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Asian Session Analysis
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">ES Futures overnight analysis with SPX conversion and technical signals</p>
+</div>
+<div class="section-divider"></div>
+""", unsafe_allow_html=True)
+
+# Get current asset and analysis data
+current_asset = AppState.get_current_asset()
+forecast_date = AppState.get_forecast_date()
+
+# Get Asian session data
+asian_data = get_es_asian_session_data(forecast_date, "30m")
+previous_day_data = get_previous_day_ohlc(current_asset, forecast_date)
+
+# Display Asian session results
+st.markdown("#### 🌏 Asian Session Swing Analysis (ES Futures)")
+
+if asian_data['status'] == 'success':
+    st.success(f"✅ **Asian Session Data Retrieved** - {asian_data['data_points']} data points from {asian_data['session_date'].strftime('%Y-%m-%d')}")
+    
+    # Asian session metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "ES High (Close)",
+            f"${asian_data['es_high_close']:,.2f}",
+            f"SPX: ${asian_data['spx_high_equivalent']:,.2f}"
         )
-    )
     
-    # Additional technical indicators
-    if len(df) >= 14:
-        # RSI calculation
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
+    with col2:
+        st.metric(
+            "ES Low (Close)", 
+            f"${asian_data['es_low_close']:,.2f}",
+            f"SPX: ${asian_data['spx_low_equivalent']:,.2f}"
+        )
     
-    # Support and Resistance levels (recent highs/lows)
-    if len(df) >= 20:
-        df['Recent_High'] = df['High'].rolling(window=20).max()
-        df['Recent_Low'] = df['Low'].rolling(window=20).min()
+    with col3:
+        st.metric(
+            "Asian Range",
+            f"${asian_data['asian_range']:.2f}",
+            f"{asian_data['timeframe']} Data"
+        )
     
-    # Volume analysis
-    if 'Volume' in df.columns:
-        df['Avg_Volume_20'] = df['Volume'].rolling(window=20).mean()
-        df['Volume_Ratio'] = df['Volume'] / df['Avg_Volume_20']
+    with col4:
+        st.metric(
+            "Time Between Extremes",
+            f"{asian_data['time_between_extremes']:.1f}h",
+            "High to Low"
+        )
     
-    return df
+    # Time details
+    st.markdown("#### ⏰ Asian Session Timing Details")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(
+            "High Time (CT)",
+            asian_data['high_time_ct'].strftime("%I:%M %p"),
+            asian_data['high_time_ct'].strftime("%m/%d")
+        )
+    
+    with col2:
+        st.metric(
+            "Low Time (CT)",
+            asian_data['low_time_ct'].strftime("%I:%M %p"), 
+            asian_data['low_time_ct'].strftime("%m/%d")
+        )
+    
+    with col3:
+        st.metric(
+            "ES-SPX Offset",
+            f"{asian_data['es_spx_offset']:+.1f}",
+            "Points"
+        )
+    
+else:
+    st.error(f"❌ **Asian Session Data Error** - {asian_data.get('message', 'Unknown error')}")
 
-def detect_ema_cross_signals(df: pd.DataFrame) -> list:
-    """Detect recent EMA cross signals with detailed analysis."""
-    signals = []
+# Display previous day analysis
+st.markdown("#### 📊 Previous Day OHLC Analysis")
+
+if previous_day_data['status'] == 'success':
+    st.success(f"✅ **Previous Day Data Retrieved** - {previous_day_data['date'].strftime('%Y-%m-%d')} for {previous_day_data['symbol']}")
     
-    if 'EMA_Cross_Signal' not in df.columns:
-        return signals
+    # OHLC metrics
+    col1, col2, col3, col4 = st.columns(4)
     
-    # Look for signals in the last 10 periods
-    recent_data = df.tail(10)
+    with col1:
+        st.metric(
+            "Previous High",
+            f"${previous_day_data['high']:,.2f}",
+            f"{previous_day_data['candle_color']} Candle"
+        )
     
-    for idx, row in recent_data.iterrows():
-        if row['EMA_Cross_Signal'] == 1:  # Bullish cross
-            signals.append({
-                'type': 'Bullish EMA Cross',
-                'date': row.get('Date', idx),
-                'price': row['Close'],
-                'ema_8': row['EMA_8'],
-                'ema_21': row['EMA_21'],
-                'signal_strength': 'Strong' if row.get('Volume_Ratio', 1) > 1.5 else 'Moderate',
-                'description': f"8EMA crossed above 21EMA at ${row['Close']:.2f}"
-            })
-        elif row['EMA_Cross_Signal'] == -1:  # Bearish cross
-            signals.append({
-                'type': 'Bearish EMA Cross',
-                'date': row.get('Date', idx),
-                'price': row['Close'],
-                'ema_8': row['EMA_8'],
-                'ema_21': row['EMA_21'],
-                'signal_strength': 'Strong' if row.get('Volume_Ratio', 1) > 1.5 else 'Moderate',
-                'description': f"8EMA crossed below 21EMA at ${row['Close']:.2f}"
-            })
+    with col2:
+        st.metric(
+            "Previous Close",
+            f"${previous_day_data['close']:,.2f}",
+            f"Range: {previous_day_data['range_pct']:.2f}%"
+        )
     
-    return signals
+    with col3:
+        st.metric(
+            "Previous Low",
+            f"${previous_day_data['low']:,.2f}",
+            f"Volume: {previous_day_data['volume']:,}"
+        )
+    
+    with col4:
+        st.metric(
+            "Daily Range",
+            f"${previous_day_data['range']:.2f}",
+            previous_day_data['candle_type']
+        )
+    
+    # Candle analysis
+    st.markdown("#### 🕯️ Candle Analysis")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(
+            "Body Size",
+            f"${previous_day_data['body_size']:.2f}",
+            "Real Body"
+        )
+    
+    with col2:
+        st.metric(
+            "Upper Wick",
+            f"${previous_day_data['upper_wick']:.2f}",
+            "Top Shadow"
+        )
+    
+    with col3:
+        st.metric(
+            "Lower Wick", 
+            f"${previous_day_data['lower_wick']:.2f}",
+            "Bottom Shadow"
+        )
+
+else:
+    st.error(f"❌ **Previous Day Data Error** - {previous_day_data.get('message', 'Unknown error')}")
+
+# Technical analysis with EMAs
+st.markdown("#### 📈 Technical Analysis (8 EMA vs 21 EMA)")
+
+# Get historical data for EMA analysis
+historical_data = get_historical_data(current_asset, period="2mo", interval="1d")
+
+if not historical_data.empty:
+    ema_signals = calculate_ema_signals(historical_data)
+    momentum_signals = analyze_momentum_signals(historical_data)
+    
+    if ema_signals['status'] == 'success':
+        st.success("✅ **Technical Analysis Complete** - EMA signals calculated")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(
+                "8 EMA",
+                f"${ema_signals['current_ema_8']:,.2f}",
+                f"Trend: {ema_signals['trend']}"
+            )
+        
+        with col2:
+            st.metric(
+                "21 EMA",
+                f"${ema_signals['current_ema_21']:,.2f}",
+                f"Strength: {ema_signals['trend_strength']:.2f}%"
+            )
+        
+        with col3:
+            crossover_display = "🔴 None" if ema_signals['crossover'] == "None" else f"{'🟢' if ema_signals['crossover'] == 'Bullish' else '🔴'} {ema_signals['crossover']}"
+            st.metric(
+                "EMA Crossover",
+                crossover_display,
+                "Signal"
+            )
+        
+        with col4:
+            if momentum_signals['status'] == 'success':
+                momentum_color = "🟢" if momentum_signals['momentum_direction'] == "Bullish" else "🔴" if momentum_signals['momentum_direction'] == "Bearish" else "🟡"
+                st.metric(
+                    "Momentum",
+                    f"{momentum_color} {momentum_signals['momentum_strength']}",
+                    f"{momentum_signals['momentum_5']:+.2f}%"
+                )
+            else:
+                st.metric("Momentum", "Error", "—")
+        
+        # Price relative to EMAs
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            price_vs_8_color = "🟢" if ema_signals['price_vs_ema8'] > 0 else "🔴"
+            st.metric(
+                "Price vs 8 EMA",
+                f"{price_vs_8_color} {ema_signals['price_vs_ema8']:+.2f}%",
+                "Relative Position"
+            )
+        
+        with col2:
+            price_vs_21_color = "🟢" if ema_signals['price_vs_ema21'] > 0 else "🔴"
+            st.metric(
+                "Price vs 21 EMA",
+                f"{price_vs_21_color} {ema_signals['price_vs_ema21']:+.2f}%",
+                "Relative Position"
+            )
+    
+    else:
+        st.error(f"❌ **EMA Analysis Error** - {ema_signals.get('message', 'Calculation failed')}")
+
+else:
+    st.warning("⚠️ **No Historical Data** - Unable to perform technical analysis")
+
+# Projection readiness check
+st.markdown("#### 🎯 Projection System Readiness")
+
+projection_ready = (
+    asian_data['status'] == 'success' and 
+    previous_day_data['status'] == 'success'
+)
+
+if projection_ready:
+    st.success("✅ **Projection System Ready** - All required data available for skyline/baseline calculations")
+    
+    # Show what data is available for projections
+    st.info(f"""
+    **Available for Projections:**
+    - Asian Session Anchors: SPX High {asian_data['spx_high_equivalent']:,.2f} | SPX Low {asian_data['spx_low_equivalent']:,.2f}
+    - Previous Day Anchors: High {previous_day_data['high']:,.2f} | Low {previous_day_data['low']:,.2f} | Close {previous_day_data['close']:,.2f}
+    - Asset Slopes: {get_asset_slopes(current_asset)}
+    """)
+else:
+    st.warning("⚠️ **Projection System Partial** - Some required data missing for complete analysis")
+
+
+
+
+
+
+
+
+
+
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# ENHANCED CHART CREATION FUNCTIONS
+# MARKETLENS PRO - PART 3C: LIVE CHART INTEGRATION & DATA SYSTEM COMPLETION
+# Professional Chart System with Real Data and Final Integration
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-def create_professional_price_chart(symbol: str, title: str = "Price Chart", period: str = "1mo", interval: str = "1d"):
-    """Create professional price chart with 8EMA/21EMA and technical analysis."""
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# ADVANCED CHART FUNCTIONS WITH REAL DATA
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_professional_price_chart(symbol: str, title: str = "Price Chart", show_emas: bool = True):
+    """Create professional price chart with real data and EMAs."""
     
-    # Get real historical data with technical indicators
-    df = get_enhanced_historical_data(symbol, period=period, interval=interval)
+    # Get real historical data
+    df = get_historical_data(symbol, period="1mo", interval="1d")
     
     if df.empty:
-        return create_fallback_demo_chart(symbol, title)
+        return create_fallback_chart(symbol, title)
     
-    # Calculate technical indicators
-    df = calculate_technical_indicators(df)
+    # Ensure proper date column
+    date_col = 'Date' if 'Date' in df.columns else df.index
     
-    # Create the chart
+    # Create the main chart
     fig = go.Figure()
     
-    # Add candlestick chart if we have OHLC data
-    if all(col in df.columns for col in ['Open', 'High', 'Low', 'Close']):
-        fig.add_trace(go.Candlestick(
-            x=df['Date'] if 'Date' in df.columns else df.index,
-            open=df['Open'],
-            high=df['High'],
-            low=df['Low'],
-            close=df['Close'],
-            name=symbol,
-            increasing_line_color='#00ff88',
-            decreasing_line_color='#ff006e',
-            increasing_fillcolor='rgba(0, 255, 136, 0.2)',
-            decreasing_fillcolor='rgba(255, 0, 110, 0.2)'
-        ))
-    else:
-        # Fallback to line chart
-        fig.add_trace(go.Scatter(
-            x=df['Date'] if 'Date' in df.columns else df.index,
-            y=df['Close'],
-            mode='lines',
-            name=symbol,
-            line=dict(color='#22d3ee', width=3),
-            hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
-        ))
+    # Add main price line
+    fig.add_trace(go.Scatter(
+        x=df[date_col] if 'Date' in df.columns else df.index,
+        y=df['Close'],
+        mode='lines',
+        name=f'{symbol} Price',
+        line=dict(
+            color='#22d3ee',
+            width=3
+        ),
+        hovertemplate='<b>%{x}</b><br>Price: $%{y:,.2f}<extra></extra>'
+    ))
     
-    # Add your preferred EMAs
-    if 'EMA_8' in df.columns:
-        fig.add_trace(go.Scatter(
-            x=df['Date'] if 'Date' in df.columns else df.index,
-            y=df['EMA_8'],
-            mode='lines',
-            name='8 EMA',
-            line=dict(color='#ff6b35', width=2),
-            hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
-        ))
-    
-    if 'EMA_21' in df.columns:
-        fig.add_trace(go.Scatter(
-            x=df['Date'] if 'Date' in df.columns else df.index,
-            y=df['EMA_21'],
-            mode='lines',
-            name='21 EMA',
-            line=dict(color='#a855f7', width=2),
-            hovertemplate='21 EMA: $%{y:,.2f}<extra></extra>'
-        ))
-    
-    # Add EMA cross signals
-    if 'EMA_Cross_Signal' in df.columns:
-        bullish_crosses = df[df['EMA_Cross_Signal'] == 1]
-        bearish_crosses = df[df['EMA_Cross_Signal'] == -1]
-        
-        if not bullish_crosses.empty:
+    # Add EMAs if requested and data is sufficient
+    if show_emas and len(df) >= 21:
+        if 'EMA_8' in df.columns:
             fig.add_trace(go.Scatter(
-                x=bullish_crosses['Date'] if 'Date' in bullish_crosses.columns else bullish_crosses.index,
-                y=bullish_crosses['Close'],
-                mode='markers',
-                name='Bullish Cross',
-                marker=dict(symbol='triangle-up', size=12, color='#00ff88'),
-                hovertemplate='Bullish EMA Cross<br>Price: $%{y:,.2f}<extra></extra>'
+                x=df[date_col] if 'Date' in df.columns else df.index,
+                y=df['EMA_8'],
+                mode='lines',
+                name='8 EMA',
+                line=dict(color='#00ff88', width=2, dash='dot'),
+                hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
             ))
         
-        if not bearish_crosses.empty:
+        if 'EMA_21' in df.columns:
             fig.add_trace(go.Scatter(
-                x=bearish_crosses['Date'] if 'Date' in bearish_crosses.columns else bearish_crosses.index,
-                y=bearish_crosses['Close'],
-                mode='markers',
-                name='Bearish Cross',
-                marker=dict(symbol='triangle-down', size=12, color='#ff006e'),
-                hovertemplate='Bearish EMA Cross<br>Price: $%{y:,.2f}<extra></extra>'
+                x=df[date_col] if 'Date' in df.columns else df.index,
+                y=df['EMA_21'],
+                mode='lines',
+                name='21 EMA',
+                line=dict(color='#ff6b35', width=2, dash='dash'),
+                hovertemplate='21 EMA: $%{y:,.2f}<extra></extra>'
             ))
     
-    # Calculate proper Y-axis range for better visibility
-    all_prices = df['Close'].dropna()
-    if 'High' in df.columns:
-        max_price = df['High'].max()
-        min_price = df['Low'].min()
-    else:
-        max_price = all_prices.max()
-        min_price = all_prices.min()
-    
+    # Calculate optimal Y-axis range for better zoom
+    min_price = df['Close'].min()
+    max_price = df['Close'].max()
     price_range = max_price - min_price
     y_padding = price_range * 0.05
-    y_min = min_price - y_padding
+    y_min = max(0, min_price - y_padding)
     y_max = max_price + y_padding
     
-    # Enhanced chart styling
+    # Professional styling
     fig.update_layout(
         title=dict(
             text=title,
@@ -2993,7 +3479,7 @@ def create_professional_price_chart(symbol: str, title: str = "Price Chart", per
             showgrid=True,
             zeroline=False,
             color='#ffffff',
-            rangeslider=dict(visible=False)  # Remove range slider for cleaner look
+            title="Date"
         ),
         yaxis=dict(
             gridcolor='rgba(255,255,255,0.1)',
@@ -3002,57 +3488,69 @@ def create_professional_price_chart(symbol: str, title: str = "Price Chart", per
             color='#ffffff',
             range=[y_min, y_max],
             tickformat='$,.2f',
-            side='right'  # Move price axis to right side
+            title="Price"
         ),
         showlegend=True,
         legend=dict(
-            bgcolor='rgba(0,0,0,0.8)',
+            bgcolor='rgba(0,0,0,0.7)',
             bordercolor='rgba(255,255,255,0.2)',
             borderwidth=1,
-            x=0.01,
-            y=0.99
+            font=dict(color='#ffffff')
         ),
-        margin=dict(l=40, r=80, t=50, b=40),
-        height=500,
+        margin=dict(l=60, r=40, t=60, b=40),
+        height=450,
         hovermode='x unified'
     )
     
     return fig
 
-def create_volume_analysis_chart(symbol: str):
-    """Create volume analysis chart with volume profile and moving averages."""
+def create_volume_chart_with_data(symbol: str):
+    """Create volume chart using real data."""
     
-    df = get_enhanced_historical_data(symbol, period="1mo", interval="1d")
+    # Get real historical data
+    df = get_historical_data(symbol, period="1mo", interval="1d")
     
-    if df.empty or 'Volume' not in df.columns:
+    if df.empty:
         return create_fallback_volume_chart(symbol)
     
-    # Calculate volume indicators
-    df = calculate_technical_indicators(df)
+    # Ensure proper date column
+    date_col = 'Date' if 'Date' in df.columns else df.index
     
+    # Create volume chart
     fig = go.Figure()
     
-    # Volume bars with color coding
-    colors = ['#00ff88' if close >= open_price else '#ff006e' 
-              for close, open_price in zip(df['Close'], df['Open'])]
+    # Color volume bars based on price change
+    colors = []
+    for i in range(len(df)):
+        if i == 0:
+            colors.append('#a855f7')  # First bar neutral
+        else:
+            if df['Close'].iloc[i] >= df['Close'].iloc[i-1]:
+                colors.append('#00ff88')  # Green for up days
+            else:
+                colors.append('#ff6b35')  # Orange for down days
     
     fig.add_trace(go.Bar(
-        x=df['Date'] if 'Date' in df.columns else df.index,
+        x=df[date_col] if 'Date' in df.columns else df.index,
         y=df['Volume'],
         name='Volume',
-        marker=dict(color=colors, opacity=0.7),
-        hovertemplate='Volume: %{y:,.0f}<extra></extra>'
+        marker=dict(
+            color=colors,
+            opacity=0.7
+        ),
+        hovertemplate='<b>%{x}</b><br>Volume: %{y:,}<extra></extra>'
     ))
     
-    # Add volume moving average
-    if 'Avg_Volume_20' in df.columns:
+    # Calculate volume moving average
+    if len(df) >= 20:
+        df['Volume_MA'] = df['Volume'].rolling(window=20).mean()
         fig.add_trace(go.Scatter(
-            x=df['Date'] if 'Date' in df.columns else df.index,
-            y=df['Avg_Volume_20'],
+            x=df[date_col] if 'Date' in df.columns else df.index,
+            y=df['Volume_MA'],
             mode='lines',
-            name='20-Day Avg Volume',
-            line=dict(color='#22d3ee', width=2, dash='dot'),
-            hovertemplate='Avg Volume: %{y:,.0f}<extra></extra>'
+            name='Volume MA (20)',
+            line=dict(color='#ffffff', width=2, dash='dot'),
+            hovertemplate='Volume MA: %{y:,}<extra></extra>'
         ))
     
     fig.update_layout(
@@ -3067,196 +3565,190 @@ def create_volume_analysis_chart(symbol: str):
         xaxis=dict(
             gridcolor='rgba(255,255,255,0.1)',
             showgrid=True,
-            color='#ffffff'
+            color='#ffffff',
+            title="Date"
         ),
         yaxis=dict(
             gridcolor='rgba(255,255,255,0.1)',
             showgrid=True,
             color='#ffffff',
-            tickformat='.2s'  # Format large numbers (1M, 1K, etc.)
+            title="Volume"
         ),
         showlegend=True,
         legend=dict(
-            bgcolor='rgba(0,0,0,0.8)',
+            bgcolor='rgba(0,0,0,0.7)',
             bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
+            borderwidth=1,
+            font=dict(color='#ffffff')
         ),
         margin=dict(l=60, r=40, t=50, b=40),
-        height=300
+        height=350
     )
     
     return fig
 
-def create_rsi_momentum_chart(symbol: str):
-    """Create RSI momentum indicator chart."""
+def create_intraday_momentum_chart(symbol: str):
+    """Create intraday momentum chart with real data."""
     
-    df = get_enhanced_historical_data(symbol, period="3mo", interval="1d")
+    # Get intraday data
+    df = get_intraday_data(symbol, period="1d", interval="5m")
     
     if df.empty:
-        return None
+        return create_fallback_momentum_chart(symbol)
     
-    df = calculate_technical_indicators(df)
+    # Ensure proper datetime column
+    datetime_col = 'Datetime' if 'Datetime' in df.columns else df.index
     
-    if 'RSI' not in df.columns:
-        return None
+    # Create momentum chart
+    fig = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=('Price Action', 'Momentum Indicator'),
+        vertical_spacing=0.15,
+        row_heights=[0.7, 0.3]
+    )
     
-    fig = go.Figure()
+    # Price chart with EMAs
+    fig.add_trace(
+        go.Scatter(
+            x=df[datetime_col] if 'Datetime' in df.columns else df.index,
+            y=df['Close'],
+            mode='lines',
+            name='Price',
+            line=dict(color='#22d3ee', width=2),
+            hovertemplate='Price: $%{y:,.2f}<extra></extra>'
+        ),
+        row=1, col=1
+    )
     
-    # RSI line
-    fig.add_trace(go.Scatter(
-        x=df['Date'] if 'Date' in df.columns else df.index,
-        y=df['RSI'],
-        mode='lines',
-        name='RSI (14)',
-        line=dict(color='#22d3ee', width=2),
-        hovertemplate='RSI: %{y:.2f}<extra></extra>'
-    ))
+    # Add EMAs if available
+    if 'EMA_8' in df.columns and len(df) >= 21:
+        fig.add_trace(
+            go.Scatter(
+                x=df[datetime_col] if 'Datetime' in df.columns else df.index,
+                y=df['EMA_8'],
+                mode='lines',
+                name='8 EMA',
+                line=dict(color='#00ff88', width=1),
+                hovertemplate='8 EMA: $%{y:,.2f}<extra></extra>'
+            ),
+            row=1, col=1
+        )
     
-    # RSI levels
-    fig.add_hline(y=70, line=dict(color='#ff006e', width=1, dash='dash'), annotation_text="Overbought (70)")
-    fig.add_hline(y=30, line=dict(color='#00ff88', width=1, dash='dash'), annotation_text="Oversold (30)")
-    fig.add_hline(y=50, line=dict(color='rgba(255,255,255,0.3)', width=1), annotation_text="Midline (50)")
+    # Momentum indicator
+    if 'Momentum' in df.columns:
+        # Color momentum bars
+        momentum_colors = ['#00ff88' if x > 0 else '#ff6b35' for x in df['Momentum']]
+        
+        fig.add_trace(
+            go.Bar(
+                x=df[datetime_col] if 'Datetime' in df.columns else df.index,
+                y=df['Momentum'],
+                name='Momentum',
+                marker=dict(color=momentum_colors, opacity=0.7),
+                hovertemplate='Momentum: %{y:+.2f}%<extra></extra>'
+            ),
+            row=2, col=1
+        )
+        
+        # Add zero line
+        fig.add_hline(y=0, line_dash="dash", line_color="white", opacity=0.5, row=2, col=1)
     
+    # Update layout
     fig.update_layout(
         title=dict(
-            text=f"{symbol} RSI Momentum",
+            text=f"{symbol} Intraday Momentum Analysis",
             font=dict(color='#ffffff', size=18, family='Space Grotesk'),
             x=0.5
         ),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff'
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(0,0,0,0.7)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1,
+            font=dict(color='#ffffff')
         ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff',
-            range=[0, 100],
-            tickmode='linear',
-            tick0=0,
-            dtick=10
-        ),
-        showlegend=False,
-        margin=dict(l=60, r=40, t=50, b=40),
-        height=250
+        height=500,
+        hovermode='x unified'
+    )
+    
+    # Update axes
+    fig.update_xaxes(
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=True,
+        color='#ffffff'
+    )
+    fig.update_yaxes(
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=True,
+        color='#ffffff'
     )
     
     return fig
 
-def create_fallback_demo_chart(symbol: str, title: str):
-    """Enhanced fallback demo chart when real data is unavailable."""
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# FALLBACK CHART FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def create_fallback_chart(symbol: str, title: str):
+    """Fallback chart when real data is unavailable."""
     
-    from datetime import datetime, timedelta
-    import numpy as np
+    # Generate demo data
+    dates = pd.date_range(start=datetime.now() - timedelta(days=30), end=datetime.now(), freq='D')
     
-    # Demo data with more realistic price action
-    dates = [datetime.now() - timedelta(days=x) for x in range(30, 0, -1)]
-    
-    asset_data = {
+    # Asset-specific demo data
+    demo_params = {
         "^GSPC": {"base": 6443, "volatility": 80},
         "AAPL": {"base": 230, "volatility": 8},
         "MSFT": {"base": 420, "volatility": 15},
         "NVDA": {"base": 140, "volatility": 12},
         "AMZN": {"base": 185, "volatility": 14},
-        "GOOGL": {"base": 175, "volatility": 10},
-        "META": {"base": 520, "volatility": 25},
-        "TSLA": {"base": 240, "volatility": 20},
-        "NFLX": {"base": 680, "volatility": 35},
-        "GOOG": {"base": 175, "volatility": 10},
     }
     
-    config = asset_data.get(symbol, {"base": 200, "volatility": 10})
-    base_price = config["base"]
-    volatility = config["volatility"]
+    params = demo_params.get(symbol, {"base": 200, "volatility": 10})
     
-    # Generate more realistic OHLC data
+    # Generate realistic price movement
     prices = []
-    current_price = base_price
+    current_price = params["base"]
     
-    for i in range(30):
-        # Add trend component
-        trend = np.sin(i * 0.15) * (volatility * 0.4)
-        daily_change = np.random.normal(0, volatility * 0.3)
-        
-        open_price = current_price
-        close_price = open_price + trend + daily_change
-        
-        # Generate realistic high/low
-        intraday_range = abs(close_price - open_price) + np.random.uniform(volatility * 0.1, volatility * 0.5)
-        high_price = max(open_price, close_price) + np.random.uniform(0, intraday_range * 0.3)
-        low_price = min(open_price, close_price) - np.random.uniform(0, intraday_range * 0.3)
-        
-        prices.append({
-            'Date': dates[i],
-            'Open': open_price,
-            'High': high_price,
-            'Low': low_price,
-            'Close': close_price,
-            'Volume': np.random.randint(1000000, 5000000)
-        })
-        
-        current_price = close_price
-    
-    demo_df = pd.DataFrame(prices)
-    demo_df = calculate_technical_indicators(demo_df)
+    for i in range(len(dates)):
+        trend = np.sin(i * 0.1) * (params["volatility"] * 0.2)
+        daily_change = np.random.normal(0, params["volatility"] * 0.15)
+        current_price += trend + daily_change
+        prices.append(max(current_price, params["base"] * 0.5))  # Prevent negative prices
     
     fig = go.Figure()
     
-    # Candlestick chart
-    fig.add_trace(go.Candlestick(
-        x=demo_df['Date'],
-        open=demo_df['Open'],
-        high=demo_df['High'],
-        low=demo_df['Low'],
-        close=demo_df['Close'],
+    fig.add_trace(go.Scatter(
+        x=dates,
+        y=prices,
+        mode='lines',
         name=f"{symbol} (Demo)",
-        increasing_line_color='rgba(255, 107, 53, 0.8)',
-        decreasing_line_color='rgba(255, 107, 53, 0.8)',
-        increasing_fillcolor='rgba(255, 107, 53, 0.3)',
-        decreasing_fillcolor='rgba(255, 107, 53, 0.3)'
+        line=dict(color='#ff6b35', width=3, dash='dot'),
+        hovertemplate='<b>%{x}</b><br>Demo Price: $%{y:,.2f}<extra></extra>'
     ))
     
-    # Add EMAs
-    if 'EMA_8' in demo_df.columns:
-        fig.add_trace(go.Scatter(
-            x=demo_df['Date'],
-            y=demo_df['EMA_8'],
-            mode='lines',
-            name='8 EMA (Demo)',
-            line=dict(color='rgba(255, 107, 53, 0.7)', width=2, dash='dot')
-        ))
-    
-    if 'EMA_21' in demo_df.columns:
-        fig.add_trace(go.Scatter(
-            x=demo_df['Date'],
-            y=demo_df['EMA_21'],
-            mode='lines',
-            name='21 EMA (Demo)',
-            line=dict(color='rgba(168, 85, 247, 0.7)', width=2, dash='dot')
-        ))
-    
-    # Warning annotation
+    # Add demo warning
     fig.add_annotation(
         text="⚠️ Demo Data - Real data unavailable",
         xref="paper", yref="paper",
-        x=0.5, y=0.95,
+        x=0.02, y=0.98,
         showarrow=False,
-        font=dict(color='#ff6b35', size=14, family='Space Grotesk'),
+        font=dict(color='#ff6b35', size=12),
         bgcolor='rgba(255, 107, 53, 0.1)',
         bordercolor='#ff6b35',
-        borderwidth=2,
-        borderpad=10
+        borderwidth=1,
+        align="left"
     )
     
-    min_price = demo_df['Low'].min()
-    max_price = demo_df['High'].max()
+    # Calculate Y range
+    min_price = min(prices)
+    max_price = max(prices)
     price_range = max_price - min_price
-    y_min = min_price - (price_range * 0.05)
-    y_max = max_price + (price_range * 0.05)
+    y_min = max(0, min_price - (price_range * 0.1))
+    y_max = max_price + (price_range * 0.1)
     
     fig.update_layout(
         title=dict(
@@ -3270,37 +3762,27 @@ def create_fallback_demo_chart(symbol: str, title: str):
         xaxis=dict(
             gridcolor='rgba(255,255,255,0.1)',
             showgrid=True,
-            color='#ffffff',
-            rangeslider=dict(visible=False)
+            color='#ffffff'
         ),
         yaxis=dict(
             gridcolor='rgba(255,255,255,0.1)',
             showgrid=True,
             color='#ffffff',
             range=[y_min, y_max],
-            tickformat='$,.2f',
-            side='right'
+            tickformat='$,.2f'
         ),
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(0,0,0,0.8)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
-        ),
-        margin=dict(l=40, r=80, t=50, b=40),
-        height=500
+        showlegend=False,
+        margin=dict(l=60, r=40, t=60, b=40),
+        height=450
     )
     
     return fig
 
 def create_fallback_volume_chart(symbol: str):
-    """Fallback volume chart for demo mode."""
+    """Fallback volume chart with demo data."""
     
-    from datetime import datetime, timedelta
-    import numpy as np
-    
-    dates = [datetime.now() - timedelta(days=x) for x in range(20, 0, -1)]
-    volumes = [np.random.randint(500000, 3000000) for _ in dates]
+    dates = pd.date_range(start=datetime.now() - timedelta(days=20), end=datetime.now(), freq='D')
+    volumes = [np.random.randint(1000000, 5000000) for _ in dates]
     
     fig = go.Figure()
     
@@ -3308,17 +3790,17 @@ def create_fallback_volume_chart(symbol: str):
         x=dates,
         y=volumes,
         name='Volume (Demo)',
-        marker=dict(color='rgba(255, 107, 53, 0.7)')
+        marker=dict(color='#a855f7', opacity=0.7)
     ))
     
     fig.add_annotation(
         text="⚠️ Demo Volume Data",
         xref="paper", yref="paper",
-        x=0.5, y=0.95,
+        x=0.02, y=0.98,
         showarrow=False,
-        font=dict(color='#ff6b35', size=12),
-        bgcolor='rgba(255, 107, 53, 0.1)',
-        bordercolor='#ff6b35',
+        font=dict(color='#a855f7', size=12),
+        bgcolor='rgba(168, 85, 247, 0.1)',
+        bordercolor='#a855f7',
         borderwidth=1
     )
     
@@ -3331,581 +3813,280 @@ def create_fallback_volume_chart(symbol: str):
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#ffffff', family='Space Grotesk'),
-        xaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff'
-        ),
-        yaxis=dict(
-            gridcolor='rgba(255,255,255,0.1)',
-            showgrid=True,
-            color='#ffffff'
-        ),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
         showlegend=False,
-        margin=dict(l=60, r=40, t=50, b=40),
-        height=300
+        height=350
     )
     
     return fig
 
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 3B2: ADVANCED DATA INTEGRATION & PERFORMANCE FEATURES
-# Multi-timeframe Analysis, Performance Optimization & Advanced Signal Detection
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# MULTI-TIMEFRAME DATA INTEGRATION
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-@st.cache_data(ttl=180, show_spinner=False)
-def get_multi_timeframe_data(symbol: str) -> dict:
-    """Get data across multiple timeframes for comprehensive analysis."""
+def create_fallback_momentum_chart(symbol: str):
+    """Fallback momentum chart with demo data."""
     
-    timeframes = {
-        'intraday': {'period': '1d', 'interval': '5m'},
-        'daily': {'period': '1mo', 'interval': '1d'},
-        'weekly': {'period': '6mo', 'interval': '1wk'},
-        'monthly': {'period': '2y', 'interval': '1mo'}
+    dates = pd.date_range(start=datetime.now() - timedelta(hours=6), end=datetime.now(), freq='5T')
+    momentum = [np.random.normal(0, 1.5) for _ in dates]
+    
+    fig = go.Figure()
+    
+    momentum_colors = ['#00ff88' if x > 0 else '#ff6b35' for x in momentum]
+    
+    fig.add_trace(go.Bar(
+        x=dates,
+        y=momentum,
+        name='Momentum (Demo)',
+        marker=dict(color=momentum_colors, opacity=0.7)
+    ))
+    
+    fig.add_hline(y=0, line_dash="dash", line_color="white", opacity=0.5)
+    
+    fig.add_annotation(
+        text="⚠️ Demo Momentum Data",
+        xref="paper", yref="paper",
+        x=0.02, y=0.98,
+        showarrow=False,
+        font=dict(color='#00ff88', size=12),
+        bgcolor='rgba(0, 255, 136, 0.1)',
+        bordercolor='#00ff88',
+        borderwidth=1
+    )
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{symbol} Momentum (Demo)",
+            font=dict(color='#ffffff', size=18, family='Space Grotesk'),
+            x=0.5
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#ffffff', family='Space Grotesk'),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
+        showlegend=False,
+        height=350
+    )
+    
+    return fig
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# DATA INTEGRATION SUMMARY FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def get_comprehensive_data_summary() -> dict:
+    """Get comprehensive summary of all data systems."""
+    
+    current_asset = AppState.get_current_asset()
+    forecast_date = AppState.get_forecast_date()
+    
+    # Test all data sources
+    market_data = get_real_market_data(current_asset)
+    historical_data = get_historical_data(current_asset)
+    asian_data = get_es_asian_session_data(forecast_date)
+    previous_day = get_previous_day_ohlc(current_asset, forecast_date)
+    
+    # Calculate overall system status
+    data_sources = {
+        "live_market": market_data['status'] == 'success',
+        "historical": not historical_data.empty,
+        "asian_session": asian_data['status'] == 'success',
+        "previous_day": previous_day['status'] == 'success'
     }
     
-    results = {}
-    
-    for tf_name, params in timeframes.items():
-        try:
-            df = get_enhanced_historical_data(symbol, **params)
-            if not df.empty:
-                df = calculate_technical_indicators(df)
-                results[tf_name] = {
-                    'data': df,
-                    'status': 'success',
-                    'last_price': df['Close'].iloc[-1] if 'Close' in df.columns else 0,
-                    'ema_8': df['EMA_8'].iloc[-1] if 'EMA_8' in df.columns else 0,
-                    'ema_21': df['EMA_21'].iloc[-1] if 'EMA_21' in df.columns else 0,
-                    'rsi': df['RSI'].iloc[-1] if 'RSI' in df.columns else 50,
-                    'data_points': len(df)
-                }
-            else:
-                results[tf_name] = {'status': 'error', 'message': 'No data available'}
-        except Exception as e:
-            results[tf_name] = {'status': 'error', 'message': str(e)}
-    
-    return results
-
-def analyze_ema_trend_alignment(multi_tf_data: dict) -> dict:
-    """Analyze EMA trend alignment across multiple timeframes."""
-    
-    alignment_analysis = {
-        'overall_trend': 'Unknown',
-        'strength': 0,
-        'timeframe_analysis': {},
-        'confluence_score': 0
-    }
-    
-    trend_scores = []
-    
-    for tf_name, tf_data in multi_tf_data.items():
-        if tf_data.get('status') == 'success':
-            ema_8 = tf_data.get('ema_8', 0)
-            ema_21 = tf_data.get('ema_21', 0)
-            
-            if ema_8 > 0 and ema_21 > 0:
-                if ema_8 > ema_21:
-                    trend = 'Bullish'
-                    trend_score = 1
-                elif ema_8 < ema_21:
-                    trend = 'Bearish'
-                    trend_score = -1
-                else:
-                    trend = 'Neutral'
-                    trend_score = 0
-                
-                # Calculate trend strength based on EMA separation
-                separation_pct = abs((ema_8 - ema_21) / ema_21) * 100 if ema_21 > 0 else 0
-                
-                alignment_analysis['timeframe_analysis'][tf_name] = {
-                    'trend': trend,
-                    'ema_8': ema_8,
-                    'ema_21': ema_21,
-                    'separation_pct': separation_pct,
-                    'strength': 'Strong' if separation_pct > 2 else 'Moderate' if separation_pct > 0.5 else 'Weak'
-                }
-                
-                trend_scores.append(trend_score)
-    
-    # Calculate overall trend and confluence
-    if trend_scores:
-        avg_score = sum(trend_scores) / len(trend_scores)
-        
-        if avg_score > 0.5:
-            alignment_analysis['overall_trend'] = 'Bullish'
-        elif avg_score < -0.5:
-            alignment_analysis['overall_trend'] = 'Bearish'
-        else:
-            alignment_analysis['overall_trend'] = 'Mixed'
-        
-        # Confluence score (how many timeframes agree)
-        dominant_trend = 1 if avg_score > 0 else -1
-        agreement_count = sum(1 for score in trend_scores if (score > 0) == (dominant_trend > 0))
-        alignment_analysis['confluence_score'] = (agreement_count / len(trend_scores)) * 100
-        alignment_analysis['strength'] = len(trend_scores)
-    
-    return alignment_analysis
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# ADVANCED SIGNAL DETECTION & ALERTS
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-def detect_advanced_signals(symbol: str) -> list:
-    """Detect advanced trading signals across multiple timeframes."""
-    
-    signals = []
-    multi_tf_data = get_multi_timeframe_data(symbol)
-    
-    # EMA Cross Signals
-    for tf_name, tf_data in multi_tf_data.items():
-        if tf_data.get('status') == 'success' and 'data' in tf_data:
-            df = tf_data['data']
-            ema_signals = detect_ema_cross_signals(df)
-            
-            for signal in ema_signals:
-                signal['timeframe'] = tf_name
-                signal['priority'] = get_signal_priority(tf_name)
-                signals.append(signal)
-    
-    # Trend Alignment Signal
-    trend_analysis = analyze_ema_trend_alignment(multi_tf_data)
-    if trend_analysis['confluence_score'] >= 75:  # 75% or more timeframes agree
-        signals.append({
-            'type': 'Multi-Timeframe Alignment',
-            'trend': trend_analysis['overall_trend'],
-            'confluence_score': trend_analysis['confluence_score'],
-            'strength': trend_analysis['strength'],
-            'priority': 'High',
-            'description': f"{trend_analysis['overall_trend']} trend with {trend_analysis['confluence_score']:.0f}% confluence"
-        })
-    
-    # RSI Divergence Detection (simplified)
-    daily_data = multi_tf_data.get('daily', {})
-    if daily_data.get('status') == 'success':
-        rsi_current = daily_data.get('rsi', 50)
-        if rsi_current > 70:
-            signals.append({
-                'type': 'RSI Overbought',
-                'rsi_value': rsi_current,
-                'priority': 'Medium',
-                'description': f"RSI at {rsi_current:.1f} indicates potential reversal"
-            })
-        elif rsi_current < 30:
-            signals.append({
-                'type': 'RSI Oversold',
-                'rsi_value': rsi_current,
-                'priority': 'Medium',
-                'description': f"RSI at {rsi_current:.1f} indicates potential bounce"
-            })
-    
-    # Sort signals by priority and recency
-    priority_order = {'High': 3, 'Medium': 2, 'Low': 1}
-    signals.sort(key=lambda x: priority_order.get(x.get('priority', 'Low'), 1), reverse=True)
-    
-    return signals
-
-def get_signal_priority(timeframe: str) -> str:
-    """Assign priority based on timeframe."""
-    priority_map = {
-        'monthly': 'High',
-        'weekly': 'High', 
-        'daily': 'Medium',
-        'intraday': 'Low'
-    }
-    return priority_map.get(timeframe, 'Low')
-
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# PERFORMANCE MONITORING & OPTIMIZATION
-# ═══════════════════════════════════════════════════════════════════════════════════════
-
-def get_system_performance_metrics() -> dict:
-    """Get comprehensive system performance metrics."""
-    
-    # Cache statistics
-    cache_info = {}
-    if hasattr(st, 'cache_data'):
-        # This is a simplified version - actual implementation would track cache hits/misses
-        cache_info = {
-            'cache_enabled': True,
-            'estimated_hit_rate': '85%',  # Would be calculated from actual metrics
-            'memory_usage': 'Optimal'
-        }
-    
-    # API performance simulation
-    start_time = datetime.now()
-    test_symbol = AppState.get_current_asset()
-    
-    try:
-        # Test data fetch speed
-        test_data = get_real_market_data(test_symbol)
-        response_time = (datetime.now() - start_time).total_seconds()
-        
-        api_performance = {
-            'response_time': response_time,
-            'status': 'Good' if response_time < 2.0 else 'Slow' if response_time < 5.0 else 'Poor',
-            'last_test': datetime.now(),
-            'data_quality': test_data.get('validation_status', 'Unknown')
-        }
-    except Exception as e:
-        api_performance = {
-            'response_time': 999,
-            'status': 'Error',
-            'error': str(e),
-            'last_test': datetime.now()
-        }
-    
-    # System resources (simplified)
-    system_health = {
-        'cpu_usage': '15%',  # Would be from actual system monitoring
-        'memory_usage': '340MB',
-        'active_connections': 1,
-        'uptime': '99.9%'
-    }
+    successful_sources = sum(data_sources.values())
+    total_sources = len(data_sources)
+    system_health = (successful_sources / total_sources) * 100
     
     return {
-        'cache': cache_info,
-        'api': api_performance, 
-        'system': system_health,
-        'overall_score': calculate_performance_score(api_performance, cache_info)
+        "system_health": system_health,
+        "data_sources": data_sources,
+        "successful_sources": successful_sources,
+        "total_sources": total_sources,
+        "market_data_quality": calculate_data_quality_score(market_data, historical_data),
+        "projection_ready": data_sources["asian_session"] and data_sources["previous_day"],
+        "chart_ready": data_sources["historical"],
+        "live_ready": data_sources["live_market"]
     }
 
-def calculate_performance_score(api_perf: dict, cache_info: dict) -> int:
-    """Calculate overall performance score out of 100."""
-    
-    score = 100
-    
-    # API performance impact
-    response_time = api_perf.get('response_time', 999)
-    if response_time > 5.0:
-        score -= 30
-    elif response_time > 2.0:
-        score -= 15
-    
-    # API status impact
-    if api_perf.get('status') == 'Error':
-        score -= 40
-    elif api_perf.get('status') == 'Poor':
-        score -= 25
-    
-    # Cache performance impact
-    if not cache_info.get('cache_enabled', False):
-        score -= 20
-    
-    return max(0, score)
-
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# ADVANCED DISPLAY FUNCTIONS
+# EXECUTE PART 3C - LIVE CHARTS & FINAL INTEGRATION
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-def display_advanced_charts_section():
-    """Display advanced charting section with multiple timeframes."""
-    
-    current_asset = AppState.get_current_asset()
-    display_symbol = get_display_symbol(current_asset)
-    
-    st.markdown(f"""
-    <div style="text-align: center; margin: 3rem 0 2rem 0;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
-        <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
-                   background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
-                   -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            Advanced Technical Analysis
-        </h2>
-        <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">
-            Professional charts with 8EMA/21EMA analysis and multi-timeframe signals
-        </p>
-    </div>
-    <div class="section-divider"></div>
-    """, unsafe_allow_html=True)
-    
-    # Chart tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Price & EMAs", "📈 Volume Analysis", "⚡ RSI Momentum", "🔍 Multi-Timeframe"])
-    
-    with tab1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        
-        # Timeframe selector
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            chart_period = st.selectbox(
-                "Timeframe",
-                options=["1d", "5d", "1mo", "3mo", "6mo", "1y"],
-                index=2,
-                key="price_chart_period"
-            )
-            
-            chart_interval = "5m" if chart_period == "1d" else "1h" if chart_period == "5d" else "1d"
-        
-        with col1:
-            # Create and display price chart with EMAs
-            price_fig = create_professional_price_chart(
-                current_asset, 
-                f"{display_symbol} Price Action with 8/21 EMAs",
-                period=chart_period,
-                interval=chart_interval
-            )
-            st.plotly_chart(price_fig, use_container_width=True, config=CHART_CONFIG)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # EMA Analysis
-        df = get_enhanced_historical_data(current_asset, period=chart_period, interval=chart_interval)
-        if not df.empty:
-            df = calculate_technical_indicators(df)
-            recent_signals = detect_ema_cross_signals(df)
-            
-            if recent_signals:
-                st.markdown("#### 🎯 Recent EMA Signals")
-                for signal in recent_signals[-3:]:  # Show last 3 signals
-                    signal_color = "#00ff88" if "Bullish" in signal['type'] else "#ff006e"
-                    st.markdown(f"""
-                    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; 
-                                border-left: 3px solid {signal_color}; margin: 0.5rem 0;">
-                        <div style="font-weight: 700; color: {signal_color};">{signal['type']}</div>
-                        <div style="color: rgba(255,255,255,0.8);">{signal['description']}</div>
-                        <div style="color: rgba(255,255,255,0.6); font-size: 0.875rem;">
-                            Strength: {signal['signal_strength']} | Price: ${signal['price']:.2f}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("💡 No recent EMA cross signals detected")
-    
-    with tab2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        
-        # Volume analysis chart
-        volume_fig = create_volume_analysis_chart(current_asset)
-        st.plotly_chart(volume_fig, use_container_width=True, config=CHART_CONFIG)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Volume insights
-        df = get_enhanced_historical_data(current_asset, period="1mo", interval="1d")
-        if not df.empty and 'Volume' in df.columns:
-            df = calculate_technical_indicators(df)
-            latest_volume = df['Volume'].iloc[-1]
-            avg_volume = df['Avg_Volume_20'].iloc[-1] if 'Avg_Volume_20' in df.columns else latest_volume
-            volume_ratio = latest_volume / avg_volume if avg_volume > 0 else 1
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Latest Volume", f"{latest_volume:,.0f}")
-            with col2:
-                st.metric("20-Day Average", f"{avg_volume:,.0f}")
-            with col3:
-                ratio_color = "normal" if 0.5 <= volume_ratio <= 2.0 else "inverse"
-                st.metric("Volume Ratio", f"{volume_ratio:.2f}x", delta_color=ratio_color)
-    
-    with tab3:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        
-        # RSI momentum chart
-        rsi_fig = create_rsi_momentum_chart(current_asset)
-        if rsi_fig:
-            st.plotly_chart(rsi_fig, use_container_width=True, config=CHART_CONFIG)
-            
-            # RSI analysis
-            df = get_enhanced_historical_data(current_asset, period="3mo", interval="1d")
-            if not df.empty:
-                df = calculate_technical_indicators(df)
-                if 'RSI' in df.columns:
-                    current_rsi = df['RSI'].iloc[-1]
-                    
-                    if current_rsi > 70:
-                        st.warning(f"⚠️ **RSI Overbought:** Current RSI is {current_rsi:.1f} - potential reversal signal")
-                    elif current_rsi < 30:
-                        st.success(f"✅ **RSI Oversold:** Current RSI is {current_rsi:.1f} - potential bounce signal")
-                    else:
-                        st.info(f"📊 **RSI Neutral:** Current RSI is {current_rsi:.1f} - within normal range")
-        else:
-            st.warning("RSI data not available - insufficient historical data")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with tab4:
-        st.markdown("#### 🔍 Multi-Timeframe Analysis")
-        
-        # Get multi-timeframe data
-        multi_tf_data = get_multi_timeframe_data(current_asset)
-        trend_analysis = analyze_ema_trend_alignment(multi_tf_data)
-        
-        # Trend alignment overview
-        confluence_color = "#00ff88" if trend_analysis['confluence_score'] >= 75 else "#ff6b35" if trend_analysis['confluence_score'] >= 50 else "#ff006e"
-        
-        st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); padding: 2rem; border-radius: 16px; text-align: center; margin: 1rem 0;">
-            <h3 style="color: {confluence_color}; margin-bottom: 1rem;">
-                {trend_analysis['overall_trend']} Trend Detected
-            </h3>
-            <div style="font-size: 2rem; margin-bottom: 1rem;">
-                {'📈' if trend_analysis['overall_trend'] == 'Bullish' else '📉' if trend_analysis['overall_trend'] == 'Bearish' else '➡️'}
-            </div>
-            <div style="color: rgba(255,255,255,0.8); font-size: 1.1rem;">
-                Confluence Score: <span style="color: {confluence_color}; font-weight: 700;">{trend_analysis['confluence_score']:.0f}%</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Timeframe breakdown
-        if trend_analysis['timeframe_analysis']:
-            st.markdown("#### 📊 Timeframe Breakdown")
-            
-            for tf_name, tf_analysis in trend_analysis['timeframe_analysis'].items():
-                trend_color = "#00ff88" if tf_analysis['trend'] == 'Bullish' else "#ff006e" if tf_analysis['trend'] == 'Bearish' else "#64748b"
-                trend_icon = "📈" if tf_analysis['trend'] == 'Bullish' else "📉" if tf_analysis['trend'] == 'Bearish' else "➡️"
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.markdown(f"""
-                    <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
-                        <div style="font-size: 1.5rem;">{trend_icon}</div>
-                        <div style="font-weight: 700; text-transform: capitalize;">{tf_name}</div>
-                        <div style="color: {trend_color}; font-size: 0.875rem;">{tf_analysis['trend']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with col2:
-                    st.metric("8 EMA", f"${tf_analysis['ema_8']:.2f}")
-                
-                with col3:
-                    st.metric("21 EMA", f"${tf_analysis['ema_21']:.2f}")
-                
-                with col4:
-                    st.metric("Separation", f"{tf_analysis['separation_pct']:.2f}%", tf_analysis['strength'])
+# Display header
+st.markdown(f"""
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Live Chart Integration
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Professional charts with real market data and technical analysis</p>
+</div>
+<div class="section-divider"></div>
+""", unsafe_allow_html=True)
 
-def display_signal_dashboard():
-    """Display advanced signal detection dashboard."""
-    
-    current_asset = AppState.get_current_asset()
-    signals = detect_advanced_signals(current_asset)
-    
-    st.markdown("#### 🚨 Advanced Signal Detection")
-    
-    if signals:
-        # Priority signals first
-        high_priority = [s for s in signals if s.get('priority') == 'High']
-        medium_priority = [s for s in signals if s.get('priority') == 'Medium']
-        low_priority = [s for s in signals if s.get('priority') == 'Low']
-        
-        for priority_group, group_name, group_color in [
-            (high_priority, "High Priority", "#ff006e"),
-            (medium_priority, "Medium Priority", "#ff6b35"), 
-            (low_priority, "Low Priority", "#64748b")
-        ]:
-            if priority_group:
-                st.markdown(f"**{group_name} Signals:**")
-                for signal in priority_group:
-                    st.markdown(f"""
-                    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; 
-                                border-left: 3px solid {group_color}; margin: 0.5rem 0;">
-                        <div style="font-weight: 700; color: {group_color};">
-                            {signal['type']} {signal.get('timeframe', '').upper() if signal.get('timeframe') else ''}
-                        </div>
-                        <div style="color: rgba(255,255,255,0.8);">{signal.get('description', 'No description')}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-    else:
-        st.info("📊 No active signals detected - market in neutral state")
+# Get current asset for charts
+current_asset = AppState.get_current_asset()
+display_symbol = get_display_symbol(current_asset)
 
-def display_performance_dashboard():
-    """Display system performance monitoring dashboard."""
+# Create chart tabs with real data
+tab1, tab2, tab3 = st.tabs(["📊 Price & EMAs", "📈 Volume Analysis", "⚡ Momentum"])
+
+with tab1:
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
     
-    st.markdown("#### ⚡ System Performance Monitor")
-    
-    perf_metrics = get_system_performance_metrics()
-    
-    # Overall score
-    overall_score = perf_metrics['overall_score']
-    score_color = "#00ff88" if overall_score >= 80 else "#ff6b35" if overall_score >= 60 else "#ff006e"
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
-            <div style="font-size: 2rem; color: {score_color};">⚡</div>
-            <div style="font-weight: 700;">Overall Score</div>
-            <div style="color: {score_color}; font-size: 1.5rem; font-weight: 800;">{overall_score}/100</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Controls for chart customization
+    col1, col2 = st.columns([3, 1])
     
     with col2:
-        api_status = perf_metrics['api']['status']
-        api_color = "#00ff88" if api_status == 'Good' else "#ff6b35" if api_status == 'Slow' else "#ff006e"
-        st.markdown(f"""
-        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
-            <div style="font-size: 2rem; color: {api_color};">🌐</div>
-            <div style="font-weight: 700;">API Performance</div>
-            <div style="color: {api_color}; font-size: 1rem; font-weight: 700;">{api_status}</div>
-            <div style="color: rgba(255,255,255,0.6); font-size: 0.75rem;">
-                {perf_metrics['api']['response_time']:.2f}s
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        show_emas = st.checkbox("Show EMAs", value=True, help="Display 8 and 21 EMAs")
     
-    with col3:
-        st.markdown(f"""
-        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
-            <div style="font-size: 2rem; color: #22d3ee;">💾</div>
-            <div style="font-weight: 700;">Cache System</div>
-            <div style="color: #22d3ee; font-size: 1rem; font-weight: 700;">
-                {perf_metrics['cache'].get('estimated_hit_rate', 'Active')}
-            </div>
-            <div style="color: rgba(255,255,255,0.6); font-size: 0.75rem;">Hit Rate</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Create and display price chart
+    price_fig = create_professional_price_chart(current_asset, f"{display_symbol} Price Analysis", show_emas)
+    st.plotly_chart(price_fig, use_container_width=True, config=CHART_CONFIG)
     
-    with col4:
-        st.markdown(f"""
-        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
-            <div style="font-size: 2rem; color: #a855f7;">🖥️</div>
-            <div style="font-weight: 700;">System Health</div>
-            <div style="color: #a855f7; font-size: 1rem; font-weight: 700;">
-                {perf_metrics['system']['uptime']}
-            </div>
-            <div style="color: rgba(255,255,255,0.6); font-size: 0.75rem;">Uptime</div>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════════════════════════════
-# EXECUTE PART 3B2 - ADVANCED FEATURES
-# ═══════════════════════════════════════════════════════════════════════════════════════
+with tab2:
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    
+    # Create and display volume chart
+    volume_fig = create_volume_chart_with_data(current_asset)
+    st.plotly_chart(volume_fig, use_container_width=True, config=CHART_CONFIG)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Advanced charts section
-display_advanced_charts_section()
+with tab3:
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    
+    # Create and display momentum chart
+    momentum_fig = create_intraday_momentum_chart(current_asset)
+    st.plotly_chart(momentum_fig, use_container_width=True, config=CHART_CONFIG)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Signal detection dashboard  
-display_signal_dashboard()
-
-# Performance monitoring
-display_performance_dashboard()
-
-# Summary status
+# Final data system summary
 st.markdown(f"""
-<div class="glass-panel" style="padding: 2rem; text-align: center; margin: 3rem 0;">
-    <div style="font-size: 3rem; margin-bottom: 1rem;">🎯</div>
-    <h3 style="color: #ffffff; font-size: 1.8rem; font-weight: 800; margin-bottom: 1rem;">
-        Advanced Analytics System - Fully Operational
-    </h3>
-    <p style="color: rgba(255, 255, 255, 0.8); font-size: 1.1rem; margin-bottom: 1.5rem;">
-        Multi-timeframe analysis with 8EMA/21EMA signals, technical indicators, and performance monitoring.
-    </p>
-    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-        <span class="status-chip status-live">📈 Charts Active</span>
-        <span class="status-chip status-live">🎯 Signals Ready</span>
-        <span class="status-chip status-live">⚡ Performance Optimal</span>
-        <span class="status-chip status-live">🔍 Multi-TF Analysis</span>
-    </div>
+<div style="text-align: center; margin: 3rem 0 2rem 0;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
+    <h2 style="color: #ffffff; font-size: 2.5rem; font-weight: 900; margin: 0;
+               background: linear-gradient(135deg, #00ff88 0%, #22d3ee 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Data System Status
+    </h2>
+    <p style="color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0.5rem 0 0 0;">Complete system overview and readiness verification</p>
 </div>
 """, unsafe_allow_html=True)
+
+# Get comprehensive system summary
+system_summary = get_comprehensive_data_summary()
+
+# Display system health overview
+st.markdown("#### 🔧 System Health Overview")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    health_color = "🟢" if system_summary['system_health'] >= 75 else "🟡" if system_summary['system_health'] >= 50 else "🔴"
+    st.metric(
+        "System Health",
+        f"{health_color} {system_summary['system_health']:.0f}%",
+        f"{system_summary['successful_sources']}/{system_summary['total_sources']} Sources"
+    )
+
+with col2:
+    quality_color = "🟢" if system_summary['market_data_quality'] >= 75 else "🟡" if system_summary['market_data_quality'] >= 50 else "🔴"
+    st.metric(
+        "Data Quality",
+        f"{quality_color} {system_summary['market_data_quality']}%",
+        "Market Data"
+    )
+
+with col3:
+    projection_status = "🟢 Ready" if system_summary['projection_ready'] else "🔴 Incomplete"
+    st.metric(
+        "Projection System",
+        projection_status,
+        "Anchors Available"
+    )
+
+with col4:
+    chart_status = "🟢 Active" if system_summary['chart_ready'] else "🔴 Unavailable"
+    st.metric(
+        "Chart System",
+        chart_status,
+        "Historical Data"
+    )
+
+# Data source breakdown
+st.markdown("#### 📡 Data Source Status")
+
+data_sources = system_summary['data_sources']
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    live_status = "🟢 Connected" if data_sources['live_market'] else "🔴 Error"
+    st.metric("Live Market", live_status, "Yahoo Finance")
+
+with col2:
+    hist_status = "🟢 Available" if data_sources['historical'] else "🔴 Missing"
+    st.metric("Historical Data", hist_status, "Price History")
+
+with col3:
+    asian_status = "🟢 Retrieved" if data_sources['asian_session'] else "🔴 Failed"
+    st.metric("Asian Session", asian_status, "ES Futures")
+
+with col4:
+    prev_status = "🟢 Retrieved" if data_sources['previous_day'] else "🔴 Failed"
+    st.metric("Previous Day", prev_status, "OHLC Data")
+
+# Final system status
+if system_summary['system_health'] >= 75:
+    st.success("✅ **Data System Fully Operational** - All core components functioning properly")
+elif system_summary['system_health'] >= 50:
+    st.warning("⚠️ **Data System Partial** - Some components may be using fallback data")
+else:
+    st.error("❌ **Data System Issues** - Multiple components need attention")
+
+# Summary information
+st.info(f"""
+**Data System Summary:**
+- Live Market Data: {'✅' if data_sources['live_market'] else '❌'} Real-time prices from Yahoo Finance
+- Historical Analysis: {'✅' if data_sources['historical'] else '❌'} Price history with 8/21 EMAs
+- Asian Session: {'✅' if data_sources['asian_session'] else '❌'} ES futures overnight analysis
+- Previous Day: {'✅' if data_sources['previous_day'] else '❌'} OHLC anchor data
+- Chart Integration: {'✅' if system_summary['chart_ready'] else '❌'} Professional visualization
+- Projection Ready: {'✅' if system_summary['projection_ready'] else '❌'} Skyline/Baseline calculations
+""")
+
+# Performance metrics
+st.markdown("#### ⚡ Performance Metrics")
+
+performance_metrics = get_system_health_metrics()
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        "Cache Hit Rate",
+        f"{performance_metrics['cache_hit_rate']:.1f}%",
+        "Data Caching"
+    )
+
+with col2:
+    st.metric(
+        "Session Uptime",
+        f"{performance_metrics['uptime_minutes']:.1f}m",
+        "Current Session"
+    )
+
+with col3:
+    st.metric(
+        "Error Count",
+        f"{performance_metrics['error_count']}",
+        "Session Errors"
+    )
+
+
+
