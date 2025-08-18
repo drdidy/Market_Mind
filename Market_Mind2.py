@@ -990,6 +990,88 @@ def create_navigation_sidebar():
 
         return selected_page
 
+st.markdown("""
+<style>
+/* ===== keep your existing sidebar background rules ===== */
+section[data-testid="stSidebar"]{
+  background: linear-gradient(180deg, rgba(15,15,35,.95) 0%, rgba(26,26,46,.95) 100%) !important;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255,255,255,.1) !important;
+}
+section[data-testid="stSidebar"] > div { background: transparent !important; }
+
+/* ===== SIDEBAR TEXT COLOR FIX (covers radio/labels/links/etc.) ===== */
+section[data-testid="stSidebar"] *{
+  color:#e5e7eb !important;
+  opacity:1 !important;
+}
+/* Also override -webkit-text-fill-color BUT don't break your gradient heading */
+section[data-testid="stSidebar"] *:not([style*="-webkit-text-fill-color: transparent"]){
+  -webkit-text-fill-color:#e5e7eb !important;
+}
+
+/* Radio (your nav) */
+section[data-testid="stSidebar"] [data-baseweb="radio"] *{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important; opacity:1 !important;
+}
+
+/* Links / page links / buttons in the sidebar */
+section[data-testid="stSidebar"] a, section[data-testid="stSidebar"] a *,
+section[data-testid="stSidebar"] [data-testid^="stPageLink"], section[data-testid="stSidebar"] [data-testid^="stPageLink"] *,
+section[data-testid="stSidebar"] .stButton > button, section[data-testid="stSidebar"] .stButton > button *,
+section[data-testid="stSidebar"] .stLinkButton > a, section[data-testid="stSidebar"] .stLinkButton > a *{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important; opacity:1 !important;
+}
+
+/* Selectbox control (inside sidebar) */
+section[data-testid="stSidebar"] [data-baseweb="select"] *{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+}
+
+/* ⚠️ Popover menus live OUTSIDE the sidebar — target them unscoped */
+[data-baseweb="menu"], [role="listbox"]{
+  background:rgba(17,24,39,.98) !important;
+  color:#e5e7eb !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+}
+[data-baseweb="menu"] *, [role="listbox"] *{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+}
+
+/* Date input (in sidebar) */
+section[data-testid="stSidebar"] [data-testid="stDateInput"] *{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+}
+/* Datepicker/calendar popover (portal) */
+[data-baseweb="datepicker"], [data-baseweb="calendar"],
+[data-baseweb="datepicker"] *, [data-baseweb="calendar"] *{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+}
+
+/* Optional: your button styles (kept) */
+section[data-testid="stSidebar"] .stButton > button{
+  background: linear-gradient(135deg, rgba(34,211,238,.2) 0%, rgba(168,85,247,.2) 100%) !important;
+  border: 1px solid rgba(34,211,238,.4) !important;
+  border-radius: 8px !important;
+  color:#e5e7eb !important; font-weight:600 !important; transition: all .3s ease !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover{
+  border-color: var(--neon-blue) !important;
+  box-shadow: 0 0 15px rgba(34,211,238,.4) !important;
+  transform: translateY(-2px) !important;
+  background: linear-gradient(135deg, rgba(34,211,238,.3) 0%, rgba(168,85,247,.3) 100%) !important;
+}
+
+/* Neutralize any inline neon-green that sneaks into sidebar */
+section[data-testid="stSidebar"] [style*="color:#00ff88"],
+section[data-testid="stSidebar"] [style*="color: #00ff88"],
+section[data-testid="stSidebar"] [style*="rgb(0, 255, 136)"]{
+  color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
