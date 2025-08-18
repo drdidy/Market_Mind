@@ -941,66 +941,6 @@ def create_navigation_sidebar():
         
         return selected_page
 
-def patch_sidebar_text_colors():
-    st.markdown("""
-    <style>
-    /* Base: make all sidebar text readable */
-    section[data-testid="stSidebar"] *{
-      color:#e5e7eb !important;
-      -webkit-text-fill-color:#e5e7eb !important;
-    }
-
-    /* Markdown links (if you have "Next page" as a link) */
-    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] a,
-    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] a *{
-      color:#e5e7eb !important;
-      -webkit-text-fill-color:#e5e7eb !important;
-      opacity:1 !important;
-    }
-
-    /* RADIO (your nav) */
-    section[data-testid="stSidebar"] [data-baseweb="radio"] *{
-      color:#e5e7eb !important;
-    }
-
-    /* SELECTBOX (asset) — control text + dropdown menu (lives in a portal) */
-    section[data-testid="stSidebar"] [data-baseweb="select"] *{ color:#e5e7eb !important; }
-    [data-baseweb="menu"], [role="listbox"]{
-      background:rgba(17,24,39,.98) !important;
-      color:#e5e7eb !important;
-      border:1px solid rgba(255,255,255,.12) !important;
-    }
-    [data-baseweb="menu"] *, [role="listbox"] *{ color:#e5e7eb !important; }
-
-    /* DATE INPUT (label + input) */
-    section[data-testid="stSidebar"] [data-testid="stDateInput"] *{
-      color:#e5e7eb !important;
-    }
-    /* Datepicker popover */
-    [data-baseweb="datepicker"] *, [data-baseweb="calendar"] *{
-      color:#e5e7eb !important;
-    }
-
-    /* Buttons/Link buttons in the sidebar (if any) */
-    section[data-testid="stSidebar"] .stButton > button,
-    section[data-testid="stSidebar"] .stLinkButton > a{
-      color:#e5e7eb !important;
-    }
-
-    /* Nuke any inline neon green that sneaks into the sidebar */
-    section[data-testid="stSidebar"] [style*="color:#00ff88"],
-    section[data-testid="stSidebar"] [style*="color: #00ff88"],
-    section[data-testid="stSidebar"] [style*="rgb(0, 255, 136)"]{
-      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# Build sidebar UI first…
-selected_page = create_navigation_sidebar()
-# …then force the colors:
-patch_sidebar_text_colors()
-
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # SYSTEM STATUS DISPLAY
