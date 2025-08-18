@@ -861,7 +861,6 @@ def create_hero_section():
 
 def create_navigation_sidebar():
     """Create the futuristic navigation sidebar with proper form styling."""
-    
     with st.sidebar:
         # Company branding with neon effect
         st.markdown(f"""
@@ -882,13 +881,13 @@ def create_navigation_sidebar():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Navigation menu
         st.markdown("### 🧭 Navigation")
-        
+
         nav_options = [
             "📊 Dashboard",
-            "⚓ Anchors", 
+            "⚓ Anchors",
             "🎯 Forecasts",
             "📡 Signals",
             "📜 Contracts",
@@ -896,50 +895,101 @@ def create_navigation_sidebar():
             "📤 Export",
             "⚙️ Settings"
         ]
-        
+
         selected_page = st.radio(
             "",
             options=nav_options,
             label_visibility="collapsed"
         )
-        
+
         # Asset selector with enhanced styling
         st.markdown('<div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
         st.markdown("#### 📈 Trading Asset")
-        
+
         selected_asset = st.selectbox(
             "Select primary trading instrument",
             options=list(MAJOR_EQUITIES.keys()),
             format_func=lambda x: f"{MAJOR_EQUITIES[x]['icon']} {x} - {MAJOR_EQUITIES[x]['name']}",
             key="asset_selector"
         )
-        
+
         # Update asset if changed
         if selected_asset != AppState.get_current_asset():
             AppState.set_current_asset(selected_asset)
             st.rerun()
-        
+
         st.markdown('</div>', unsafe_allow_html=True)
-        
+
         # Date selector with proper styling
         st.markdown('<div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem 0;">', unsafe_allow_html=True)
         st.markdown("#### 📅 Analysis Session")
-        
+
         forecast_date = st.date_input(
             "Target trading session",
             value=AppState.get_forecast_date(),
             max_value=date.today(),
             help="Select the trading session for analysis"
         )
-        
+
         # Update date if changed
         if forecast_date != AppState.get_forecast_date():
             AppState.set_forecast_date(forecast_date)
             st.rerun()
-        
+
         st.markdown('</div>', unsafe_allow_html=True)
-        
+
+        # 🔽 SIDEBAR-ONLY TEXT COLOR PATCH (runs last so it wins)
+        st.markdown("""
+        <style>
+        /* Base: readable text in the sidebar, but preserve gradient headings */
+        section[data-testid="stSidebar"] * { color:#e5e7eb !important; }
+        section[data-testid="stSidebar"] *:not([style*="-webkit-text-fill-color: transparent"]) {
+          -webkit-text-fill-color:#e5e7eb !important;
+        }
+
+        /* Radio (your nav) */
+        section[data-testid="stSidebar"] [data-baseweb="radio"] *{
+          color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important; opacity:1 !important;
+        }
+
+        /* Selectbox control + its dropdown menu (portal) */
+        section[data-testid="stSidebar"] [data-baseweb="select"] *{
+          color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+        }
+        [data-baseweb="menu"], [role="listbox"]{
+          background:rgba(17,24,39,.98) !important;
+          color:#e5e7eb !important;
+          border:1px solid rgba(255,255,255,.12) !important;
+        }
+        [data-baseweb="menu"] *, [role="listbox"] *{ color:#e5e7eb !important; }
+
+        /* Date input + datepicker popover */
+        section[data-testid="stSidebar"] [data-testid="stDateInput"] *{
+          color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+        }
+        [data-baseweb="datepicker"], [data-baseweb="calendar"],
+        [data-baseweb="datepicker"] *, [data-baseweb="calendar"] *{
+          color:#e5e7eb !important;
+        }
+
+        /* Links / buttons placed in the sidebar */
+        section[data-testid="stSidebar"] a, section[data-testid="stSidebar"] a *,
+        section[data-testid="stSidebar"] .stButton > button, section[data-testid="stSidebar"] .stButton > button *,
+        section[data-testid="stSidebar"] .stLinkButton > a, section[data-testid="stSidebar"] .stLinkButton > a *{
+          color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important; opacity:1 !important;
+        }
+
+        /* Neutralize any inline neon green that sneaks into the sidebar */
+        section[data-testid="stSidebar"] [style*="color:#00ff88"],
+        section[data-testid="stSidebar"] [style*="color: #00ff88"],
+        section[data-testid="stSidebar"] [style*="rgb(0, 255, 136)"]{
+          color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
         return selected_page
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
