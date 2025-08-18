@@ -539,6 +539,70 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+def apply_main_area_text_fix():
+    # Forces readable text in MAIN content (not the sidebar), incl. tabs, radios, selects, date inputs.
+    st.markdown("""
+    <style>
+    /* MAIN content container (excludes sidebar) */
+    div[data-testid="stAppViewContainer"] *{
+      color:#e5e7eb !important;
+    }
+    /* Keep gradient headings intact (they use text-fill: transparent) */
+    div[data-testid="stAppViewContainer"] *:not([style*="-webkit-text-fill-color: transparent"]){
+      -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Links in main */
+    div[data-testid="stAppViewContainer"] a,
+    div[data-testid="stAppViewContainer"] a *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Tabs in main */
+    div[data-testid="stAppViewContainer"] .stTabs [data-baseweb="tab-list"]{
+      background: rgba(255,255,255,.05) !important;
+      border: 1px solid rgba(255,255,255,.12) !important; border-radius: 12px !important;
+    }
+    div[data-testid="stAppViewContainer"] .stTabs [data-baseweb="tab"],
+    div[data-testid="stAppViewContainer"] .stTabs [data-baseweb="tab"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+    div[data-testid="stAppViewContainer"] .stTabs [aria-selected="true"]{
+      background: rgba(34,211,238,.18) !important;
+      border: 1px solid rgba(34,211,238,.30) !important;
+    }
+
+    /* BaseWeb widgets in main (radio/select/date) */
+    div[data-testid="stAppViewContainer"] [data-baseweb="radio"] *,
+    div[data-testid="stAppViewContainer"] [data-baseweb="select"] *,
+    div[data-testid="stAppViewContainer"] [data-testid="stDateInput"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Popover portals (menus & calendars) live outside; style them globally */
+    [data-baseweb="menu"], [role="listbox"]{
+      background: rgba(17,24,39,.98) !important;
+      color:#e5e7eb !important; border:1px solid rgba(255,255,255,.12) !important;
+    }
+    [data-baseweb="menu"] *, [role="listbox"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+    [data-baseweb="datepicker"], [data-baseweb="calendar"],
+    [data-baseweb="datepicker"] *, [data-baseweb="calendar"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Neutralize common inline dark colors coming from inline style attributes */
+    div[data-testid="stAppViewContainer"] [style*="color:#000"],
+    div[data-testid="stAppViewContainer"] [style*="color: #000"],
+    div[data-testid="stAppViewContainer"] [style*="rgb(0, 0, 0)"],
+    div[data-testid="stAppViewContainer"] [style*="color:#111"],
+    div[data-testid="stAppViewContainer"] [style*="color: #111"]{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
