@@ -1578,8 +1578,8 @@ st.markdown(f"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - PART 2C1: REAL DATA CHART FUNCTIONS (FIXED)
-# Working integration with existing app using real Yahoo Finance data
+# MARKETLENS PRO - PART 2C1: REAL DATA CHART FUNCTIONS (FIXED & HARDENED)
+# Working integration with existing app using real Yahoo Finance data (incl. ES=F)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 # Additional CSS for chart containers with proper text colors
@@ -1602,37 +1602,17 @@ st.markdown("""
   position: relative;
   overflow: hidden;
 }
-
 .chart-container::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--neon-blue) 25%,
-    var(--neon-purple) 50%,
-    var(--neon-green) 75%,
-    transparent 100%);
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--neon-blue) 25%, var(--neon-purple) 50%, var(--neon-green) 75%, transparent 100%);
   animation: chart-shimmer 4s ease-in-out infinite;
 }
-
-@keyframes chart-shimmer {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
+@keyframes chart-shimmer { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
 /* ========== ENSURE WHITE TEXT IN CHART AREAS ========== */
-.chart-container *,
-.chart-container h1,
-.chart-container h2, 
-.chart-container h3,
-.chart-container p,
-.chart-container div {
-  color: #ffffff !important;
-}
+.chart-container *, .chart-container h1, .chart-container h2, .chart-container h3, .chart-container p, .chart-container div { color: #ffffff !important; }
 
 /* ========== TAB STYLING WITH WHITE TEXT ========== */
 .stTabs [data-baseweb="tab-list"] {
@@ -1641,7 +1621,6 @@ st.markdown("""
   padding: 0.5rem !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
-
 .stTabs [data-baseweb="tab"] {
   background: transparent !important;
   border-radius: 8px !important;
@@ -1649,12 +1628,7 @@ st.markdown("""
   font-weight: 600 !important;
   transition: all 0.3s ease !important;
 }
-
-.stTabs [data-baseweb="tab"]:hover {
-  background: rgba(34, 211, 238, 0.1) !important;
-  color: #ffffff !important;
-}
-
+.stTabs [data-baseweb="tab"]:hover { background: rgba(34, 211, 238, 0.1) !important; color: #ffffff !important; }
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
   background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%) !important;
   color: #ffffff !important;
@@ -1664,7 +1638,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# REAL DATA FUNCTIONS (HARDENED FOR FUTURES + COLUMN NORMALIZATION)
+# REAL DATA HELPERS (HARDENED / NORMALIZED)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 @st.cache_data(ttl=180, show_spinner=False)
@@ -1686,7 +1660,7 @@ def fetch_real_price_data(symbol: str) -> dict:
         if df.empty:
             return {"status": "error", "error": "Daily data dropped to empty after NA filter"}
 
-        # Close may be a Series or a one-col DataFrame -> normalize to Series
+        # Normalize Close to a numeric Series
         close = df["Close"]
         if isinstance(close, pd.DataFrame):
             close = close.iloc[:, 0]
@@ -1715,10 +1689,9 @@ def fetch_real_price_data(symbol: str) -> dict:
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {e}"}
 
-
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_chart_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
-    """Fetch real daily historical data for charts (normalized columns)."""
+    """Fetch real daily historical data for charts and metrics (normalized)."""
     try:
         df = yf.download(
             symbol,
@@ -1732,16 +1705,15 @@ def fetch_chart_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
         if df is None or df.empty:
             return pd.DataFrame()
         df = df.dropna(how="any")
-        return df.reset_index()  # 'Date' as a column
+        return df.reset_index()  # ensures 'Date' column
     except Exception:
         return pd.DataFrame()
-
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_intraday_ct(symbol: str, period: str = "3d", interval: str = "5m") -> pd.DataFrame:
     """
     Fetch intraday bars and convert index to America/Chicago timezone.
-    Using yf.download because it’s reliable for futures like ES=F.
+    Ready for ES=F Asian session swing high/low (used in 2C2).
     """
     try:
         df = yf.download(
@@ -1755,18 +1727,15 @@ def fetch_intraday_ct(symbol: str, period: str = "3d", interval: str = "5m") -> 
         )
         if df is None or df.empty:
             return pd.DataFrame()
-
-        # Ensure tz-aware -> convert to CT
+        # tz -> CT
         idx = df.index
         if getattr(idx, "tz", None) is None:
             idx = idx.tz_localize("UTC")
         idx = idx.tz_convert(str(CT))
         df.index = idx
-        df = df.dropna(how="any")
-        return df
+        return df.dropna(how="any")
     except Exception:
         return pd.DataFrame()
-
 
 def build_real_price_chart(symbol: str, title: str):
     """Build price chart with real Yahoo Finance data (daily)."""
@@ -1792,7 +1761,6 @@ def build_real_price_chart(symbol: str, title: str):
         close = close.iloc[:, 0]
     close = pd.to_numeric(close, errors="coerce")
 
-    # Guard against empty/non-numeric
     close_valid = close.dropna()
     if close_valid.empty:
         fig = go.Figure()
@@ -1808,7 +1776,6 @@ def build_real_price_chart(symbol: str, title: str):
         )
         return fig
 
-    # MA20
     ma20 = close_valid.rolling(window=20).mean()
 
     fig = go.Figure()
@@ -1818,7 +1785,6 @@ def build_real_price_chart(symbol: str, title: str):
         line=dict(color="#22d3ee", width=3),
         hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Price: $%{y:,.2f}<extra></extra>"
     ))
-
     if ma20.notna().sum() > 0:
         fig.add_trace(go.Scatter(
             x=df["Date"], y=ma20.reindex_like(close),
@@ -1870,71 +1836,185 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# CHART TABS (START WITH TAB 1)
+# CHART TABS (PRICE, VOLUME, TECHNICAL PLACEHOLDER)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
-# Get current asset info
 current_asset = AppState.get_current_asset()
 display_symbol = get_display_symbol(current_asset)
 asset_info = MAJOR_EQUITIES[current_asset]
 
-# Create chart tabs
 tab1, tab2, tab3 = st.tabs(["📊 Price Action", "📈 Volume Analysis", "🎯 Technical Indicators"])
 
-# TAB 1: PRICE ACTION WITH REAL DATA
+# ── TAB 1: PRICE ACTION
 with tab1:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    
-    # Create and display real price chart
     price_chart = build_real_price_chart(current_asset, f"{display_symbol} Price Movement")
     st.plotly_chart(price_chart, use_container_width=True, config=CHART_CONFIG)
-    
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Get real market data for analysis
+
     live_data = fetch_real_price_data(current_asset)
-    
-    if live_data['status'] == 'success':
-        # Show analysis with real data
-        price = live_data['price']
-        change = live_data['change']
-        change_pct = live_data['change_pct']
-        
+    if live_data["status"] == "success":
+        price = live_data["price"]; change = live_data["change"]; change_pct = live_data["change_pct"]
         change_color = "#00ff88" if change >= 0 else "#ff6b35"
         trend_word = "positive" if change >= 0 else "negative"
-        
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); 
                     border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
-            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
-                📊 Live Price Analysis
-            </div>
+            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">📊 Live Price Analysis</div>
             <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
                 <strong>{display_symbol}</strong> is currently trading at <strong>${price:,.2f}</strong> with a 
-                <span style="color: {change_color}; font-weight: 700;">{trend_word}</span> movement of 
-                <strong style="color: {change_color};">${change:+.2f} ({change_pct:+.2f}%)</strong> from the previous session.
-                Chart displays real market data from Yahoo Finance with 20-day moving average overlay.
+                <span style="color: {change_color}; font-weight: 700;">{trend_word}</span> move of 
+                <strong style="color: {change_color};">${change:+.2f} ({change_pct:+.2f}%)</strong> vs prior close.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
     else:
-        # Show error message
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%); 
                     border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
-            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">
-                ⚠️ Data Connection Issue
-            </div>
+            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #ffffff;">⚠️ Data Connection Issue</div>
             <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
                 Unable to fetch real market data for <strong>{display_symbol}</strong>. 
-                Error: {live_data.get('error', 'Unknown error')}. 
-                Please check your internet connection and try refreshing the page.
+                Error: {live_data.get('error', 'Unknown error')}.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+# ── TAB 2: VOLUME ANALYSIS (FIXED: NO AMBIGUOUS TRUTH VALUES)
+with tab2:
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
 
+    hist = fetch_chart_data(current_asset, period="1mo")
+    live = fetch_real_price_data(current_asset)
+
+    if not hist.empty and "Volume" in hist.columns and live["status"] == "success":
+        # Normalize Volume to numeric Series
+        vol = hist["Volume"]
+        if isinstance(vol, pd.DataFrame):
+            vol = vol.iloc[:, 0]
+        vol = pd.to_numeric(vol, errors="coerce").dropna()
+
+        current_volume = int(live.get("volume", 0) or 0)
+        avg_volume = int(vol.mean()) if not vol.empty else 0
+
+        # Volume trend over last 5 vs previous 5 sessions (floats only)
+        if len(vol) >= 10:
+            recent_mean = float(vol.tail(5).mean())
+            previous_mean = float(vol.iloc[-10:-5].mean())
+            volume_trend = float(((recent_mean - previous_mean) / previous_mean) * 100) if previous_mean > 0 else 0.0
+        else:
+            volume_trend = 0.0
+
+        relative_volume = (current_volume / avg_volume) if avg_volume > 0 else None
+
+        def fmt_int(x):
+            try:
+                return f"{int(x):,}"
+            except Exception:
+                return "—"
+
+        def fmt_pct(x):
+            try:
+                return f"{float(x):+.1f}%"
+            except Exception:
+                return "—"
+
+        # Header
+        st.markdown(f"""
+        <div style="text-align: center; padding: 1rem 0 1.5rem 0;">
+            <div style="font-size: 2.25rem; margin-bottom: .25rem;">📊</div>
+            <h3 style="color:#ffffff; margin:0; font-weight:800;">Live Volume Analysis - {display_symbol}</h3>
+            <p style="color: rgba(255,255,255,0.8); margin:.5rem 0 0;">Real-time volume patterns from Yahoo Finance</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown(f"""
+            <div class="glass-panel" style="padding: 1.25rem; text-align: center;">
+                <div style="color: rgba(255,255,255,0.7); font-size: .875rem; margin-bottom: .5rem; font-weight: 600;">CURRENT VOLUME</div>
+                <div style="color: #a855f7; font-size: 1.8rem; font-weight: 800;">{fmt_int(current_volume)}</div>
+                <div style="color: rgba(255,255,255,0.6); font-size: .75rem; margin-top: .5rem;">shares traded today</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            tcolor = "#00ff88" if volume_trend >= 0 else "#ff6b35"
+            st.markdown(f"""
+            <div class="glass-panel" style="padding: 1.25rem; text-align: center;">
+                <div style="color: rgba(255,255,255,0.7); font-size: .875rem; margin-bottom: .5rem; font-weight: 600;">VOLUME TREND</div>
+                <div style="color: {tcolor}; font-size: 1.8rem; font-weight: 800;">{fmt_pct(volume_trend)}</div>
+                <div style="color: rgba(255,255,255,0.6); font-size: .75rem; margin-top: .5rem;">5-day vs prior 5-day</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            if relative_volume is None:
+                rel_val = "—"
+                rel_color = "#a855f7"
+            else:
+                rel_val = f"{relative_volume:.1f}x"
+                rel_color = "#ff6b35" if relative_volume > 2.0 else ("#00ff88" if relative_volume > 1.2 else "#a855f7")
+            st.markdown(f"""
+            <div class="glass-panel" style="padding: 1.25rem; text-align: center;">
+                <div style="color: rgba(255,255,255,0.7); font-size: .875rem; margin-bottom: .5rem; font-weight: 600;">RELATIVE VOLUME</div>
+                <div style="color: {rel_color}; font-size: 1.8rem; font-weight: 800;">{rel_val}</div>
+                <div style="color: rgba(255,255,255,0.6); font-size: .75rem; margin-top: .5rem;">vs 30-day average</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Insight panel
+        if relative_volume is None:
+            analysis = "Insufficient recent volume history to compute relative participation."
+            panel_type = "info"
+        elif relative_volume > 2.5:
+            analysis = f"Exceptionally high volume at {relative_volume:.1f}x average suggests major institutional activity or significant news."
+            panel_type = "warning"
+        elif relative_volume > 1.5:
+            analysis = f"Above-average volume at {relative_volume:.1f}x indicates strong market interest and potential momentum."
+            panel_type = "success"
+        elif relative_volume < 0.5:
+            analysis = f"Below-average volume at {relative_volume:.1f}x suggests low participation and potential range-bound action."
+            panel_type = "info"
+        else:
+            analysis = f"Normal volume levels at {relative_volume:.1f}x average indicate typical participation."
+            panel_type = "info"
+
+        panel_colors = {
+            "success": ("rgba(16, 185, 129, 0.1)", "rgba(16, 185, 129, 0.3)"),
+            "warning": ("rgba(245, 158, 11, 0.1)", "rgba(245, 158, 11, 0.3)"),
+            "info":    ("rgba(34, 211, 238, 0.1)", "rgba(34, 211, 238, 0.3)"),
+        }
+        bgc, brc = panel_colors[panel_type]
+        st.markdown(f"""
+        <div style="background: {bgc}; border: 1px solid {brc}; border-radius: 12px; padding: 1.25rem; margin: 1.25rem 0;">
+            <div style="font-weight: 700; font-size: 1.05rem; margin-bottom: 0.5rem; color: #ffffff;">📊 Live Volume Insights</div>
+            <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
+                <strong>{display_symbol}</strong> volume: {fmt_int(current_volume)} today vs {fmt_int(avg_volume)} 30-day avg. {analysis}
+                Trend last 5 sessions: {fmt_pct(volume_trend)}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="text-align: center; padding: 3rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem; color: #ff6b35;">⚠️</div>
+            <h3 style="color: #ffffff; margin-bottom: 1rem; font-weight: 800;">Volume Data Unavailable</h3>
+            <p style="color: rgba(255, 255, 255, 0.8);">Unable to fetch real volume data for {display_symbol}. Please check your connection and try again.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ── TAB 3: TECHNICAL INDICATORS (placeholder — we’ll wire in 2C2)
+with tab3:
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align:center; padding:2rem;">
+      <div style="font-size:3rem; margin-bottom:.5rem;">🧮</div>
+      <h3 style="margin:0; font-weight:800;">Technical Indicators</h3>
+      <p style="color:rgba(255,255,255,.8); margin-top:.5rem;">Coming in Part 2C2 with ES Asian session swing high/low logic.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
