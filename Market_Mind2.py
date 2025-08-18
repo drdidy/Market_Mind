@@ -151,6 +151,36 @@ section[data-testid="stSidebar"] * { color:#e5e7eb !important; }
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* Sidebar base text (already added, but safe) */
+section[data-testid="stSidebar"] * { color:#e5e7eb !important; }
+
+/* 🔗 Multipage / page links (st.page_link & built-in nav) */
+section[data-testid="stSidebar"] a,
+section[data-testid="stSidebar"] a:link,
+section[data-testid="stSidebar"] a:visited,
+section[data-testid="stSidebar"] a:hover,
+section[data-testid="stSidebar"] a:active,
+section[data-testid="stSidebar"] [data-testid^="stPageLink"],
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] * {
+  color:#e5e7eb !important;
+}
+
+/* If there are icons in the links */
+section[data-testid="stSidebar"] svg, 
+section[data-testid="stSidebar"] svg * { fill:#e5e7eb !important; }
+
+/* Optional: highlight active page link */
+section[data-testid="stSidebar"] a[aria-current="page"] {
+  font-weight: 700 !important;
+  background: rgba(255,255,255,.07) !important;
+  border-radius: 8px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 def inject_global_text_styles():
     st.markdown("""
