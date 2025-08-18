@@ -647,7 +647,7 @@ st.markdown("""
   --accent-rose: #f43f5e;
 }
 
-/* ========== BACKGROUND ONLY - PRESERVE TEXT COLORS ========== */
+/* ========== APP BACKGROUND ONLY (do not force text colors) ========== */
 .stApp {
   background: 
     radial-gradient(circle at 20% 20%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
@@ -659,9 +659,8 @@ st.markdown("""
 }
 
 /* ===================== MAIN CONTENT CONTAINER ===================== */
-/* Keep your layout (card feel) but DO NOT force dark text here */
+/* Keep your glass card look but DO NOT force dark text here */
 .main .block-container {
-  /* removed: color: #0f172a !important; */
   background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
   padding: 2rem;
@@ -672,7 +671,7 @@ st.markdown("""
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
-/* Do NOT globally force dark text in main content */
+/* Allow text color to inherit from your global fixes (no dark forcing) */
 .main .block-container * {
   color: inherit !important;
   -webkit-text-fill-color: inherit !important;
@@ -686,14 +685,14 @@ st.markdown("""
   -webkit-text-fill-color: #ffffff !important;
 }
 
-/* Make common widgets readable in MAIN when they land on dark surfaces */
+/* Make common widgets readable in MAIN when sitting on dark areas */
 div[data-testid="stAppViewContainer"] [data-baseweb="radio"] *,
 div[data-testid="stAppViewContainer"] [data-baseweb="select"] *,
 div[data-testid="stAppViewContainer"] [data-testid="stDateInput"] *{
   color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
 }
 
-/* Popover portals (menus/calendars) sit outside main; style globally for readability */
+/* Popover portals (menus/calendars) are outside main; style globally */
 [data-baseweb="menu"], [role="listbox"]{
   background:rgba(17,24,39,.98) !important;
   color:#e5e7eb !important;
@@ -711,10 +710,7 @@ div[data-testid="stAppViewContainer"] [data-testid="stDateInput"] *{
 .stApp::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0; width: 100%; height: 100%;
   background: 
     radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.15), transparent),
     radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.1), transparent),
@@ -727,52 +723,35 @@ div[data-testid="stAppViewContainer"] [data-testid="stDateInput"] *{
   pointer-events: none;
   z-index: 1;
 }
-
-@keyframes sparkle {
-  from { background-position: 0% 0%; }
-  to { background-position: 250px 300px; }
-}
+@keyframes sparkle { from { background-position: 0% 0%; } to { background-position: 250px 300px; } }
 
 /* ========== SIDEBAR STYLING ONLY ========== */
 section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, 
-    rgba(15, 15, 35, 0.95) 0%, 
-    rgba(26, 26, 46, 0.95) 100%) !important;
+  background: linear-gradient(180deg, rgba(15, 15, 35, 0.95) 0%, rgba(26, 26, 46, 0.95) 100%) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 section[data-testid="stSidebar"] > div { background: transparent !important; }
 
-/* SIDEBAR TEXT COLOR FIXES */
-section[data-testid="stSidebar"] *,
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] h4,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] div {
-  color: #ffffff !important;
+/* Sidebar text readable (keep gradient headings intact) */
+section[data-testid="stSidebar"] * { color: #ffffff !important; }
+section[data-testid="stSidebar"] *:not([style*="-webkit-text-fill-color: transparent"]) {
+  -webkit-text-fill-color:#ffffff !important;
 }
 
-/* ========== CRITICAL FIXES: SIDEBAR FORM ELEMENTS ========== */
+/* Sidebar controls */
 section[data-testid="stSidebar"] .stSelectbox > div > div {
   background-color: #2d3748 !important;
   color: #ffffff !important;
   border: 1px solid rgba(34, 211, 238, 0.5) !important;
   border-radius: 8px !important;
 }
-section[data-testid="stSidebar"] .stSelectbox > div > div > div {
-  background-color: #2d3748 !important;
-  color: #ffffff !important;
-}
+section[data-testid="stSidebar"] .stSelectbox > div > div > div,
 section[data-testid="stSidebar"] .stSelectbox > div > div > div > div {
   background-color: #2d3748 !important;
   color: #ffffff !important;
 }
-
-/* Fix sidebar selectbox dropdown (portal-safe duplicates below too) */
 section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] {
   background-color: #2d3748 !important;
   border: 1px solid rgba(34, 211, 238, 0.5) !important;
@@ -780,27 +759,21 @@ section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
 }
 section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] * {
-  background-color: #2d3748 !important;
-  color: #ffffff !important;
+  background-color: #2d3748 !important; color: #ffffff !important;
 }
 section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="popover"] li:hover {
-  background-color: rgba(34, 211, 238, 0.3) !important;
-  color: #ffffff !important;
+  background-color: rgba(34, 211, 238, 0.3) !important; color: #ffffff !important;
 }
 
-/* Fix sidebar date input */
+/* Date input in sidebar */
 section[data-testid="stSidebar"] .stDateInput > div > div {
   background-color: #2d3748 !important;
   border: 1px solid rgba(34, 211, 238, 0.5) !important;
   border-radius: 8px !important;
 }
 section[data-testid="stSidebar"] .stDateInput > div > div > input {
-  background-color: #2d3748 !important;
-  color: #ffffff !important;
-  border: none !important;
+  background-color: #2d3748 !important; color: #ffffff !important; border: none !important;
 }
-
-/* Fix sidebar date picker calendar */
 section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] {
   background-color: #2d3748 !important;
   border: 1px solid rgba(34, 211, 238, 0.5) !important;
@@ -808,15 +781,13 @@ section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
 }
 section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] * {
-  background-color: #2d3748 !important;
-  color: #ffffff !important;
+  background-color: #2d3748 !important; color: #ffffff !important;
 }
 section[data-testid="stSidebar"] .stDateInput div[data-baseweb="popover"] button:hover {
-  background-color: rgba(34, 211, 238, 0.3) !important;
-  color: #ffffff !important;
+  background-color: rgba(34, 211, 238, 0.3) !important; color: #ffffff !important;
 }
 
-/* Fix sidebar buttons */
+/* Sidebar buttons */
 section[data-testid="stSidebar"] .stButton > button {
   background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%) !important;
   border: 1px solid rgba(34, 211, 238, 0.4) !important;
@@ -834,79 +805,32 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 
 /* ========== GLASSMORPHISM HERO SECTION ========== */
 .hero-container {
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.1) 0%, 
-    rgba(255, 255, 255, 0.05) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 24px;
-  padding: 2.5rem;
-  margin: 2rem 0;
-  box-shadow: 
-    0 8px 32px rgba(31, 38, 135, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  position: relative;
-  overflow: hidden;
-  z-index: 10;
+  border-radius: 24px; padding: 2.5rem; margin: 2rem 0;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  position: relative; overflow: hidden; z-index: 10;
 }
 .hero-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    var(--neon-blue) 20%, 
-    var(--neon-purple) 40%,
-    var(--neon-green) 60%,
-    var(--neon-orange) 80%, 
-    transparent 100%);
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--neon-blue) 20%, var(--neon-purple) 40%, var(--neon-green) 60%, var(--neon-orange) 80%, transparent 100%);
   animation: shimmer 3s ease-in-out infinite;
 }
 @keyframes shimmer { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-
 .hero-title {
-  font-size: 3.5rem;
-  font-weight: 900;
+  font-size: 3.5rem; font-weight: 900;
   background: linear-gradient(135deg, #ffffff 0%, #22d3ee 50%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(34, 211, 238, 0.4);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin: 0; letter-spacing: -0.02em; text-shadow: 0 0 40px rgba(34, 211, 238, 0.4);
   animation: glow-pulse 4s ease-in-out infinite;
 }
-@keyframes glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.4)); }
-  50% { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.6)); }
-}
+@keyframes glow-pulse { 0%, 100% { filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.4)); } 50% { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.6)); } }
 .hero-subtitle { font-size: 1.5rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin: 1rem 0; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
 .hero-meta { font-size: 1rem; color: rgba(255, 255, 255, 0.6); font-weight: 500; margin-top: 0.5rem; }
 
-/* ========== SIDEBAR ENHANCEMENTS (duplicate safe) ========== */
-section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, 
-    rgba(15, 15, 35, 0.95) 0%, 
-    rgba(26, 26, 46, 0.95) 100%) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-section[data-testid="stSidebar"] > div { background: transparent !important; }
-section[data-testid="stSidebar"] * { color: #ffffff !important; }
-
 /* ========== UTILITY CLASSES ========== */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-}
+.glass-panel { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; }
 .text-center { text-align: center; }
 .neon-border { border: 1px solid var(--neon-blue); box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
 .text-glow { text-shadow: 0 0 10px currentColor; }
@@ -940,7 +864,7 @@ def create_hero_section():
     """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# NAVIGATION SYSTEM FOUNDATION
+# NAVIGATION SYSTEM FOUNDATION  
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 def create_navigation_sidebar():
@@ -1062,7 +986,6 @@ def create_navigation_sidebar():
         """, unsafe_allow_html=True)
 
         return selected_page
-""", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # SYSTEM STATUS DISPLAY
