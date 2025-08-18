@@ -1580,7 +1580,6 @@ st.markdown(f"""
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # MARKETLENS PRO - PART 2C1: REAL DATA CHART FUNCTIONS (FIXED)
 # Working integration with existing app using real Yahoo Finance data
-# Adds ES=F intraday support + Asian session swing high/low
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 # Additional CSS for chart containers with proper text colors
@@ -1665,60 +1664,95 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# REAL DATA FUNCTIONS (NO DUPLICATE IMPORTS)
+# REAL DATA FUNCTIONS (HARDENED FOR FUTURES + COLUMN NORMALIZATION)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 @st.cache_data(ttl=180, show_spinner=False)
 def fetch_real_price_data(symbol: str) -> dict:
     """Fetch current daily price snapshot (close vs previous close). Works for ES=F too."""
     try:
-        # Daily bars last 5 days
-        hist = yf.download(symbol, period="5d", interval="1d", progress=False, auto_adjust=False, threads=False)
-        if hist is None or hist.empty:
+        df = yf.download(
+            symbol,
+            period="5d",
+            interval="1d",
+            progress=False,
+            auto_adjust=False,
+            threads=False,
+            group_by="column",
+        )
+        if df is None or df.empty:
             return {"status": "error", "error": "No daily data available"}
-        hist = hist.dropna(how="any")
-        if hist.empty:
+        df = df.dropna(how="any")
+        if df.empty:
             return {"status": "error", "error": "Daily data dropped to empty after NA filter"}
 
-        current_price = float(hist['Close'].iloc[-1])
-        if len(hist) > 1:
-            prev_close = float(hist['Close'].iloc[-2])
-        else:
-            prev_close = current_price
+        # Close may be a Series or a one-col DataFrame -> normalize to Series
+        close = df["Close"]
+        if isinstance(close, pd.DataFrame):
+            close = close.iloc[:, 0]
+        close = pd.to_numeric(close, errors="coerce").dropna()
+        if close.empty:
+            return {"status": "error", "error": "Close series is empty"}
+
+        current_price = float(close.iloc[-1])
+        prev_close = float(close.iloc[-2]) if len(close) > 1 else current_price
         change = current_price - prev_close
         change_pct = (change / prev_close) * 100 if prev_close != 0 else 0.0
 
-        volume = int(hist['Volume'].iloc[-1]) if 'Volume' in hist.columns and not pd.isna(hist['Volume'].iloc[-1]) else 0
+        vol = df.get("Volume", pd.Series(dtype="float64"))
+        if isinstance(vol, pd.DataFrame):
+            vol = vol.iloc[:, 0]
+        vol = pd.to_numeric(vol, errors="coerce")
+        volume = int(vol.iloc[-1]) if not vol.empty and pd.notna(vol.iloc[-1]) else 0
 
         return {
             "status": "success",
             "price": current_price,
             "change": change,
             "change_pct": change_pct,
-            "volume": volume
+            "volume": volume,
         }
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {e}"}
 
+
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_chart_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
-    """Fetch real daily historical data for charts."""
+    """Fetch real daily historical data for charts (normalized columns)."""
     try:
-        df = yf.download(symbol, period=period, interval="1d", progress=False, auto_adjust=False, threads=False)
+        df = yf.download(
+            symbol,
+            period=period,
+            interval="1d",
+            progress=False,
+            auto_adjust=False,
+            threads=False,
+            group_by="column",
+        )
         if df is None or df.empty:
             return pd.DataFrame()
-        return df.reset_index()  # Date column for Plotly
+        df = df.dropna(how="any")
+        return df.reset_index()  # 'Date' as a column
     except Exception:
         return pd.DataFrame()
 
+
 @st.cache_data(ttl=120, show_spinner=False)
-def fetch_intraday_ct(symbol: str, period: str = "2d", interval: str = "5m") -> pd.DataFrame:
+def fetch_intraday_ct(symbol: str, period: str = "3d", interval: str = "5m") -> pd.DataFrame:
     """
-    Fetch intraday data and convert index to America/Chicago timezone.
-    Using yf.download because it’s more reliable for futures like ES=F.
+    Fetch intraday bars and convert index to America/Chicago timezone.
+    Using yf.download because it’s reliable for futures like ES=F.
     """
     try:
-        df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=False, threads=False)
+        df = yf.download(
+            symbol,
+            period=period,
+            interval=interval,
+            progress=False,
+            auto_adjust=False,
+            threads=False,
+            group_by="column",
+        )
         if df is None or df.empty:
             return pd.DataFrame()
 
@@ -1733,189 +1767,88 @@ def fetch_intraday_ct(symbol: str, period: str = "2d", interval: str = "5m") -> 
     except Exception:
         return pd.DataFrame()
 
+
 def build_real_price_chart(symbol: str, title: str):
     """Build price chart with real Yahoo Finance data (daily)."""
     df = fetch_chart_data(symbol, period="1mo")
-    if df.empty:
+    if df.empty or "Close" not in df.columns:
         fig = go.Figure()
         fig.add_annotation(
             text=f"⚠️ Unable to load real data for {symbol}",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5,
-            showarrow=False,
-            font=dict(color='#ff6b35', size=18),
-            bgcolor='rgba(255, 107, 53, 0.1)',
-            bordercolor='#ff6b35',
-            borderwidth=2,
-            borderpad=20
+            xref="paper", yref="paper", x=0.5, y=0.5,
+            showarrow=False, font=dict(color="#ff6b35", size=18),
+            bgcolor="rgba(255, 107, 53, 0.1)", bordercolor="#ff6b35", borderwidth=2, borderpad=20
         )
         fig.update_layout(
             title=f"{title} - Data Unavailable",
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#ffffff'),
-            height=400
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#ffffff"), height=400
         )
         return fig
 
-    # Calculate moving average
-    df['MA20'] = df['Close'].rolling(window=20).mean()
+    # Normalize Close to a Series
+    close = df["Close"]
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, 0]
+    close = pd.to_numeric(close, errors="coerce")
+
+    # Guard against empty/non-numeric
+    close_valid = close.dropna()
+    if close_valid.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"⚠️ Close series empty for {symbol}",
+            xref="paper", yref="paper", x=0.5, y=0.5,
+            showarrow=False, font=dict(color="#ff6b35", size=18)
+        )
+        fig.update_layout(
+            title=f"{title} - Data Issue",
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#ffffff"), height=400
+        )
+        return fig
+
+    # MA20
+    ma20 = close_valid.rolling(window=20).mean()
 
     fig = go.Figure()
-
-    # Price line
     fig.add_trace(go.Scatter(
-        x=df['Date'], y=df['Close'],
-        mode='lines', name=f'{symbol} Price',
-        line=dict(color='#22d3ee', width=3),
-        hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Price: $%{y:,.2f}<extra></extra>'
+        x=df["Date"], y=close,
+        mode="lines", name=f"{symbol} Price",
+        line=dict(color="#22d3ee", width=3),
+        hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Price: $%{y:,.2f}<extra></extra>"
     ))
 
-    # MA20 when available
-    if len(df) >= 20 and not df['MA20'].isna().all():
+    if ma20.notna().sum() > 0:
         fig.add_trace(go.Scatter(
-            x=df['Date'], y=df['MA20'],
-            mode='lines', name='20-Day Average',
-            line=dict(color='#ff6b35', width=2, dash='dot'),
-            hovertemplate='<b>%{x|%Y-%m-%d}</b><br>MA20: $%{y:,.2f}<extra></extra>'
+            x=df["Date"], y=ma20.reindex_like(close),
+            mode="lines", name="20-Day Average",
+            line=dict(color="#ff6b35", width=2, dash="dot"),
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>MA20: $%{y:,.2f}<extra></extra>"
         ))
 
-    # Y-range with padding
-    price_min = df['Close'].min()
-    price_max = df['Close'].max()
-    pad = (price_max - price_min) * 0.05 if price_max > price_min else 1.0
+    # Robust y-range padding
+    price_min = float(close_valid.min())
+    price_max = float(close_valid.max())
+    pad = (price_max - price_min) * 0.05
+    if not np.isfinite(pad) or pad <= 0:
+        pad = max(price_max * 0.005, 1.0)
 
     fig.update_layout(
-        title=dict(text=f"{title} (Live Yahoo Finance Data)", font=dict(color='#ffffff', size=18), x=0.5),
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff'),
-        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff'),
-        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', showgrid=True, color='#ffffff',
-                   range=[price_min - pad, price_max + pad], tickformat='$,.2f'),
+        title=dict(text=f"{title} (Live Yahoo Finance Data)", font=dict(color="#ffffff", size=18), x=0.5),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#ffffff"),
+        xaxis=dict(gridcolor="rgba(255,255,255,0.1)", showgrid=True, color="#ffffff"),
+        yaxis=dict(
+            gridcolor="rgba(255,255,255,0.1)", showgrid=True, color="#ffffff",
+            range=[price_min - pad, price_max + pad], tickformat="$,.2f"
+        ),
         showlegend=True,
-        legend=dict(bgcolor='rgba(0,0,0,0.7)', bordercolor='rgba(255,255,255,0.3)', borderwidth=1, font=dict(color='#ffffff')),
+        legend=dict(bgcolor="rgba(0,0,0,0.7)", bordercolor="rgba(255,255,255,0.3)", borderwidth=1, font=dict(color="#ffffff")),
         margin=dict(l=60, r=40, t=60, b=40),
-        height=400
+        height=400,
     )
     return fig
-
-def compute_asian_session_range_ct(df_ct: pd.DataFrame) -> dict:
-    """
-    Given a CT-indexed intraday DF (with High/Low/Close), compute Asian session window
-    using ASIAN_START/ASIAN_END on the PREVIOUS CALENDAR DAY (as per your constants).
-    Returns dict with filtered df + swing high/low + timestamps.
-    """
-    if df_ct.empty:
-        return {"ok": False, "reason": "Empty intraday data"}
-
-    # Asian session is previous calendar day 17:00–20:00 CT (from your Part 1 constants)
-    now_ct = datetime.now(CT)
-    prev_day = (now_ct - timedelta(days=1)).date()
-    start_dt = datetime.combine(prev_day, ASIAN_START, tzinfo=CT)
-    end_dt   = datetime.combine(prev_day, ASIAN_END, tzinfo=CT)
-
-    win = df_ct.loc[(df_ct.index >= start_dt) & (df_ct.index <= end_dt)].copy()
-    if win.empty:
-        return {"ok": False, "reason": f"No bars found between {start_dt} and {end_dt} CT"}
-
-    swing_high_val = float(win['High'].max())
-    swing_low_val = float(win['Low'].min())
-
-    # Times of those swings
-    high_time = win['High'].idxmax()
-    low_time  = win['Low'].idxmin()
-
-    # Build a line-ready frame (DateTime, Close)
-    line_df = win.reset_index().rename(columns={'index': 'DateTime'})
-    line_df['DateTime'] = line_df['DateTime'].astype('datetime64[ns]')
-
-    return {
-        "ok": True,
-        "window_df": win,
-        "line_df": line_df,
-        "high": swing_high_val,
-        "high_time": high_time,
-        "low": swing_low_val,
-        "low_time": low_time,
-        "start": start_dt,
-        "end": end_dt
-    }
-
-def build_asian_session_line_chart(symbol: str):
-    """
-    Build a line chart of the Asian session (previous day 17:00–20:00 CT) with
-    swing high/low overlays and annotations. Designed for ES=F but will try for any.
-    """
-    intraday = fetch_intraday_ct(symbol, period="3d", interval="5m")
-    if intraday.empty:
-        fig = go.Figure()
-        fig.add_annotation(text=f"⚠️ No intraday data available for {symbol}", x=0.5, y=0.5,
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(color='#ff6b35', size=16))
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                          font=dict(color='#ffffff'), height=380, margin=dict(l=60, r=40, t=60, b=40))
-        return fig, None
-
-    res = compute_asian_session_range_ct(intraday)
-    if not res["ok"]:
-        fig = go.Figure()
-        fig.add_annotation(text=f"ℹ️ {res.get('reason','No Asian session window')}", x=0.5, y=0.5,
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(color='#ffffff', size=14))
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                          font=dict(color='#ffffff'), height=380, margin=dict(l=60, r=40, t=60, b=40))
-        return fig, None
-
-    line_df = res["line_df"]
-
-    fig = go.Figure()
-    # Close line
-    fig.add_trace(go.Scatter(
-        x=line_df['DateTime'], y=line_df['Close'],
-        mode='lines', name='Close',
-        line=dict(width=2, color="#22d3ee"),
-        hovertemplate='<b>%{x|%H:%M}</b><br>Close: $%{y:,.2f}<extra></extra>'
-    ))
-
-    # Add horizontal lines for swing high/low
-    fig.add_hline(y=res["high"], line_color="#ff6b35", line_dash="dot", annotation_text=f"Asia High ${res['high']:,.2f}",
-                  annotation_position="top left", annotation_font_color="#ffffff", annotation_bgcolor="rgba(0,0,0,0.3)")
-    fig.add_hline(y=res["low"], line_color="#00ff88", line_dash="dot", annotation_text=f"Asia Low ${res['low']:,.2f}",
-                  annotation_position="bottom left", annotation_font_color="#ffffff", annotation_bgcolor="rgba(0,0,0,0.3)")
-
-    # Vertical markers at times of the extremes (optional but helpful)
-    fig.add_vline(x=res["high_time"], line_color="rgba(255,107,53,0.5)", line_dash="dash")
-    fig.add_vline(x=res["low_time"],  line_color="rgba(0,255,136,0.5)", line_dash="dash")
-
-    # Layout
-    ymin = float(line_df['Close'].min())
-    ymax = float(line_df['Close'].max())
-    pad = (ymax - ymin) * 0.04 if ymax > ymin else 1.0
-
-    subtitle = f"Asian Session {res['start'].strftime('%Y-%m-%d')} {res['start'].strftime('%H:%M')}–{res['end'].strftime('%H:%M')} CT"
-
-    fig.update_layout(
-        title=dict(text=f"{get_display_symbol(symbol)} Asian Session (Swing High/Low)", font=dict(color="#ffffff", size=18), x=0.5),
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff'),
-        xaxis=dict(title=subtitle, gridcolor='rgba(255,255,255,0.08)', color='#ffffff'),
-        yaxis=dict(gridcolor='rgba(255,255,255,0.08)', color='#ffffff',
-                   range=[ymin - pad, ymax + pad], tickformat='$,.2f'),
-        showlegend=False,
-        margin=dict(l=60, r=40, t=70, b=50),
-        height=380
-    )
-
-    # Return the key levels with the figure
-    levels = {
-        "asia_high": res["high"],
-        "asia_high_time": res["high_time"],
-        "asia_low": res["low"],
-        "asia_low_time": res["low_time"],
-        "start": res["start"],
-        "end": res["end"]
-    }
-    return fig, levels
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
 # CHART SECTION HEADER
@@ -1940,32 +1873,36 @@ st.markdown(f"""
 # CHART TABS (START WITH TAB 1)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
+# Get current asset info
 current_asset = AppState.get_current_asset()
 display_symbol = get_display_symbol(current_asset)
 asset_info = MAJOR_EQUITIES[current_asset]
 
+# Create chart tabs
 tab1, tab2, tab3 = st.tabs(["📊 Price Action", "📈 Volume Analysis", "🎯 Technical Indicators"])
 
-# TAB 1: PRICE ACTION WITH REAL DATA + ASIAN SESSION (INTRADAY)
+# TAB 1: PRICE ACTION WITH REAL DATA
 with tab1:
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-
-    # Daily price chart
+    
+    # Create and display real price chart
     price_chart = build_real_price_chart(current_asset, f"{display_symbol} Price Movement")
     st.plotly_chart(price_chart, use_container_width=True, config=CHART_CONFIG)
-
+    
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # Live price snapshot
+    
+    # Get real market data for analysis
     live_data = fetch_real_price_data(current_asset)
-
+    
     if live_data['status'] == 'success':
+        # Show analysis with real data
         price = live_data['price']
         change = live_data['change']
         change_pct = live_data['change_pct']
+        
         change_color = "#00ff88" if change >= 0 else "#ff6b35"
         trend_word = "positive" if change >= 0 else "negative"
-
+        
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); 
                     border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
@@ -1975,11 +1912,14 @@ with tab1:
             <div style="color: rgba(255, 255, 255, 0.9); line-height: 1.6;">
                 <strong>{display_symbol}</strong> is currently trading at <strong>${price:,.2f}</strong> with a 
                 <span style="color: {change_color}; font-weight: 700;">{trend_word}</span> movement of 
-                <strong style="color: {change_color};">${change:+.2f} ({change_pct:+.2f}%)</strong> vs previous close.
+                <strong style="color: {change_color};">${change:+.2f} ({change_pct:+.2f}%)</strong> from the previous session.
+                Chart displays real market data from Yahoo Finance with 20-day moving average overlay.
             </div>
         </div>
         """, unsafe_allow_html=True)
+        
     else:
+        # Show error message
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%); 
                     border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
@@ -1993,46 +1933,6 @@ with tab1:
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-    # ----- Asian Session Intraday Chart + Swing High/Low (especially for ES=F) -----
-    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-
-    asia_fig, asia_levels = build_asian_session_line_chart(current_asset)
-    st.plotly_chart(asia_fig, use_container_width=True, config=CHART_CONFIG)
-
-    if asia_levels:
-        ah = asia_levels["asia_high"]
-        al = asia_levels["asia_low"]
-        aht = asia_levels["asia_high_time"]
-        alt = asia_levels["asia_low_time"]
-        st.markdown(f"""
-        <div style="display:flex; gap:1rem; flex-wrap:wrap; margin:.5rem 0 0 0;">
-            <div class="glass-panel" style="padding: .75rem 1rem; border-radius:12px;">
-                <div style="font-size:.75rem; color:rgba(255,255,255,.7);">Asian Swing High</div>
-                <div style="font-size:1.1rem; font-weight:800;">${ah:,.2f}</div>
-                <div style="font-size:.75rem; color:rgba(255,255,255,.6);">{aht.strftime('%Y-%m-%d %H:%M CT')}</div>
-            </div>
-            <div class="glass-panel" style="padding: .75rem 1rem; border-radius:12px;">
-                <div style="font-size:.75rem; color:rgba(255,255,255,.7);">Asian Swing Low</div>
-                <div style="font-size:1.1rem; font-weight:800;">${al:,.2f}</div>
-                <div style="font-size:.75rem; color:rgba(255,255,255,.6);">{alt.strftime('%Y-%m-%d %H:%M CT')}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.caption("Asian session levels unavailable for this symbol or window.")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Placeholders for Tab 2 / Tab 3 (implemented in Part 2C2)
-with tab2:
-    st.info("Volume Analysis loads in Part 2C2.")
-with tab3:
-    st.info("Technical Indicators load in Part 2C2.")
-
-
-
-
 
 
 
