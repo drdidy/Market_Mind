@@ -206,6 +206,61 @@ section[data-testid="stSidebar"] svg * {
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* Scope ONLY to the sidebar */
+section[data-testid="stSidebar"] {
+  /* ensure this block wins */
+  isolation: isolate;
+}
+
+/* 1) Generic text in the sidebar */
+section[data-testid="stSidebar"] * {
+  color: #e5e7eb !important;
+  -webkit-text-fill-color: #e5e7eb !important; /* beats some internal styles */
+}
+
+/* 2) Multipage / navigation containers & links */
+section[data-testid="stSidebar"] nav,
+section[data-testid="stSidebar"] nav *,
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] *,
+section[data-testid="stSidebar"] [data-testid^="stPageLink"],
+section[data-testid="stSidebar"] [data-testid^="stPageLink"] *,
+section[data-testid="stSidebar"] a,
+section[data-testid="stSidebar"] a * {
+  color: #e5e7eb !important;
+  -webkit-text-fill-color: #e5e7eb !important;
+}
+
+/* 3) Pager-style controls: 'Next page', 'Previous page' (button/link/role) */
+section[data-testid="stSidebar"] [role="button"],
+section[data-testid="stSidebar"] [role="button"] *,
+section[data-testid="stSidebar"] [role="link"],
+section[data-testid="stSidebar"] [role="link"] *,
+section[data-testid="stSidebar"] .stButton button,
+section[data-testid="stSidebar"] .stLinkButton a {
+  color: #e5e7eb !important;
+  -webkit-text-fill-color: #e5e7eb !important;
+}
+
+/* 4) Active/current page highlight (optional) */
+section[data-testid="stSidebar"] [aria-current="page"],
+section[data-testid="stSidebar"] [aria-current="page"] * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* 5) Icons in links */
+section[data-testid="stSidebar"] svg,
+section[data-testid="stSidebar"] svg * {
+  fill: #e5e7eb !important;
+  stroke: #e5e7eb !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 
 # ───────────────────────────────  CORE UTILITY FUNCTIONS  ───────────────────────────────
