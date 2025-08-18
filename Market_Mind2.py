@@ -86,31 +86,83 @@ st.set_page_config(
     }
 )
 
-# 🔽 ADD THIS BLOCK IMMEDIATELY BELOW st.set_page_config
-def inject_global_styles():
+def inject_global_text_styles():
     st.markdown("""
     <style>
-    /* Make metric labels/values/deltas readable on dark UI */
-    div[data-testid="stMetricLabel"] > div { color: rgba(255,255,255,0.7) !important; }
-    div[data-testid="stMetricValue"] { color: #e5e7eb !important; }
-    span[data-testid="stMetricDelta"] {
-      color: #00ff88 !important;
-      background: rgba(0,255,136,0.12);
-      padding: 2px 8px; border-radius: 999px; font-weight: 700;
+    /* ---------- Theme vars (dark by default) ---------- */
+    :root{
+      --text:#e5e7eb;              /* main text */
+      --muted:rgba(255,255,255,.75);
+      --subtle:rgba(255,255,255,.60);
+      --link:#22d3ee;
+      --code-bg:rgba(255,255,255,.08);
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --text:#111827;
+        --muted:rgba(0,0,0,.70);
+        --subtle:rgba(0,0,0,.60);
+        --link:#0ea5e9;
+        --code-bg:rgba(0,0,0,.05);
+      }
     }
 
-    /* Lighten text inside success/error/info banners */
-    div[role="alert"] * { color: #e5e7eb !important; }
+    /* ---------- Base text (avoid overriding gradient headings) ---------- */
+    .stApp,
+    .stApp *:not(svg):not([class*="icon"]):not([style*="-webkit-text-fill-color"]){
+      color: var(--text);
+    }
 
-    /* Optional: make alert backgrounds fit dark glass UI */
-    div[role="alert"] { background: rgba(255,255,255,0.06) !important; }
+    /* Markdown & headings */
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span { color: var(--text) !important; }
+    h1,h2,h3,h4,h5,h6 { color: var(--text) !important; }
+
+    /* Captions / subtle text */
+    .stCaption, [data-testid="stCaptionContainer"], small { color: var(--subtle) !important; }
+
+    /* Links */
+    a { color: var(--link) !important; }
+
+    /* Tables / DataFrame */
+    [data-testid="stTable"] th, [data-testid="stTable"] td { color: var(--text) !important; }
+    .stDataFrame td, .stDataFrame th { color: var(--text) !important; }
+    .stDataFrame [class^="ag-"] { color: var(--text) !important; }
+
+    /* Inputs / labels / placeholders */
+    label, [data-baseweb="select"] * { color: var(--text) !important; }
+    input, textarea { color: var(--text) !important; }
+    ::placeholder { color: var(--subtle) !important; }
+
+    /* Expanders */
+    [data-testid="stExpander"] summary span { color: var(--text) !important; }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] * { color: var(--text) !important; }
+
+    /* Metrics (value/label/delta) */
+    div[data-testid="stMetricLabel"] > div { color: var(--muted) !important; }
+    div[data-testid="stMetricValue"] { color: var(--text) !important; }
+    span[data-testid="stMetricDelta"] { color: #00ff88 !important; }
+
+    /* Alerts (success/error/info) */
+    div[role="alert"] * { color: var(--text) !important; }
+
+    /* Code blocks */
+    code, pre { color: var(--text) !important; background: var(--code-bg) !important; }
+
+    /* Plotly tooltips + modebar icons */
+    .js-plotly-plot .hovertext text { fill: var(--text) !important; }
+    .js-plotly-plot .modebar-group .icon path { fill: var(--text) !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# call once
-if "css_injected" not in st.session_state:
-    inject_global_styles()
-    st.session_state.css_injected = True
+# call once, right after st.set_page_config(...)
+if "global_text_css" not in st.session_state:
+    inject_global_text_styles()
+    st.session_state.global_text_css = True
+
 
 # ───────────────────────────────  CORE UTILITY FUNCTIONS  ───────────────────────────────
 def previous_trading_day(ref_d: date) -> date:
