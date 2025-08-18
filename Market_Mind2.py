@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# MARKETLENS PRO - ENTERPRISE SPX & EQUITIES FORECASTING PLATFORM  
+# MARKETLENS PRO - ENTERPRISE SPX & EQUITIES FORECASTING PLATFORM
 # PART 1: CORE CONFIGURATION & GLOBAL SETTINGS (INTEGRATED WITH PART 2A UI)
 # Professional Trading Application with Advanced Analytics & Real-time Data
 # ═══════════════════════════════════════════════════════════════════════════════════════
@@ -27,7 +27,7 @@ COMPANY = "Max Pointe Consulting"
 ET = ZoneInfo("America/New_York")
 CT = ZoneInfo("America/Chicago")
 
-# Core trading parameters  
+# Core trading parameters
 SPX_SYMBOL = "^GSPC"
 ES_SYMBOL = "ES=F"
 
@@ -81,15 +81,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items={
         'Get Help': 'https://maxpointeconsulting.com/support',
-        'Report a bug': 'https://maxpointeconsulting.com/bugs', 
+        'Report a bug': 'https://maxpointeconsulting.com/bugs',
         'About': f"{APP_NAME} v{VERSION} - Professional trading analytics platform"
     }
 )
 
+# ---- CSS helpers (injected on every run; safe & idempotent) --------------------------
 def force_light_text_always():
     st.markdown("""
     <style>
-    /* Lock the app to light text regardless of OS theme */
+    /* baseline variables (used by your app if referenced) */
     :root{
       --text:#e5e7eb !important;
       --muted:rgba(255,255,255,.75) !important;
@@ -97,7 +98,6 @@ def force_light_text_always():
       --link:#22d3ee !important;
       --code-bg:rgba(255,255,255,.08) !important;
     }
-    /* Neutralize any prior prefers-color-scheme override */
     @media (prefers-color-scheme: light){
       :root{
         --text:#e5e7eb !important;
@@ -110,12 +110,80 @@ def force_light_text_always():
     </style>
     """, unsafe_allow_html=True)
 
-if "force_text" not in st.session_state:
-    force_light_text_always()
-    st.session_state.force_text = True
+def apply_component_text_fixes():
+    st.markdown("""
+    <style>
+    /* ── Metrics (value/label/delta) ─────────────────────────────────────────────── */
+    div[data-testid="stMetricLabel"] > div { color: rgba(255,255,255,.7) !important; }
+    div[data-testid="stMetricValue"] { color: #e5e7eb !important; }
+    span[data-testid="stMetricDelta"] { color: #00ff88 !important; }
 
+    /* ── Alerts (success/error/info) ─────────────────────────────────────────────── */
+    div[role="alert"] * { color: #e5e7eb !important; }
 
+    /* ── Plotly UI bits (hover text + modebar icons) ─────────────────────────────── */
+    .js-plotly-plot .hovertext text { fill: #e5e7eb !important; }
+    .js-plotly-plot .modebar-group .icon path { fill: #e5e7eb !important; }
 
+    /* ── Sidebar: readably light text for *all* widgets ─────────────────────────── */
+    section[data-testid="stSidebar"] *{
+      color:#e5e7eb !important;
+      opacity:1 !important;
+    }
+    /* Don’t break your gradient headings that use text-fill: transparent */
+    section[data-testid="stSidebar"] *:not([style*="-webkit-text-fill-color: transparent"]){
+      -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Radio (your nav) */
+    section[data-testid="stSidebar"] [data-baseweb="radio"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important; opacity:1 !important;
+    }
+
+    /* Selectbox text (control) */
+    section[data-testid="stSidebar"] [data-baseweb="select"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Date input (label + input) */
+    section[data-testid="stSidebar"] [data-testid="stDateInput"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* Sidebar links & buttons (if used) */
+    section[data-testid="stSidebar"] a, section[data-testid="stSidebar"] a *,
+    section[data-testid="stSidebar"] .stButton > button, section[data-testid="stSidebar"] .stButton > button *,
+    section[data-testid="stSidebar"] .stLinkButton > a, section[data-testid="stSidebar"] .stLinkButton > a *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important; opacity:1 !important;
+    }
+
+    /* Kill any inline neon green that sneaks into sidebar text */
+    section[data-testid="stSidebar"] [style*="color:#00ff88"],
+    section[data-testid="stSidebar"] [style*="color: #00ff88"],
+    section[data-testid="stSidebar"] [style*="rgb(0, 255, 136)"]{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    /* ── BaseWeb popover portals (outside the sidebar DOM) ──────────────────────── */
+    [data-baseweb="menu"], [role="listbox"]{
+      background:rgba(17,24,39,.98) !important;
+      color:#e5e7eb !important;
+      border:1px solid rgba(255,255,255,.12) !important;
+    }
+    [data-baseweb="menu"] *, [role="listbox"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+
+    [data-baseweb="datepicker"], [data-baseweb="calendar"],
+    [data-baseweb="datepicker"] *, [data-baseweb="calendar"] *{
+      color:#e5e7eb !important; -webkit-text-fill-color:#e5e7eb !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Inject CSS (call unconditionally so it applies on every rerun)
+force_light_text_always()
+apply_component_text_fixes()
 
 # ───────────────────────────────  CORE UTILITY FUNCTIONS  ───────────────────────────────
 def previous_trading_day(ref_d: date) -> date:
@@ -137,7 +205,6 @@ def is_market_hours() -> bool:
 def get_market_status() -> Tuple[str, str]:
     """Get current market status and appropriate styling."""
     now_et = datetime.now(ET)
-    
     if now_et.weekday() >= 5:
         return "🔴 Weekend", "error"
     elif is_market_hours():
@@ -224,7 +291,6 @@ def log_error(error_msg: str, error_type: str = "General") -> None:
     """Log errors to session state for debugging."""
     if len(st.session_state.error_log) > 50:  # Keep only last 50 errors
         st.session_state.error_log = st.session_state.error_log[-25:]
-    
     st.session_state.error_log.append({
         "timestamp": datetime.now().isoformat(),
         "type": error_type,
@@ -234,7 +300,6 @@ def log_error(error_msg: str, error_type: str = "General") -> None:
 def display_system_status() -> Dict[str, Any]:
     """Generate system status information."""
     market_status, status_type = get_market_status()
-    
     return {
         "market_status": market_status,
         "status_type": status_type,
@@ -311,29 +376,28 @@ PERFORMANCE_THRESHOLDS = {
 # ───────────────────────────────  GLOBAL STATE MANAGEMENT  ───────────────────────────────
 class AppState:
     """Centralized application state management."""
-    
     @staticmethod
     def get_current_asset() -> str:
         return st.session_state.current_asset
-    
+
     @staticmethod
     def set_current_asset(symbol: str) -> None:
         if validate_symbol(symbol):
             st.session_state.current_asset = symbol.upper()
         else:
             log_error(f"Invalid symbol: {symbol}", "Validation")
-    
+
     @staticmethod
     def get_forecast_date() -> date:
         return st.session_state.forecast_date
-    
+
     @staticmethod
     def set_forecast_date(new_date: date) -> None:
         if new_date <= date.today():
             st.session_state.forecast_date = new_date
         else:
             log_error(f"Future date not allowed: {new_date}", "Validation")
-    
+
     @staticmethod
     def refresh_data() -> None:
         """Trigger data refresh and clear relevant caches."""
@@ -351,7 +415,6 @@ def verify_system_ready() -> Dict[str, bool]:
         "timezone_support": True,  # Always available in modern Python
         "required_modules": True   # Imports succeeded if we're here
     }
-    
     return checks
 
 # Initialize and verify system readiness
@@ -465,7 +528,7 @@ st.markdown("""
 
 st.markdown(f"""
 <div style="text-align: center; padding: 2rem 0; color: rgba(255, 255, 255, 0.8);">
-    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; 
+    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;
                 background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%);
                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         {APP_NAME} v{VERSION}
