@@ -1614,6 +1614,40 @@ st.markdown("""
 # REAL DATA HELPERS (HARDENED)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
+def _ensure_1d_series_from_col(frame: pd.DataFrame, key_hint: str = "Close") -> pd.Series:
+    """
+    Return a 1-D numeric Series for a given price column even if Yahoo returns MultiIndex
+    or duplicates. Falls back to the first numeric column if needed.
+    """
+    if key_hint in frame.columns:
+        col = frame[key_hint]
+        if isinstance(col, pd.DataFrame):
+            # choose the first subcolumn
+            col = col.iloc[:, 0]
+        return pd.to_numeric(col, errors="coerce")
+    # MultiIndex case like ('Close', 'SYMBOL')
+    if isinstance(frame.columns, pd.MultiIndex):
+        # If first level contains key_hint, take that block's first column
+        lvl0 = frame.columns.get_level_values(0)
+        if key_hint in set(lvl0):
+            sub = frame[key_hint]
+            if isinstance(sub, pd.DataFrame):
+                sub = sub.iloc[:, 0]
+            return pd.to_numeric(sub, errors="coerce")
+    # Fallback: look for a column whose name contains 'close'
+    for c in frame.columns:
+        if isinstance(c, str) and "close" in c.lower():
+            col = frame[c]
+            if isinstance(col, pd.DataFrame):
+                col = col.iloc[:, 0]
+            return pd.to_numeric(col, errors="coerce")
+    # Last fallback: first numeric-looking column
+    for c in frame.columns:
+        s = pd.to_numeric(frame[c], errors="coerce")
+        if isinstance(s, pd.Series) and s.notna().any():
+            return s
+    return pd.Series(dtype="float64")
+
 @st.cache_data(ttl=180, show_spinner=False)
 def fetch_real_price_data(symbol: str) -> dict:
     """Daily snapshot: last close vs prior close; works for ES=F too."""
@@ -1623,13 +1657,8 @@ def fetch_real_price_data(symbol: str) -> dict:
         if df is None or df.empty:
             return {"status": "error", "error": "No daily data available"}
         df = df.dropna(how="any")
-        if df.empty:
-            return {"status": "error", "error": "Daily data empty after NA filter"}
 
-        close = df["Close"]
-        if isinstance(close, pd.DataFrame):  # just in case
-            close = close.iloc[:, 0]
-        close = pd.to_numeric(close, errors="coerce").dropna()
+        close = _ensure_1d_series_from_col(df, "Close").dropna()
         if close.empty:
             return {"status": "error", "error": "Close series empty"}
 
@@ -1657,6 +1686,19 @@ def fetch_chart_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
                          progress=False, auto_adjust=False, threads=False, group_by="column")
         if df is None or df.empty:
             return pd.DataFrame()
+        # If MultiIndex columns, collapse to first series per OHLCV key
+        if isinstance(df.columns, pd.MultiIndex):
+            new_df = pd.DataFrame(index=df.index)
+            for top in df.columns.get_level_values(0).unique():
+                try:
+                    sub = df[top]
+                    if isinstance(sub, pd.DataFrame):
+                        new_df[top] = pd.to_numeric(sub.iloc[:, 0], errors="coerce")
+                    else:
+                        new_df[top] = pd.to_numeric(sub, errors="coerce")
+                except Exception:
+                    pass
+            df = new_df
         df = df.dropna(how="any").reset_index()  # has 'Date'
         return df
     except Exception:
@@ -1685,7 +1727,7 @@ def fetch_intraday_ct(symbol: str, period: str = "5d", interval: str = "5m") -> 
 
 def build_real_price_chart(symbol: str, title: str):
     df = fetch_chart_data(symbol, period="1mo")
-    if df.empty or "Close" not in df.columns:
+    if df.empty:
         fig = go.Figure()
         fig.add_annotation(text=f"⚠️ Unable to load real data for {symbol}",
                            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
@@ -1695,23 +1737,20 @@ def build_real_price_chart(symbol: str, title: str):
                           font=dict(color="#ffffff"), height=400)
         return fig
 
-    close = df["Close"]
-    if isinstance(close, pd.DataFrame):
-        close = close.iloc[:, 0]
-    close = pd.to_numeric(close, errors="coerce")
-    valid = close.dropna()
-    ma20 = valid.rolling(20).mean() if len(valid) >= 1 else valid * np.nan
+    close = _ensure_1d_series_from_col(df, "Close")
+    ma20 = close.rolling(20, min_periods=1).mean()
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Date"], y=close, mode="lines", name=f"{symbol} Price",
                              line=dict(color="#22d3ee", width=3),
                              hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Price: $%{y:,.2f}<extra></extra>"))
     if ma20.notna().sum() > 0:
-        fig.add_trace(go.Scatter(x=df["Date"], y=ma20.reindex_like(close),
+        fig.add_trace(go.Scatter(x=df["Date"], y=ma20,
                                  mode="lines", name="20-Day Average",
                                  line=dict(color="#ff6b35", width=2, dash="dot"),
                                  hovertemplate="<b>%{x|%Y-%m-%d}</b><br>MA20: $%{y:,.2f}<extra></extra>"))
 
+    valid = close.dropna()
     pmin = float(valid.min()) if len(valid) else 0.0
     pmax = float(valid.max()) if len(valid) else 1.0
     pad = (pmax - pmin) * 0.05
@@ -1732,7 +1771,7 @@ def build_real_price_chart(symbol: str, title: str):
     return fig
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# TECHNICALS (RSI, MACD, optional BB) — Robust, won’t crash on short history
+# TECHNICALS (RSI, MACD, BB) — Robust against MultiIndex/short history
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -1742,33 +1781,54 @@ def fetch_technical_data(symbol: str) -> pd.DataFrame:
                          progress=False, auto_adjust=False, threads=False, group_by="column")
         if df is None or df.empty:
             return pd.DataFrame()
+        # Collapse MultiIndex to first subcolumn per OHLCV
+        if isinstance(df.columns, pd.MultiIndex):
+            new_df = pd.DataFrame(index=df.index)
+            for top in df.columns.get_level_values(0).unique():
+                try:
+                    sub = df[top]
+                    if isinstance(sub, pd.DataFrame):
+                        new_df[top] = pd.to_numeric(sub.iloc[:, 0], errors="coerce")
+                    else:
+                        new_df[top] = pd.to_numeric(sub, errors="coerce")
+                except Exception:
+                    pass
+            df = new_df
         return df.dropna(how="any").reset_index()
     except Exception:
         return pd.DataFrame()
 
 def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty or "Close" not in df.columns:
-        return df
+    if df.empty:
+        return df.copy()
     out = df.copy()
-    close = pd.to_numeric(out["Close"], errors="coerce")
+
+    # SAFELY get close as 1-D Series
+    close = _ensure_1d_series_from_col(out, "Close")
+    # keep a canonical Close column for downstream charts
+    out["Close"] = close
+
     # RSI
     delta = close.diff()
     gain = delta.clip(lower=0).rolling(14, min_periods=14).mean()
     loss = (-delta.clip(upper=0)).rolling(14, min_periods=14).mean()
     rs = gain / loss.replace(0, np.nan)
     out["RSI"] = 100 - (100 / (1 + rs))
+
     # MACD
     exp1 = close.ewm(span=12, adjust=False).mean()
     exp2 = close.ewm(span=26, adjust=False).mean()
     out["MACD"] = exp1 - exp2
     out["MACD_signal"] = out["MACD"].ewm(span=9, adjust=False).mean()
     out["MACD_histogram"] = out["MACD"] - out["MACD_signal"]
-    # Bollinger (kept; safe if <20 will be NaN)
+
+    # Bollinger
     mid = close.rolling(20, min_periods=20).mean()
     sd = close.rolling(20, min_periods=20).std()
     out["BB_middle"] = mid
     out["BB_upper"] = mid + 2 * sd
     out["BB_lower"] = mid - 2 * sd
+
     return out
 
 def build_technical_chart(symbol: str):
@@ -1785,6 +1845,7 @@ def build_technical_chart(symbol: str):
         return fig, {}
 
     df = calculate_technical_indicators(df)
+    close_series = _ensure_1d_series_from_col(df, "Close")
 
     fig = make_subplots(rows=3, cols=1, vertical_spacing=0.08,
                         row_heights=[0.5, 0.25, 0.25],
@@ -1792,7 +1853,7 @@ def build_technical_chart(symbol: str):
                                         f"{symbol} RSI", f"{symbol} MACD"])
 
     # Price + BB
-    fig.add_trace(go.Scatter(x=df["Date"], y=df["Close"], mode="lines", name="Price",
+    fig.add_trace(go.Scatter(x=df["Date"], y=close_series, mode="lines", name="Price",
                              line=dict(color="#22d3ee", width=2),
                              hovertemplate="Price: $%{y:,.2f}<extra></extra>"), row=1, col=1)
     if "BB_upper" in df and df["BB_upper"].notna().any():
@@ -1845,14 +1906,15 @@ def build_technical_chart(symbol: str):
 
     current_values = {}
     if len(df) > 0:
-        current_values = {
-            "rsi": float(df["RSI"].iloc[-1]) if "RSI" in df and pd.notna(df["RSI"].iloc[-1]) else 50.0,
-            "macd": float(df["MACD"].iloc[-1]) if "MACD" in df and pd.notna(df["MACD"].iloc[-1]) else 0.0,
-            "macd_signal": float(df["MACD_signal"].iloc[-1]) if "MACD_signal" in df and pd.notna(df["MACD_signal"].iloc[-1]) else 0.0,
-            "price": float(df["Close"].iloc[-1]),
-            "bb_upper": float(df["BB_upper"].iloc[-1]) if "BB_upper" in df and pd.notna(df["BB_upper"].iloc[-1]) else 0.0,
-            "bb_lower": float(df["BB_lower"].iloc[-1]) if "BB_lower" in df and pd.notna(df["BB_lower"].iloc[-1]) else 0.0,
-        }
+        # use safe getters everywhere
+        rsi_val = float(df["RSI"].iloc[-1]) if "RSI" in df and pd.notna(df["RSI"].iloc[-1]) else 50.0
+        macd_val = float(df["MACD"].iloc[-1]) if "MACD" in df and pd.notna(df["MACD"].iloc[-1]) else 0.0
+        macd_sig = float(df["MACD_signal"].iloc[-1]) if "MACD_signal" in df and pd.notna(df["MACD_signal"].iloc[-1]) else 0.0
+        price_val = float(close_series.iloc[-1]) if len(close_series) else 0.0
+        bb_u = float(df["BB_upper"].iloc[-1]) if "BB_upper" in df and pd.notna(df["BB_upper"].iloc[-1]) else 0.0
+        bb_l = float(df["BB_lower"].iloc[-1]) if "BB_lower" in df and pd.notna(df["BB_lower"].iloc[-1]) else 0.0
+        current_values = {"rsi": rsi_val, "macd": macd_val, "macd_signal": macd_sig,
+                          "price": price_val, "bb_upper": bb_u, "bb_lower": bb_l}
     return fig, current_values
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
@@ -1860,31 +1922,25 @@ def build_technical_chart(symbol: str):
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 def _asian_window_datetimes(ref_session_date: date) -> Tuple[datetime, datetime]:
-    """Return CT datetimes for prior-day 17:00..20:00 window."""
     prior = ref_session_date - timedelta(days=1)
     start_dt = datetime.combine(prior, ASIAN_START, tzinfo=CT)   # 17:00 CT prev day
     end_dt   = datetime.combine(prior, ASIAN_END, tzinfo=CT)     # 20:00 CT prev day
     return start_dt, end_dt
 
 def compute_asian_high_low_for_es(ref_session_date: date) -> Tuple[Optional[float], Optional[float], pd.DataFrame]:
-    """Load ES=F intraday, slice prior-day 17:00–20:00 CT, return swing high/low (High/Low)."""
     df = fetch_intraday_ct(ES_SYMBOL, period="5d", interval="5m")
     if df.empty:
         return None, None, pd.DataFrame()
 
     start_dt, end_dt = _asian_window_datetimes(ref_session_date)
-    mask = (df.index >= start_dt) & (df.index <= end_dt)
-    slice_df = df.loc[mask]
+    slice_df = df.loc[(df.index >= start_dt) & (df.index <= end_dt)]
     if slice_df.empty:
-        # try the most recent prior window that has data (fallback 1 extra day)
         start_dt2, end_dt2 = _asian_window_datetimes(ref_session_date - timedelta(days=1))
-        mask2 = (df.index >= start_dt2) & (df.index <= end_dt2)
-        slice_df = df.loc[mask2]
+        slice_df = df.loc[(df.index >= start_dt2) & (df.index <= end_dt2)]
 
     if slice_df.empty:
         return None, None, pd.DataFrame()
 
-    # Use true High/Low if present; else derive from Close
     high_series = slice_df.get("High", slice_df.get("Close"))
     low_series  = slice_df.get("Low",  slice_df.get("Close"))
     if isinstance(high_series, pd.DataFrame): high_series = high_series.iloc[:, 0]
@@ -1898,9 +1954,7 @@ def compute_asian_high_low_for_es(ref_session_date: date) -> Tuple[Optional[floa
     return float(high.max()), float(low.min()), slice_df
 
 def build_es_intraday_with_asian_levels(symbol_for_title: str, ref_session_date: date):
-    """Build intraday ES chart with horizontal lines at Asian session swing high/low."""
     swing_high, swing_low, asian_df = compute_asian_high_low_for_es(ref_session_date)
-    # Always plot ES intra for clarity (price line)
     intra = fetch_intraday_ct(ES_SYMBOL, period="3d", interval="5m")
     fig = go.Figure()
 
@@ -1915,12 +1969,13 @@ def build_es_intraday_with_asian_levels(symbol_for_title: str, ref_session_date:
                                  line=dict(color="#22d3ee", width=2),
                                  hovertemplate="%{x|%Y-%m-%d %H:%M CT}<br>Price: $%{y:,.2f}<extra></extra>"))
 
-    # Add Asian session band + lines if we have it
     if asian_df is not None and not asian_df.empty and swing_high is not None and swing_low is not None:
         fig.add_vrect(x0=asian_df.index.min(), x1=asian_df.index.max(),
                       fillcolor="rgba(168,85,247,.08)", line_width=0, layer="below")
-        fig.add_hline(y=swing_high, line_color="#a855f7", line_dash="dash", annotation_text="Asian High", annotation_position="top left")
-        fig.add_hline(y=swing_low, line_color="#a855f7", line_dash="dash", annotation_text="Asian Low", annotation_position="bottom left")
+        fig.add_hline(y=swing_high, line_color="#a855f7", line_dash="dash",
+                      annotation_text="Asian High", annotation_position="top left")
+        fig.add_hline(y=swing_low, line_color="#a855f7", line_dash="dash",
+                      annotation_text="Asian Low", annotation_position="bottom left")
 
     fig.update_layout(
         title=dict(text=f"ES Asian Session Swing Levels (Proxy for {symbol_for_title})",
@@ -2110,9 +2165,7 @@ with tab2:
 with tab3:
     # --- ES Asian Session for SPX proxy or ES itself ---
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-    # Use current session date (your app stores it in AppState)
     ref_date = AppState.get_forecast_date()
-    # Title symbol: if user is on SPX, show that; chart always uses ES under the hood
     title_sym = display_symbol if display_symbol else "SPX"
     es_fig, asian_high, asian_low = build_es_intraday_with_asian_levels(title_sym, ref_date)
     st.plotly_chart(es_fig, use_container_width=True, config=CHART_CONFIG)
@@ -2142,15 +2195,17 @@ with tab3:
     if tech_vals:
         col1, col2, col3 = st.columns(3)
 
+        # Panel color map
+        pc = {"success":("rgba(16,185,129,.1)","rgba(16,185,129,.3)"),
+              "warning":("rgba(245,158,11,.1)","rgba(245,158,11,.3)"),
+              "info":   ("rgba(34,211,238,.1)","rgba(34,211,238,.3)")}
+
         # RSI
         with col1:
             rsi = float(tech_vals.get("rsi", 50.0))
             if rsi > 70:      status, color, action, ptype = "Overbought", "#ff6b35", "Consider profit-taking", "warning"
             elif rsi < 30:    status, color, action, ptype = "Oversold",   "#00ff88", "Potential buying zone", "success"
             else:             status, color, action, ptype = "Neutral",    "#a855f7", "Normal trading range", "info"
-            pc = {"success":("rgba(16,185,129,.1)","rgba(16,185,129,.3)"),
-                  "warning":("rgba(245,158,11,.1)","rgba(245,158,11,.3)"),
-                  "info":   ("rgba(34,211,238,.1)","rgba(34,211,238,.3)")}
             bg, br = pc[ptype]
             st.markdown(f"""
             <div style="background:{bg}; border:1px solid {br}; border-radius:12px; padding:1.5rem; margin:1rem 0;">
@@ -2223,6 +2278,11 @@ st.markdown(f"""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+
+
+
+
 
 
 
