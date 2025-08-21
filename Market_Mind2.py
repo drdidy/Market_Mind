@@ -110,18 +110,46 @@ def apply_elite_styling():
         z-index: 1;
     }
     
-    /* Trading Cards */
+    /* Trading Cards - Mobile Optimized */
     .trading-card {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
         border: 1px solid rgba(34, 211, 238, 0.4);
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: 1rem;
         margin: 0.5rem 0;
         backdrop-filter: blur(20px);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         transition: all 0.3s ease;
-        height: 200px;
+        height: 220px;
         overflow-y: auto;
+        color: #ffffff !important;
+    }
+    
+    .trading-card h4 {
+        color: #22d3ee !important;
+        font-size: 1rem !important;
+        margin-bottom: 0.5rem !important;
+        font-weight: 600 !important;
+    }
+    
+    .trading-card p {
+        color: #ffffff !important;
+        font-size: 0.85rem !important;
+        line-height: 1.4 !important;
+        margin: 0.3rem 0 !important;
+    }
+    
+    .trading-card ul {
+        color: #ffffff !important;
+        font-size: 0.8rem !important;
+        line-height: 1.3 !important;
+        margin: 0.5rem 0 !important;
+        padding-left: 1rem !important;
+    }
+    
+    .trading-card li {
+        color: #ffffff !important;
+        margin: 0.2rem 0 !important;
     }
     
     .trading-card:hover {
@@ -130,17 +158,39 @@ def apply_elite_styling():
         transform: translateY(-2px);
     }
     
-    /* Metric Cards */
+    /* Metric Cards - Mobile Optimized */
     [data-testid="metric-container"] {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
         border: 1px solid rgba(34, 211, 238, 0.3);
         border-radius: 12px;
-        padding: 1rem;
+        padding: 0.8rem;
         margin: 0.5rem 0;
         backdrop-filter: blur(15px);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-        min-height: 100px;
+        min-height: 90px;
         transition: all 0.3s ease;
+    }
+    
+    [data-testid="metric-container"] [data-testid="metric-label"],
+    [data-testid="metric-container"] [data-testid="metric-value"],
+    [data-testid="metric-container"] [data-testid="metric-delta"] {
+        color: #ffffff !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    [data-testid="metric-container"] [data-testid="metric-label"] {
+        font-size: 0.8rem !important;
+    }
+    
+    [data-testid="metric-container"] [data-testid="metric-value"] {
+        font-size: 1.1rem !important;
+        font-weight: bold !important;
+    }
+    
+    [data-testid="metric-container"] [data-testid="metric-delta"] {
+        font-size: 0.75rem !important;
     }
     
     [data-testid="metric-container"]:hover {
@@ -148,27 +198,83 @@ def apply_elite_styling():
         transform: translateY(-1px);
     }
     
-    /* Status Indicators */
-    .status-bull { color: #00ff88; font-weight: bold; }
-    .status-bear { color: #ff4757; font-weight: bold; }
-    .status-neutral { color: #ffa502; font-weight: bold; }
-    .status-premium { color: #22d3ee; font-weight: bold; }
+    /* Status Indicators - Enhanced Visibility */
+    .status-bull { color: #00ff88 !important; font-weight: bold; font-size: 0.9rem; }
+    .status-bear { color: #ff4757 !important; font-weight: bold; font-size: 0.9rem; }
+    .status-neutral { color: #ffa502 !important; font-weight: bold; font-size: 0.9rem; }
+    .status-premium { color: #22d3ee !important; font-weight: bold; font-size: 0.9rem; }
     
-    /* Mobile Responsive */
+    /* Mobile Responsive - Enhanced */
     @media (max-width: 768px) {
-        .elite-header h1 { font-size: 2rem; }
-        .elite-header p { font-size: 1rem; }
-        .trading-card { height: 180px; padding: 1rem; }
-        [data-testid="metric-container"] { min-height: 80px; }
+        .elite-header h1 { font-size: 1.8rem; }
+        .elite-header p { font-size: 0.9rem; }
+        
+        .trading-card { 
+            height: 200px; 
+            padding: 0.8rem;
+        }
+        
+        .trading-card h4 {
+            font-size: 0.9rem !important;
+        }
+        
+        .trading-card p {
+            font-size: 0.8rem !important;
+        }
+        
+        .trading-card ul {
+            font-size: 0.75rem !important;
+        }
+        
+        [data-testid="metric-container"] { 
+            min-height: 75px; 
+            padding: 0.6rem;
+        }
+        
+        [data-testid="metric-container"] [data-testid="metric-label"] {
+            font-size: 0.7rem !important;
+        }
+        
+        [data-testid="metric-container"] [data-testid="metric-value"] {
+            font-size: 1rem !important;
+        }
+        
+        [data-testid="metric-container"] [data-testid="metric-delta"] {
+            font-size: 0.7rem !important;
+        }
     }
     
-    /* Dataframe Styling */
+    /* Dataframe Styling - Enhanced Text Visibility */
     .stDataFrame > div {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
         border: 1px solid rgba(34, 211, 238, 0.3);
         border-radius: 12px;
         backdrop-filter: blur(15px);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stDataFrame table {
+        color: #ffffff !important;
+        font-size: 0.85rem !important;
+    }
+    
+    .stDataFrame th {
+        color: #22d3ee !important;
+        font-weight: bold !important;
+        background-color: rgba(34, 211, 238, 0.1) !important;
+    }
+    
+    .stDataFrame td {
+        color: #ffffff !important;
+    }
+    
+    /* Alert Boxes - Enhanced Visibility */
+    .stAlert > div {
+        color: #ffffff !important;
+    }
+    
+    .stAlert p, .stAlert div {
+        color: #ffffff !important;
     }
     
     @keyframes pulse {
@@ -391,25 +497,36 @@ def render_market_command_center():
     """Render market command center"""
     st.markdown("### 🎯 Market Command Center")
     
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # Mobile-friendly: 3 columns instead of 5
+    col1, col2, col3 = st.columns(3)
     
     market_state, state_color = get_market_state()
     session_time = (datetime.now() - st.session_state.session_start).total_seconds() / 3600
     
     with col1:
-        st.metric("Market State", market_state, get_market_time().strftime('%H:%M ET'))
+        # Shorten text for mobile
+        state_short = market_state.replace("TRADING", "").replace("MARKET", "").strip()
+        st.metric("Market", state_short, get_market_time().strftime('%H:%M ET'))
     
     with col2:
-        st.metric("Regime", st.session_state.market_regime, st.session_state.volatility_regime)
+        regime_short = st.session_state.market_regime.replace("_", " ").replace("VOLATILITY", "VOL")
+        st.metric("Regime", regime_short, st.session_state.volatility_regime.replace("_VOL", ""))
     
     with col3:
         st.metric("Session", f"{session_time:.1f}h", f"{st.session_state.signals_generated} signals")
+    
+    # Second row for remaining metrics
+    col4, col5, col6 = st.columns(3)
     
     with col4:
         st.metric("Opportunities", st.session_state.opportunities_today, "identified")
     
     with col5:
         st.metric("Sync Score", f"{st.session_state.market_sync_score:.1f}%", "real-time")
+    
+    with col6:
+        # Add a useful metric like watchlist size
+        st.metric("Watchlist", len(st.session_state.watchlist), "symbols")
 
 def render_trading_intelligence():
     """Render elite trading intelligence dashboard"""
@@ -418,13 +535,13 @@ def render_trading_intelligence():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="trading-card">
             <h4 class="status-premium">⚓ SPX Anchor Engine</h4>
             <p><strong>Asian Session Analysis</strong></p>
             <ul>
                 <li>ES Futures: 5:00-7:30 PM CT</li>
-                <li>Skyline/Baseline Detection: ✅ Active</li>
+                <li>Skyline/Baseline: ✅ Active</li>
                 <li>Slope Projections: Real-time</li>
                 <li>Signal Generation: Live</li>
             </ul>
@@ -434,17 +551,17 @@ def render_trading_intelligence():
         """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="trading-card">
             <h4 class="status-premium">📈 Stock Anchor Matrix</h4>
-            <p><strong>Monday/Tuesday Cross-Analysis</strong></p>
+            <p><strong>Mon/Tue Cross-Analysis</strong></p>
             <ul>
-                <li>7 Mega-Cap Stocks Monitored</li>
-                <li>Cross-Day Swing Detection: ✅</li>
-                <li>Individual Slope Calculations</li>
-                <li>Wed/Thu Signal Windows</li>
+                <li>7 Mega-Cap Stocks</li>
+                <li>Cross-Day Swing: ✅</li>
+                <li>Individual Slopes</li>
+                <li>Wed/Thu Signals</li>
             </ul>
-            <p><strong>Portfolio Focus:</strong> Tech Leaders</p>
+            <p><strong>Portfolio:</strong> Tech Leaders</p>
             <p><strong>Analysis:</strong> <span class="status-bull">READY</span></p>
         </div>
         """, unsafe_allow_html=True)
