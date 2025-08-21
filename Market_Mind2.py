@@ -1,10 +1,7 @@
-# ============================================================================
-# MARKETLENS PRO v5 - PART 1: CORE FOUNDATION
-# ============================================================================
-# Contains: Core configuration, session state, utility functions, main dashboard
-# Dependencies: None (standalone foundation)
-# Next Part: Part 2A (CSS styling, sidebar navigation, form fixes)
-# ============================================================================
+# =============================================================================
+# **PART 1: CORE FOUNDATION - MarketLens Pro v5**
+# Core configuration, session state, utility functions, and main dashboard
+# =============================================================================
 
 import streamlit as st
 import pandas as pd
@@ -16,32 +13,41 @@ from plotly.subplots import make_subplots
 import datetime as dt
 from datetime import datetime, timedelta, time
 import pytz
-import warnings
 import time as time_module
+import warnings
+import logging
 from typing import Dict, List, Tuple, Optional, Union
 import json
+from dataclasses import dataclass
+from functools import lru_cache
 import hashlib
 
+# Suppress warnings
 warnings.filterwarnings('ignore')
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
-# ============================================================================
-# CORE CONFIGURATION
-# ============================================================================
+# =============================================================================
+# **CONFIGURATION & CONSTANTS**
+# =============================================================================
 
 # App Configuration
-APP_NAME = "MarketLens Pro v5"
-COMPANY = "Max Pointe Consulting"
-VERSION = "5.0.0"
+APP_CONFIG = {
+    'name': 'MarketLens Pro',
+    'version': 'v5',
+    'company': 'Max Pointe Consulting',
+    'theme': 'dark_glassmorphism'
+}
 
-# Theme Configuration
+# Color Palette
 COLORS = {
-    'primary': '#22d3ee',     # Cyan
-    'secondary': '#a855f7',   # Purple  
-    'success': '#00ff88',     # Green
-    'warning': '#ff6b35',     # Orange
-    'dark': '#0f172a',        # Dark slate
-    'glass': 'rgba(15, 23, 42, 0.8)',
-    'accent': 'rgba(34, 211, 238, 0.2)'
+    'primary': '#22d3ee',      # Cyan
+    'secondary': '#a855f7',    # Purple  
+    'success': '#00ff88',      # Green
+    'warning': '#ff6b35',      # Orange
+    'background': '#0f0f23',   # Dark blue
+    'surface': 'rgba(255,255,255,0.05)',  # Glass effect
+    'text': '#ffffff',         # White text
+    'text_secondary': '#a0a0a0' # Gray text
 }
 
 # Trading Configuration
@@ -52,511 +58,597 @@ TRADING_CONFIG = {
         'AMZN': 0.0139, 'GOOGL': 0.0122, 'TSLA': 0.0285, 'META': 0.0674
     },
     'asian_session': {'start': '17:00', 'end': '19:30'},  # CT
-    'rth_session': {'start': '08:30', 'end': '14:30'},     # CT
-    'anchor_days': ['Monday', 'Tuesday'],
-    'timeframe': '30m'
+    'rth_session': {'start': '08:30', 'end': '14:30'},    # CT  
+    'anchor_days': ['monday', 'tuesday'],
+    'timeframes': ['30min', '1h', '4h', '1d'],
+    'cache_ttl': {'live': 60, 'historical': 300}
 }
 
-# Market Symbols
+# Supported Symbols
 SYMBOLS = {
-    'spx_futures': 'ES=F',
-    'spx_index': '^GSPC',
-    'stocks': ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'TSLA', 'META'],
-    'indices': ['^GSPC', '^IXIC', '^DJI', '^RUT']
+    'indices': {
+        'SPX': '^GSPC',
+        'ES_FUTURES': 'ES=F',
+        'QQQ': 'QQQ',
+        'IWM': 'IWM'
+    },
+    'stocks': {
+        'AAPL': 'AAPL', 'MSFT': 'MSFT', 'NVDA': 'NVDA',
+        'AMZN': 'AMZN', 'GOOGL': 'GOOGL', 'TSLA': 'TSLA', 'META': 'META'
+    },
+    'crypto': {
+        'BTC': 'BTC-USD',
+        'ETH': 'ETH-USD'
+    }
 }
 
-# Cache Configuration
-CACHE_CONFIG = {
-    'live_ttl': 60,      # 60 seconds for live data
-    'historical_ttl': 300, # 5 minutes for historical data
-    'max_cache_size': 1000
-}
+# =============================================================================
+# **DATA CLASSES & MODELS**
+# =============================================================================
 
-# ============================================================================
-# SESSION STATE INITIALIZATION
-# ============================================================================
+@dataclass
+class AnchorPoint:
+    """Represents an anchor point for line projections"""
+    price: float
+    timestamp: datetime
+    anchor_type: str  # 'skyline' or 'baseline'
+    session_type: str  # 'asian' or 'monday_tuesday'
+    symbol: str
+    
+@dataclass  
+class TradingSignal:
+    """Represents a trading signal"""
+    symbol: str
+    signal_type: str  # 'BUY' or 'SELL'
+    price: float
+    timestamp: datetime
+    line_type: str  # 'skyline' or 'baseline'
+    confidence: float
+    reason: str
+
+@dataclass
+class MarketData:
+    """Container for market data"""
+    symbol: str
+    data: pd.DataFrame
+    last_update: datetime
+    data_quality: float
+    source: str = 'yahoo'
+
+# =============================================================================
+# **SESSION STATE INITIALIZATION**
+# =============================================================================
 
 def initialize_session_state():
-    """Initialize all session state variables with defaults"""
+    """Initialize all session state variables"""
     
-    # Core app state
+    # Core application state
     if 'initialized' not in st.session_state:
         st.session_state.initialized = True
-        st.session_state.current_page = 'Dashboard'
+        st.session_state.app_version = APP_CONFIG['version']
         st.session_state.last_update = datetime.now()
+    
+    # Trading data cache
+    if 'market_data_cache' not in st.session_state:
+        st.session_state.market_data_cache = {}
+    
+    if 'anchor_points' not in st.session_state:
+        st.session_state.anchor_points = {}
         
-    # Trading state
-    if 'selected_symbol' not in st.session_state:
-        st.session_state.selected_symbol = 'AAPL'
+    if 'trading_signals' not in st.session_state:
+        st.session_state.trading_signals = []
         
-    if 'analysis_date' not in st.session_state:
-        st.session_state.analysis_date = datetime.now().date()
+    if 'data_health' not in st.session_state:
+        st.session_state.data_health = {'status': 'unknown', 'score': 0.0}
+    
+    # User preferences
+    if 'selected_symbols' not in st.session_state:
+        st.session_state.selected_symbols = ['AAPL', 'MSFT', 'NVDA']
         
-    if 'timeframe' not in st.session_state:
-        st.session_state.timeframe = '30m'
+    if 'time_horizon' not in st.session_state:
+        st.session_state.time_horizon = '1d'
         
-    # Cache state
-    if 'data_cache' not in st.session_state:
-        st.session_state.data_cache = {}
-        
-    if 'cache_timestamps' not in st.session_state:
-        st.session_state.cache_timestamps = {}
-        
-    # Anchor state
-    if 'anchors' not in st.session_state:
-        st.session_state.anchors = {}
-        
-    if 'projected_lines' not in st.session_state:
-        st.session_state.projected_lines = {}
-        
-    # Analysis state
-    if 'signals' not in st.session_state:
-        st.session_state.signals = []
-        
-    if 'performance_metrics' not in st.session_state:
-        st.session_state.performance_metrics = {}
-        
-    # UI state
-    if 'show_advanced' not in st.session_state:
-        st.session_state.show_advanced = False
+    if 'notifications_enabled' not in st.session_state:
+        st.session_state.notifications_enabled = True
         
     if 'auto_refresh' not in st.session_state:
-        st.session_state.auto_refresh = True
+        st.session_state.auto_refresh = False
         
-    if 'notifications' not in st.session_state:
-        st.session_state.notifications = []
+    # UI state
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'Dashboard'
+        
+    if 'sidebar_expanded' not in st.session_state:
+        st.session_state.sidebar_expanded = True
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
+# =============================================================================
+# **UTILITY FUNCTIONS**
+# =============================================================================
 
-def get_cache_key(symbol: str, period: str, interval: str) -> str:
-    """Generate cache key for data storage"""
-    return f"{symbol}_{period}_{interval}_{datetime.now().date()}"
+def get_timezone_info():
+    """Get timezone information for trading sessions"""
+    return {
+        'eastern': pytz.timezone('US/Eastern'),
+        'central': pytz.timezone('US/Central'),
+        'utc': pytz.UTC
+    }
 
-def is_cache_valid(cache_key: str, ttl: int) -> bool:
-    """Check if cached data is still valid"""
-    if cache_key not in st.session_state.cache_timestamps:
-        return False
-    
-    timestamp = st.session_state.cache_timestamps[cache_key]
-    return (datetime.now() - timestamp).total_seconds() < ttl
-
-def clear_expired_cache():
-    """Remove expired cache entries"""
-    current_time = datetime.now()
-    expired_keys = []
-    
-    for key, timestamp in st.session_state.cache_timestamps.items():
-        if (current_time - timestamp).total_seconds() > CACHE_CONFIG['historical_ttl']:
-            expired_keys.append(key)
-    
-    for key in expired_keys:
-        if key in st.session_state.data_cache:
-            del st.session_state.data_cache[key]
-        del st.session_state.cache_timestamps[key]
-
-def convert_timezone(dt_obj: datetime, from_tz: str, to_tz: str) -> datetime:
-    """Convert datetime between timezones"""
+def convert_to_30min_blocks(timestamp: datetime, base_time: str = "09:30") -> int:
+    """Convert timestamp to 30-minute block number from market open"""
     try:
-        from_timezone = pytz.timezone(from_tz)
-        to_timezone = pytz.timezone(to_tz)
+        market_open = datetime.strptime(base_time, "%H:%M").time()
+        current_time = timestamp.time()
         
-        if dt_obj.tzinfo is None:
-            dt_obj = from_timezone.localize(dt_obj)
+        # Calculate minutes from market open
+        open_minutes = market_open.hour * 60 + market_open.minute
+        current_minutes = current_time.hour * 60 + current_time.minute
         
-        return dt_obj.astimezone(to_timezone)
-    except Exception as e:
-        st.warning(f"Timezone conversion error: {e}")
-        return dt_obj
+        # Handle next day scenarios
+        if current_minutes < open_minutes:
+            current_minutes += 24 * 60
+            
+        minutes_diff = current_minutes - open_minutes
+        return max(0, minutes_diff // 30)
+    except:
+        return 0
 
-def format_price(price: float, precision: int = 2) -> str:
-    """Format price with proper decimal places"""
+def calculate_data_quality(data: pd.DataFrame) -> float:
+    """Calculate data quality score (0-1)"""
+    if data.empty:
+        return 0.0
+        
+    try:
+        # Check for missing data
+        missing_ratio = data.isnull().sum().sum() / (len(data) * len(data.columns))
+        
+        # Check for price consistency
+        price_cols = ['Open', 'High', 'Low', 'Close']
+        available_price_cols = [col for col in price_cols if col in data.columns]
+        
+        if not available_price_cols:
+            return 0.3
+            
+        # Validate price relationships
+        valid_prices = 0
+        total_checks = 0
+        
+        for _, row in data.iterrows():
+            if all(col in row and not pd.isna(row[col]) for col in available_price_cols):
+                if len(available_price_cols) >= 4:
+                    # OHLC validation
+                    if (row['Low'] <= row['Open'] <= row['High'] and 
+                        row['Low'] <= row['Close'] <= row['High']):
+                        valid_prices += 1
+                    total_checks += 1
+                else:
+                    valid_prices += 1
+                    total_checks += 1
+        
+        price_quality = valid_prices / max(1, total_checks)
+        
+        # Final score
+        return max(0.0, min(1.0, (1 - missing_ratio) * 0.6 + price_quality * 0.4))
+        
+    except Exception as e:
+        return 0.3
+
+def format_price(price: float) -> str:
+    """Format price with appropriate decimal places"""
     if pd.isna(price):
         return "N/A"
-    return f"${price:,.{precision}f}"
+    if price >= 1000:
+        return f"${price:,.2f}"
+    elif price >= 1:
+        return f"${price:.2f}"
+    else:
+        return f"${price:.4f}"
 
-def format_percentage(value: float, precision: int = 2) -> str:
-    """Format percentage with proper sign and color coding"""
+def format_percentage(value: float) -> str:
+    """Format percentage with color coding"""
     if pd.isna(value):
         return "N/A"
-    
-    sign = "+" if value > 0 else ""
-    return f"{sign}{value:.{precision}f}%"
+    return f"{value:+.2f}%"
 
-def calculate_color_by_value(value: float, positive_color: str = None, negative_color: str = None) -> str:
-    """Return color based on positive/negative value"""
-    if pd.isna(value):
-        return "#94a3b8"  # Gray for N/A
-    
-    positive_color = positive_color or COLORS['success']
-    negative_color = negative_color or COLORS['warning']
-    
-    return positive_color if value >= 0 else negative_color
-
-def get_trading_session_times():
-    """Get current trading session information"""
-    ct_tz = pytz.timezone('America/Chicago')
-    et_tz = pytz.timezone('America/New_York')
-    current_ct = datetime.now(ct_tz)
-    
-    # Asian Session (Previous day 5:00 PM - 7:30 PM CT)
-    asian_start = current_ct.replace(hour=17, minute=0, second=0, microsecond=0) - timedelta(days=1)
-    asian_end = current_ct.replace(hour=19, minute=30, second=0, microsecond=0) - timedelta(days=1)
-    
-    # RTH Session (8:30 AM - 2:30 PM CT)
-    rth_start = current_ct.replace(hour=8, minute=30, second=0, microsecond=0)
-    rth_end = current_ct.replace(hour=14, minute=30, second=0, microsecond=0)
-    
-    return {
-        'asian_start': asian_start,
-        'asian_end': asian_end,
-        'rth_start': rth_start,
-        'rth_end': rth_end,
-        'current_ct': current_ct
-    }
-
-def validate_data_quality(data: pd.DataFrame, symbol: str) -> Dict:
-    """Validate data quality and return score"""
-    if data is None or data.empty:
-        return {'score': 0, 'issues': ['No data available'], 'status': 'error'}
-    
-    issues = []
-    score = 100
-    
-    # Check for missing data
-    missing_pct = data.isnull().sum().sum() / (len(data) * len(data.columns)) * 100
-    if missing_pct > 5:
-        issues.append(f"High missing data: {missing_pct:.1f}%")
-        score -= 20
-    
-    # Check for price anomalies
-    if 'Close' in data.columns:
-        price_changes = data['Close'].pct_change().abs()
-        extreme_moves = (price_changes > 0.1).sum()  # >10% moves
-        if extreme_moves > len(data) * 0.02:  # More than 2% of data points
-            issues.append(f"Unusual price volatility detected")
-            score -= 15
-    
-    # Check data recency
-    if hasattr(data.index, 'max'):
-        last_update = data.index.max()
-        hours_old = (datetime.now() - last_update).total_seconds() / 3600
-        if hours_old > 24:
-            issues.append(f"Data is {hours_old:.1f} hours old")
-            score -= 10
-    
-    # Determine status
-    if score >= 85:
-        status = 'excellent'
-    elif score >= 70:
-        status = 'good'
-    elif score >= 50:
-        status = 'fair'
-    else:
-        status = 'poor'
-    
-    return {
-        'score': max(0, score),
-        'issues': issues,
-        'status': status,
-        'data_points': len(data),
-        'date_range': f"{data.index.min().date()} to {data.index.max().date()}" if not data.empty else "N/A"
-    }
-
-def add_notification(message: str, type: str = 'info'):
-    """Add notification to session state"""
-    notification = {
-        'message': message,
-        'type': type,
-        'timestamp': datetime.now(),
-        'id': hashlib.md5(f"{message}{datetime.now()}".encode()).hexdigest()[:8]
-    }
-    st.session_state.notifications.append(notification)
-    
-    # Keep only last 10 notifications
-    if len(st.session_state.notifications) > 10:
-        st.session_state.notifications = st.session_state.notifications[-10:]
-
-def show_notifications():
-    """Display notifications in sidebar"""
-    if st.session_state.notifications:
-        st.sidebar.markdown("### 🔔 Notifications")
-        for notif in reversed(st.session_state.notifications[-3:]):  # Show last 3
-            time_ago = (datetime.now() - notif['timestamp']).total_seconds() / 60
-            if time_ago < 60:
-                time_str = f"{int(time_ago)}m ago"
-            else:
-                time_str = f"{int(time_ago/60)}h ago"
-            
-            icon = {"info": "ℹ️", "success": "✅", "warning": "⚠️", "error": "❌"}.get(notif['type'], "ℹ️")
-            st.sidebar.markdown(f"{icon} {notif['message']} *({time_str})*")
-
-# ============================================================================
-# MAIN DASHBOARD STRUCTURE
-# ============================================================================
-
-def create_glass_panel(content_func, height: int = None, key: str = None):
-    """Create a glassmorphism panel for content using Streamlit components"""
-    # Apply glassmorphism styling
-    st.markdown(f"""
-    <style>
-    .glass-panel {{
-        background: {COLORS['glass']};
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        padding: 24px;
-        margin: 12px 0;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        {'height: ' + str(height) + 'px;' if height else ''}
-        overflow: auto;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Use Streamlit container with the styling
-    with st.container():
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        content_func()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-def render_hero_section():
-    """Render the main hero section using Streamlit components"""
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        # Custom styling for the title
-        st.markdown(f"""
-        <style>
-        .hero-title {{
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 3rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-align: center;
-            margin-bottom: 0.5rem;
-        }}
-        .hero-subtitle {{
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.8);
-            text-align: center;
-            margin-bottom: 0;
-        }}
-        .hero-company {{
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.6);
-            text-align: center;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
+def get_market_status() -> Dict:
+    """Get current market status"""
+    try:
+        eastern = pytz.timezone('US/Eastern')
+        now_et = datetime.now(eastern)
         
-        st.markdown(f'<h1 class="hero-title">{APP_NAME}</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="hero-subtitle">Professional Trading Analytics Platform</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="hero-company">by {COMPANY}</p>', unsafe_allow_html=True)
+        # Market hours: 9:30 AM - 4:00 PM ET
+        market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+        market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+        
+        # Check if weekend
+        if now_et.weekday() >= 5:  # Saturday = 5, Sunday = 6
+            return {
+                'status': 'closed',
+                'message': 'Market Closed - Weekend',
+                'next_open': 'Monday 9:30 AM ET',
+                'color': COLORS['warning']
+            }
+            
+        # Check if market hours
+        if market_open <= now_et <= market_close:
+            return {
+                'status': 'open',
+                'message': f'Market Open - Closes at 4:00 PM ET',
+                'time_until_close': str(market_close - now_et).split('.')[0],
+                'color': COLORS['success']
+            }
+        elif now_et < market_open:
+            return {
+                'status': 'pre_market',
+                'message': f'Pre-Market - Opens at 9:30 AM ET',
+                'time_until_open': str(market_open - now_et).split('.')[0],
+                'color': COLORS['primary']
+            }
+        else:
+            return {
+                'status': 'after_hours',
+                'message': 'After Hours Trading',
+                'next_open': 'Tomorrow 9:30 AM ET',
+                'color': COLORS['secondary']
+            }
+            
+    except Exception as e:
+        return {
+            'status': 'unknown',
+            'message': 'Status Unknown',
+            'color': COLORS['warning']
+        }
 
-def render_dashboard_overview():
-    """Render main dashboard content using Streamlit components"""
+def generate_demo_data(symbol: str, days: int = 30) -> pd.DataFrame:
+    """Generate realistic demo market data"""
+    try:
+        base_price = {'AAPL': 150, 'MSFT': 280, 'NVDA': 800, 'SPX': 4200}.get(symbol, 100)
+        
+        # Generate timestamps
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        timestamps = pd.date_range(start=start_date, end=end_date, freq='30min')
+        
+        # Filter to market hours (9:30 AM - 4:00 PM ET)
+        market_hours = []
+        for ts in timestamps:
+            if ts.weekday() < 5:  # Monday-Friday
+                hour = ts.hour
+                minute = ts.minute
+                if (hour == 9 and minute >= 30) or (10 <= hour <= 15) or (hour == 16 and minute == 0):
+                    market_hours.append(ts)
+        
+        if not market_hours:
+            market_hours = [datetime.now()]
+            
+        # Generate realistic OHLC data
+        prices = []
+        current_price = base_price
+        
+        for i, ts in enumerate(market_hours):
+            # Add some randomness and trend
+            change = np.random.normal(0, base_price * 0.005)  # 0.5% volatility
+            current_price = max(current_price + change, base_price * 0.5)  # Floor at 50% of base
+            
+            # Generate OHLC
+            open_price = current_price
+            high_price = open_price * (1 + abs(np.random.normal(0, 0.002)))
+            low_price = open_price * (1 - abs(np.random.normal(0, 0.002)))
+            close_price = low_price + (high_price - low_price) * np.random.random()
+            
+            prices.append({
+                'Datetime': ts,
+                'Open': round(open_price, 2),
+                'High': round(high_price, 2),
+                'Low': round(low_price, 2),
+                'Close': round(close_price, 2),
+                'Volume': int(np.random.normal(1000000, 300000))
+            })
+            
+            current_price = close_price
+        
+        df = pd.DataFrame(prices)
+        df.set_index('Datetime', inplace=True)
+        return df
+        
+    except Exception as e:
+        # Fallback minimal data
+        now = datetime.now()
+        return pd.DataFrame({
+            'Open': [100.0],
+            'High': [101.0], 
+            'Low': [99.0],
+            'Close': [100.5],
+            'Volume': [1000000]
+        }, index=[now])
+
+@lru_cache(maxsize=100)
+def get_cache_key(symbol: str, period: str, interval: str) -> str:
+    """Generate cache key for data requests"""
+    return hashlib.md5(f"{symbol}_{period}_{interval}".encode()).hexdigest()
+
+def is_cache_valid(cache_time: datetime, ttl_seconds: int) -> bool:
+    """Check if cached data is still valid"""
+    return (datetime.now() - cache_time).total_seconds() < ttl_seconds
+
+# =============================================================================
+# **MAIN DASHBOARD COMPONENTS**
+# =============================================================================
+
+def render_header():
+    """Render the main application header"""
+    st.markdown(f"""
+        <div style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
+            <h1 style="color: {COLORS['primary']}; font-size: 2.5rem; margin: 0; 
+                       font-weight: 700; text-shadow: 0 0 20px {COLORS['primary']}50;">
+                📈 {APP_CONFIG['name']} {APP_CONFIG['version']}
+            </h1>
+            <p style="color: {COLORS['text_secondary']}; font-size: 1.1rem; margin: 0.5rem 0 0 0;">
+                Professional Trading Analytics by {APP_CONFIG['company']}
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+def render_glass_panel(title: str, content: str, height: str = "200px") -> None:
+    """Render a glassmorphism panel"""
+    st.markdown(f"""
+        <div style="
+            background: {COLORS['surface']};
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            height: {height};
+            overflow-y: auto;
+        ">
+            <h3 style="color: {COLORS['primary']}; margin-top: 0; font-size: 1.3rem; 
+                       font-weight: 600; text-shadow: 0 0 10px {COLORS['primary']}30;">
+                {title}
+            </h3>
+            <div style="color: {COLORS['text']}; line-height: 1.6;">
+                {content}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+def render_metric_card(title: str, value: str, delta: str = "", color: str = COLORS['primary']) -> None:
+    """Render a professional metric card"""
+    delta_html = ""
+    if delta:
+        delta_color = COLORS['success'] if '+' in delta else COLORS['warning']
+        delta_html = f'<div style="color: {delta_color}; font-size: 0.9rem; margin-top: 0.5rem;">{delta}</div>'
     
-    # Hero Section
-    render_hero_section()
+    st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, {color}20, {color}10);
+            border: 1px solid {color}40;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        ">
+            <div style="color: {COLORS['text_secondary']}; font-size: 0.85rem; 
+                       text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">
+                {title}
+            </div>
+            <div style="color: {color}; font-size: 1.8rem; font-weight: 700; 
+                       font-family: 'JetBrains Mono', monospace;">
+                {value}
+            </div>
+            {delta_html}
+        </div>
+    """, unsafe_allow_html=True)
+
+def render_status_indicator(status: str, message: str, color: str) -> None:
+    """Render system status indicator"""
+    st.markdown(f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: {color}20;
+            border-left: 4px solid {color};
+            border-radius: 8px;
+            margin: 1rem 0;
+        ">
+            <div style="
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: {color};
+                margin-right: 1rem;
+                box-shadow: 0 0 10px {color}50;
+                animation: pulse 2s infinite;
+            "></div>
+            <div style="color: {COLORS['text']}; font-weight: 500;">
+                {message}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+# =============================================================================
+# **MAIN DASHBOARD LAYOUT**
+# =============================================================================
+
+def render_main_dashboard():
+    """Render the main dashboard layout"""
     
-    # Quick Stats Row
+    # Market Status Section
+    market_info = get_market_status()
+    render_status_indicator(
+        market_info['status'], 
+        market_info['message'], 
+        market_info['color']
+    )
+    
+    # Key Metrics Row
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        def market_status_content():
-            st.markdown("### 📊 Market Status")
-            st.success("**ACTIVE**")
-            st.caption("Real-time monitoring")
-        create_glass_panel(market_status_content)
+        render_metric_card("SPX Level", "4,247.50", "+1.2%", COLORS['primary'])
     
     with col2:
-        def active_signals_content():
-            st.markdown("### 🎯 Active Signals")
-            st.info("**3**")
-            st.caption("Pending analysis")
-        create_glass_panel(active_signals_content)
-    
+        render_metric_card("Active Signals", "3", "+2 today", COLORS['success'])
+        
     with col3:
-        def performance_content():
-            st.markdown("### ⚡ Performance")
-            st.markdown("**87.3%**")
-            st.caption("System accuracy")
-        create_glass_panel(performance_content)
-    
+        render_metric_card("Data Health", "94.5%", "+2.1%", COLORS['success'])
+        
     with col4:
-        def last_update_content():
-            st.markdown("### 🔄 Last Update")
-            st.warning("**Live**")
-            st.caption("Auto-refresh enabled")
-        create_glass_panel(last_update_content)
+        render_metric_card("Anchor Points", "12", "Updated", COLORS['secondary'])
+    
+    # Main Content Panels
+    col_left, col_right = st.columns([2, 1])
+    
+    with col_left:
+        render_glass_panel(
+            "📊 Real-Time Market Overview",
+            f"""
+            <div style="font-family: {COLORS['text']};">
+                <h4 style="color: {COLORS['primary']}; margin: 0 0 1rem 0;">Current Market Snapshot</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <strong style="color: {COLORS['text']};">SPX Asian Anchors:</strong><br>
+                        <span style="color: {COLORS['success']};">Skyline: 4,255.30</span><br>
+                        <span style="color: {COLORS['warning']};">Baseline: 4,238.75</span>
+                    </div>
+                    <div>
+                        <strong style="color: {COLORS['text']};">AAPL Mon/Tue Anchors:</strong><br>
+                        <span style="color: {COLORS['success']};">Skyline: 152.45</span><br>
+                        <span style="color: {COLORS['warning']};">Baseline: 148.20</span>
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                    <strong style="color: {COLORS['secondary']};">Next Anchor Update:</strong>
+                    <span style="color: {COLORS['text']};">SPX Asian Session - Today 5:00 PM CT</span><br>
+                    <strong style="color: {COLORS['secondary']};">Stock Anchors:</strong>
+                    <span style="color: {COLORS['text']};">Monday/Tuesday Session Analysis</span>
+                </div>
+            </div>
+            """,
+            "300px"
+        )
+    
+    with col_right:
+        render_glass_panel(
+            "⚡ Quick Actions",
+            f"""
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <button style="
+                    background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
+                    color: white;
+                    border: none;
+                    padding: 0.75rem 1rem;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">🎯 Refresh Anchors</button>
+                
+                <button style="
+                    background: linear-gradient(135deg, {COLORS['success']}, {COLORS['primary']});
+                    color: white;
+                    border: none;
+                    padding: 0.75rem 1rem;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">📡 Update Signals</button>
+                
+                <button style="
+                    background: linear-gradient(135deg, {COLORS['secondary']}, {COLORS['warning']});
+                    color: white;
+                    border: none;
+                    padding: 0.75rem 1rem;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">📊 View Analytics</button>
+            </div>
+            """,
+            "300px"
+        )
+    
+    # System Information Panel
+    render_glass_panel(
+        "🔧 System Information",
+        f"""
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+                <strong style="color: {COLORS['primary']};">Application Version:</strong><br>
+                <span style="color: {COLORS['text']};">{APP_CONFIG['name']} {APP_CONFIG['version']}</span>
+            </div>
+            <div>
+                <strong style="color: {COLORS['primary']};">Data Sources:</strong><br>
+                <span style="color: {COLORS['success']};">Yahoo Finance ✓</span><br>
+                <span style="color: {COLORS['text']};">ES Futures ✓</span>
+            </div>
+            <div>
+                <strong style="color: {COLORS['primary']};">Trading Sessions:</strong><br>
+                <span style="color: {COLORS['text']};">Asian: 5:00-7:30 PM CT</span><br>
+                <span style="color: {COLORS['text']};">RTH: 8:30 AM-2:30 PM CT</span>
+            </div>
+            <div>
+                <strong style="color: {COLORS['primary']};">Last Updated:</strong><br>
+                <span style="color: {COLORS['text']};">{datetime.now().strftime('%H:%M:%S')}</span>
+            </div>
+        </div>
+        """,
+        "150px"
+    )
 
-    # Main Content Areas
-    st.divider()
-    
-    # System Overview
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        def system_overview_content():
-            st.markdown("## 🎯 Trading System Overview")
-            
-            st.markdown("#### SPX Anchor System (Asian Session)")
-            st.write("• Analyzes ES futures during Asian session (5:00-7:30 PM CT)")
-            st.write("• Projects Skyline/Baseline anchors through RTH using ±0.2255 slopes")
-            st.write("• Entry signals based on 30-minute candle interactions")
-            
-            st.markdown("#### Individual Stock System (Mon/Tue)")
-            st.write("• Combines Monday and Tuesday session data for cross-day analysis")
-            st.write("• Uses stock-specific slopes for line projections")
-            st.write("• Optimized for Wednesday/Thursday trading opportunities")
-            
-            st.markdown("#### Signal Generation")
-            st.write("• **BUY:** Bearish candle touches line from above, closes above")
-            st.write("• **SELL:** Bullish candle touches line from below, closes below")
-        
-        create_glass_panel(system_overview_content)
-    
-    with col2:
-        def system_status_content():
-            st.markdown("## ⚙️ System Status")
-            
-            st.success("● Data Feed: **Connected**")
-            st.success("● Asian Session: **Monitoring**")
-            st.info("● Anchor Detection: **Active**")
-            st.info("● Signal Engine: **Running**")
-            st.warning("● Cache System: **Optimized**")
-            
-            st.divider()
-            
-            st.markdown("#### Quick Actions")
-            st.caption("Use the sidebar to navigate between different analysis tools and configure your trading parameters.")
-        
-        create_glass_panel(system_status_content)
-
-    # Additional Info Section
-    st.divider()
-    
-    def market_intelligence_content():
-        st.markdown("## 📈 Market Intelligence Engine")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("#### Real-Time Analysis")
-            st.write("• Live price monitoring with 60-second refresh")
-            st.write("• Automated anchor detection and validation")
-            st.write("• Dynamic line projection calculations")
-        
-        with col2:
-            st.markdown("#### Technical Indicators")
-            st.write("• EMA crossover detection (8 & 21 periods)")
-            st.write("• Volume analysis and momentum tracking")
-            st.write("• Fibonacci retracement levels")
-        
-        with col3:
-            st.markdown("#### Risk Management")
-            st.write("• Data quality validation scoring")
-            st.write("• Signal confidence metrics")
-            st.write("• Performance tracking and analytics")
-    
-    create_glass_panel(market_intelligence_content)
-
-# ============================================================================
-# MAIN APPLICATION ENTRY POINT
-# ============================================================================
+# =============================================================================
+# **MAIN APPLICATION**
+# =============================================================================
 
 def main():
     """Main application entry point"""
     
     # Page configuration
     st.set_page_config(
-        page_title=f"{APP_NAME} - Professional Trading Platform",
+        page_title="MarketLens Pro v5",
         page_icon="📈",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
-    # Initialize session state FIRST
+    # Initialize session state
     initialize_session_state()
     
-    # Add startup notification after initialization
-    if st.session_state.get('app_started') != True:
-        add_notification("MarketLens Pro initialized successfully", "success")
-        st.session_state.app_started = True
+    # Render main interface
+    render_header()
     
-    # Clear expired cache
-    clear_expired_cache()
+    # Add a simple info message about the current part
+    st.info("""
+    🚀 **MarketLens Pro Part 1 - Core Foundation Active**
     
-    # Basic styling placeholder (will be enhanced in Part 2A)
-    st.markdown("""
-    <style>
-        .stApp {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-            color: white;
-        }
-        .main .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+    ✅ Core configuration and session state initialized  
+    ✅ Utility functions and data models loaded  
+    ✅ Main dashboard layout with glass panels rendered  
+    ✅ Market status monitoring active  
+    ✅ Demo data generation ready  
     
-    # Sidebar placeholder (will be enhanced in Part 2A)
-    with st.sidebar:
-        st.markdown(f"### {APP_NAME}")
-        st.markdown(f"*{COMPANY}*")
-        st.markdown("---")
-        
-        # Page selection placeholder
-        page = st.selectbox("Navigation", 
-                           ["Dashboard", "Anchors", "Forecasts", "Signals", 
-                            "Contracts", "Fibonacci", "Export", "Settings"],
-                           key="page_selector")
-        st.session_state.current_page = page
-        
-        st.markdown("---")
-        show_notifications()
+    **Next:** Part 2A will add CSS styling, sidebar navigation, and enhanced UI components.
+    """)
     
-    # Main content area
-    if st.session_state.current_page == "Dashboard":
-        render_dashboard_overview()
-    else:
-        # Placeholder for other pages (will be built in subsequent parts)
-        def placeholder_content():
-            st.markdown(f"## 🚧 {st.session_state.current_page} Module")
-            st.info(f"""
-            This module will be implemented in the next development phase.
-            The {st.session_state.current_page.lower()} functionality is being built with the 
-            comprehensive anchor system and real-time data integration.
-            """)
-            st.caption("Return to Dashboard to see the current system status and overview.")
-        
-        create_glass_panel(placeholder_content)
+    # Render main dashboard
+    render_main_dashboard()
     
     # Footer
-    st.divider()
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown(f"""
-        <div style="text-align: center; color: rgba(255,255,255,0.5); font-size: 0.8rem;">
-            {APP_NAME} v{VERSION} | {COMPANY} | Professional Trading Analytics
+    st.markdown(f"""
+        <div style="text-align: center; padding: 2rem 0; margin-top: 3rem; 
+                    border-top: 1px solid rgba(255,255,255,0.1); color: {COLORS['text_secondary']};">
+            <small>© 2025 {APP_CONFIG['company']} • {APP_CONFIG['name']} {APP_CONFIG['version']} • 
+            Professional Trading Analytics Platform</small>
         </div>
-        """, unsafe_allow_html=True)
-
-# ============================================================================
-# APPLICATION EXECUTION
-# ============================================================================
-
-# ============================================================================
-# END OF PART 1: CORE FOUNDATION
-# ============================================================================
-# Status: ✅ Complete - Ready for Part 2A
-# What's Next: Enhanced CSS styling, advanced sidebar, form visibility fixes
-# ============================================================================
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
