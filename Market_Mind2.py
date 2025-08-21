@@ -1252,7 +1252,123 @@ def show_basic_dashboard():
 
 
 
+# ==========================================
+# **PART 1H: MAIN APPLICATION & NAVIGATION**
+# MarketLens Pro v5 by Max Pointe Consulting
+# ==========================================
 
+def main():
+    # Apply styling
+    apply_custom_styling()
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Create Sidebar Navigation
+    st.sidebar.markdown("# 📈 MarketLens Pro v5")
+    st.sidebar.markdown("*by Max Pointe Consulting*")
+    st.sidebar.markdown("---")
+    
+    # Navigation pages
+    pages = [
+        '📊 Dashboard',
+        '⚓ Anchors', 
+        '🔮 Forecasts',
+        '🎯 Signals',
+        '📋 Contracts',
+        '📐 Fibonacci',
+        '📄 Export',
+        '📈 Analytics'
+    ]
+    
+    # Create navigation buttons
+    for page in pages:
+        page_name = page.split(' ', 1)[1]  # Remove emoji for internal reference
+        if st.sidebar.button(page, key=f"nav_{page_name}", use_container_width=True):
+            st.session_state.current_page = page_name
+    
+    st.sidebar.markdown("---")
+    
+    # Symbol Selection
+    st.sidebar.markdown("### 🎯 **Symbol Selection**")
+    symbol_options = {
+        'S&P 500 Index': '^GSPC',
+        'Apple Inc.': 'AAPL',
+        'Microsoft Corp.': 'MSFT', 
+        'NVIDIA Corp.': 'NVDA',
+        'Amazon.com Inc.': 'AMZN',
+        'Alphabet Inc.': 'GOOGL',
+        'Tesla Inc.': 'TSLA',
+        'Meta Platforms': 'META'
+    }
+    
+    selected_name = st.sidebar.selectbox(
+        "Select Symbol",
+        options=list(symbol_options.keys()),
+        key="symbol_selector"
+    )
+    st.session_state.selected_symbol = symbol_options[selected_name]
+    
+    # Analysis Date
+    st.sidebar.markdown("### 📅 **Analysis Date**")
+    st.session_state.analysis_date = st.sidebar.date_input(
+        "Select Date",
+        value=datetime.now().date(),
+        key="date_selector"
+    )
+    
+    # Market Status
+    st.sidebar.markdown("### 📈 **Market Status**")
+    current_time = datetime.now(TradingConfig.ET_TZ)
+    market_open = current_time.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = current_time.replace(hour=16, minute=0, second=0, microsecond=0)
+    
+    if market_open <= current_time <= market_close and current_time.weekday() < 5:
+        st.sidebar.success("🟢 **MARKET OPEN**")
+    else:
+        st.sidebar.info("🔴 **MARKET CLOSED**")
+    
+    # Current Time Display
+    st.sidebar.markdown(f"**ET:** {current_time.strftime('%H:%M:%S')}")
+    ct_time = current_time.astimezone(TradingConfig.CT_TZ)
+    st.sidebar.markdown(f"**CT:** {ct_time.strftime('%H:%M:%S')}")
+    
+    # Main content based on selected page
+    current_page = st.session_state.current_page
+    
+    if current_page == 'Dashboard':
+        # Try to use enhanced dashboard, fall back to basic if needed
+        try:
+            show_enhanced_dashboard()
+        except Exception as e:
+            st.error(f"Loading enhanced dashboard failed, using basic version")
+            show_basic_dashboard()
+    elif current_page == 'Anchors':
+        show_placeholder_page("⚓ Anchors", "Advanced anchor detection and analysis system.")
+    elif current_page == 'Forecasts':
+        show_placeholder_page("🔮 Forecasts", "Price projection and forecasting engine.")
+    elif current_page == 'Signals':
+        show_placeholder_page("🎯 Signals", "Real-time trading signal detection and alerts.")
+    elif current_page == 'Contracts':
+        show_placeholder_page("📋 Contracts", "Contract analysis and position management.")
+    elif current_page == 'Fibonacci':
+        show_placeholder_page("📐 Fibonacci", "Fibonacci retracement analysis with 78.6% emphasis.")
+    elif current_page == 'Export':
+        show_placeholder_page("📄 Export", "Professional reporting and data export capabilities.")
+    elif current_page == 'Analytics':
+        show_placeholder_page("📈 Analytics", "Advanced market analytics and performance metrics.")
+    
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        "<div style='text-align: center; color: #888; font-size: 0.8rem; font-family: \"Space Grotesk\", sans-serif;'>"
+        "MarketLens Pro v5 | Max Pointe Consulting | Professional Trading Analytics"
+        "</div>", 
+        unsafe_allow_html=True
+    )
+
+if __name__ == "__main__":
+    main()
 
 
 
