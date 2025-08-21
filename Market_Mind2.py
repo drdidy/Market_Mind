@@ -1,7 +1,10 @@
 # ============================================================================
-# PART 1
+# MARKETLENS PRO v5 - PART 1: CORE FOUNDATION
 # ============================================================================
-
+# Contains: Core configuration, session state, utility functions, main dashboard
+# Dependencies: None (standalone foundation)
+# Next Part: Part 2A (CSS styling, sidebar navigation, form fixes)
+# ============================================================================
 
 import streamlit as st
 import pandas as pd
@@ -474,8 +477,13 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Initialize session state
+    # Initialize session state FIRST
     initialize_session_state()
+    
+    # Add startup notification after initialization
+    if st.session_state.get('app_started') != True:
+        add_notification("MarketLens Pro initialized successfully", "success")
+        st.session_state.app_started = True
     
     # Clear expired cache
     clear_expired_cache()
@@ -541,9 +549,12 @@ def main():
 # APPLICATION EXECUTION
 # ============================================================================
 
+# ============================================================================
+# END OF PART 1: CORE FOUNDATION
+# ============================================================================
+# Status: ✅ Complete - Ready for Part 2A
+# What's Next: Enhanced CSS styling, advanced sidebar, form visibility fixes
+# ============================================================================
+
 if __name__ == "__main__":
-    # Add startup notification
-    if st.session_state.get('initialized') != True:
-        add_notification("MarketLens Pro initialized successfully", "success")
-    
     main()
