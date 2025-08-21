@@ -416,67 +416,102 @@ def assess_market_regime(market_data: Dict) -> str:
         return "TRENDING"
 
 # ============================================================================
-# ELITE DATA FETCHING
+# ELITE DATA FETCHING - REAL YAHOO FINANCE DATA
 # ============================================================================
 
-@st.cache_data(ttl=60)
 def fetch_elite_quote(symbol: str) -> Optional[Dict]:
-    """Fetch elite market data with advanced metrics"""
+    """Fetch REAL elite market data with advanced metrics - no caching for testing"""
     try:
+        # Force fresh data - no caching during testing
         ticker = yf.Ticker(symbol)
+        
+        # Get recent data
         hist = ticker.history(period='30d', interval='1d')
+        info = ticker.info
         
         if hist.empty:
+            st.error(f"❌ No data received for {symbol}")
             return None
         
         current_price = float(hist['Close'].iloc[-1])
         prev_close = float(hist['Close'].iloc[-2]) if len(hist) > 1 else current_price
         
-        # Calculate advanced metrics
+        # Get actual volume
+        current_volume = int(hist['Volume'].iloc[-1])
+        
+        # Calculate REAL advanced metrics
         returns = hist['Close'].pct_change().dropna()
-        volatility = float(returns.std() * np.sqrt(252) * 100)
+        volatility = float(returns.std() * np.sqrt(252) * 100) if len(returns) > 1 else 0.0
+        
+        # Real RSI calculation
         rsi = calculate_rsi(hist['Close'])
         
-        # Momentum calculation
+        # Real momentum calculations
         momentum_5d = (current_price - hist['Close'].iloc[-6]) / hist['Close'].iloc[-6] * 100 if len(hist) > 5 else 0
         momentum_20d = (current_price - hist['Close'].iloc[-21]) / hist['Close'].iloc[-21] * 100 if len(hist) > 20 else 0
         
-        # Support/Resistance levels
+        # Real Support/Resistance levels
         high_20d = float(hist['High'].tail(20).max())
         low_20d = float(hist['Low'].tail(20).min())
+        
+        # Real change calculation
+        change = current_price - prev_close
+        change_pct = (change / prev_close * 100) if prev_close != 0 else 0
+        
+        # Debug info - show what we actually got
+        st.write(f"✅ {symbol}: ${current_price:.2f} ({change_pct:+.2f}%) - Volume: {current_volume:,}")
         
         return {
             'symbol': symbol,
             'price': current_price,
-            'change': current_price - prev_close,
-            'change_pct': (current_price - prev_close) / prev_close * 100,
-            'volume': int(hist['Volume'].iloc[-1]),
+            'change': change,
+            'change_pct': change_pct,
+            'volume': current_volume,
             'volatility': volatility,
             'rsi': rsi,
             'momentum_5d': momentum_5d,
             'momentum_20d': momentum_20d,
             'support': low_20d,
             'resistance': high_20d,
-            'vol_regime': calculate_volatility_regime(volatility)
+            'vol_regime': calculate_volatility_regime(volatility),
+            'last_update': datetime.now().strftime('%H:%M:%S')
         }
         
-    except Exception:
+    except Exception as e:
+        st.error(f"❌ Error fetching {symbol}: {str(e)}")
         return None
 
 def update_market_intelligence():
-    """Update comprehensive market intelligence"""
+    """Update comprehensive market intelligence with REAL data"""
+    st.write("🔄 Fetching REAL market data from Yahoo Finance...")
+    
     intelligence = {}
     
-    # Fetch data for all symbols
+    # Fetch data for all symbols - show progress
     all_symbols = [TRADING_UNIVERSE['INDEX']] + list(TRADING_UNIVERSE['MEGA_CAPS'].keys())
     
-    for symbol in all_symbols:
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for i, symbol in enumerate(all_symbols):
+        status_text.text(f"Fetching {symbol}...")
+        progress_bar.progress((i + 1) / len(all_symbols))
+        
         data = fetch_elite_quote(symbol)
         if data:
             intelligence[symbol] = data
+        else:
+            st.warning(f"⚠️ Failed to fetch data for {symbol}")
     
-    st.session_state.market_intelligence = intelligence
-    st.session_state.market_regime = assess_market_regime(intelligence)
+    progress_bar.empty()
+    status_text.empty()
+    
+    if intelligence:
+        st.success(f"✅ Successfully fetched data for {len(intelligence)}/{len(all_symbols)} symbols")
+        st.session_state.market_intelligence = intelligence
+        st.session_state.market_regime = assess_market_regime(intelligence)
+    else:
+        st.error("❌ Failed to fetch any market data")
     
     return intelligence
 
