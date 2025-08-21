@@ -123,17 +123,22 @@ def apply_custom_css():
         font-weight: bold;
     }
     
-    /* Alert Box Styling - Uniform Heights */
+    /* Alert Box Styling - Flexible Heights with Uniform Appearance */
     .stAlert > div {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
         border: 1px solid rgba(34, 211, 238, 0.3);
         border-radius: 12px;
         backdrop-filter: blur(10px);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        min-height: 180px;
-        height: 180px;
+        min-height: 200px;
+        padding: 20px;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
+    }
+    
+    .stAlert > div > div {
+        width: 100%;
+        line-height: 1.4;
     }
     
     /* Dataframe Styling */
@@ -562,10 +567,10 @@ def render_anchor_analysis():
         
         • Asian Session: {anchor_status}
         • ES Futures: ✅ Configured
-        • Slope: ±{SLOPES['SPX']['skyline']} per block
+        • Slope Rate: ±{SLOPES['SPX']['skyline']}/block
         • Projections: Real-time
         
-        **Window:** 5:00-7:30 PM CT
+        **Time Window:** 5:00-7:30 PM CT
         **Next Update:** {next_analysis}
         """)
     
@@ -580,8 +585,8 @@ def render_anchor_analysis():
         • Cross-Day Detection: ✅ Active
         • Custom Slopes: Per symbol
         
-        **Active:** {', '.join(list(SYMBOLS['STOCKS'].keys())[:4])}
-        **Status:** Monitoring swings
+        **Tracking:** {', '.join(list(SYMBOLS['STOCKS'].keys())[:3])}+
+        **Status:** Monitoring swing points
         """)
     
     with col3:
@@ -592,13 +597,13 @@ def render_anchor_analysis():
         st.warning(f"""
         **⚡ SYSTEM PERFORMANCE**
         
-        • Data Points: {data_points}
-        • Quality: {analysis_quality}
-        • Cache Items: {len(st.session_state.market_data_cache)}
-        • Update Rate: {LIVE_DATA_TTL}s
+        • Data Points: {data_points} processed
+        • Quality Level: {analysis_quality}
+        • Cache Items: {len(st.session_state.market_data_cache)} stored
+        • Update Rate: {LIVE_DATA_TTL}s intervals
         
-        **System Load:** Optimal
-        **Response:** Sub-second
+        **System Load:** Optimal performance
+        **Response Time:** Sub-second analysis
         """)
 
 def render_live_market_feed():
