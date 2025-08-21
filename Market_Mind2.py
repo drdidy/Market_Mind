@@ -450,7 +450,15 @@ def main():
     current_page = st.session_state.current_page
     
     if current_page == 'Dashboard':
-        show_dashboard()
+        # Use enhanced dashboard if available, otherwise fall back to basic
+        try:
+            show_enhanced_dashboard()
+        except NameError:
+            # Fall back to basic dashboard if enhanced version not loaded
+            try:
+                show_dashboard_with_data()
+            except NameError:
+                show_dashboard()
     elif current_page == 'Anchors':
         show_placeholder_page("⚓ Anchors", "Advanced anchor detection and analysis system.")
     elif current_page == 'Forecasts':
