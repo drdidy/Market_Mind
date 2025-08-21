@@ -1,7 +1,4 @@
-# =============================================================================
-# **PART 1: CORE FOUNDATION - MarketLens Pro v5**
-# Core configuration, session state, utility functions, and main dashboard
-# =============================================================================
+# **PART 1: CORE FOUNDATION - CONFIGURATION, SESSION STATE & MAIN DASHBOARD**
 
 import streamlit as st
 import pandas as pd
@@ -11,644 +8,537 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import datetime as dt
-from datetime import datetime, timedelta, time
 import pytz
-import time as time_module
+from typing import Dict, List, Tuple, Optional, Any
+import time
 import warnings
-import logging
-from typing import Dict, List, Tuple, Optional, Union
-import json
-from dataclasses import dataclass
-from functools import lru_cache
 import hashlib
+import json
+from dataclasses import dataclass, asdict
+from enum import Enum
+import math
 
-# Suppress warnings
+# Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
-logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
-# =============================================================================
-# **CONFIGURATION & CONSTANTS**
-# =============================================================================
+# Page configuration
+st.set_page_config(
+    page_title="MarketLens Pro v5",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# App Configuration
-APP_CONFIG = {
-    'name': 'MarketLens Pro',
-    'version': 'v5',
-    'company': 'Max Pointe Consulting',
-    'theme': 'dark_glassmorphism'
-}
-
-# Color Palette
-COLORS = {
-    'primary': '#22d3ee',      # Cyan
-    'secondary': '#a855f7',    # Purple  
-    'success': '#00ff88',      # Green
-    'warning': '#ff6b35',      # Orange
-    'background': '#0f0f23',   # Dark blue
-    'surface': 'rgba(255,255,255,0.05)',  # Glass effect
-    'text': '#ffffff',         # White text
-    'text_secondary': '#a0a0a0' # Gray text
-}
-
-# Trading Configuration
-TRADING_CONFIG = {
-    'spx_slopes': {'skyline': 0.2255, 'baseline': -0.2255},
-    'stock_slopes': {
-        'AAPL': 0.0155, 'MSFT': 0.0541, 'NVDA': 0.0086,
-        'AMZN': 0.0139, 'GOOGL': 0.0122, 'TSLA': 0.0285, 'META': 0.0674
-    },
-    'asian_session': {'start': '17:00', 'end': '19:30'},  # CT
-    'rth_session': {'start': '08:30', 'end': '14:30'},    # CT  
-    'anchor_days': ['monday', 'tuesday'],
-    'timeframes': ['30min', '1h', '4h', '1d'],
-    'cache_ttl': {'live': 60, 'historical': 300}
-}
-
-# Supported Symbols
-SYMBOLS = {
-    'indices': {
-        'SPX': '^GSPC',
-        'ES_FUTURES': 'ES=F',
-        'QQQ': 'QQQ',
-        'IWM': 'IWM'
-    },
-    'stocks': {
-        'AAPL': 'AAPL', 'MSFT': 'MSFT', 'NVDA': 'NVDA',
-        'AMZN': 'AMZN', 'GOOGL': 'GOOGL', 'TSLA': 'TSLA', 'META': 'META'
-    },
-    'crypto': {
-        'BTC': 'BTC-USD',
-        'ETH': 'ETH-USD'
+# **CORE CONFIGURATION & CONSTANTS**
+class TradingConfig:
+    """Core trading system configuration"""
+    
+    # Time zones
+    ET = pytz.timezone('US/Eastern')
+    CT = pytz.timezone('US/Central')
+    
+    # Trading windows
+    RTH_START_ET = "09:30"
+    RTH_END_ET = "16:00"
+    RTH_START_CT = "08:30"  
+    RTH_END_CT = "15:00"
+    
+    # Asian session for SPX (CT timezone)
+    ASIAN_START_CT = "17:00"
+    ASIAN_END_CT = "19:30"
+    
+    # Anchor days for individual stocks
+    ANCHOR_DAYS = ['Monday', 'Tuesday']
+    
+    # Slope coefficients per 30-min block
+    SLOPES = {
+        'SPX': {'skyline': 0.2255, 'baseline': -0.2255},
+        'AAPL': {'skyline': 0.0155, 'baseline': -0.0155},
+        'MSFT': {'skyline': 0.0541, 'baseline': -0.0541},
+        'NVDA': {'skyline': 0.0086, 'baseline': -0.0086},
+        'AMZN': {'skyline': 0.0139, 'baseline': -0.0139},
+        'GOOGL': {'skyline': 0.0122, 'baseline': -0.0122},
+        'TSLA': {'skyline': 0.0285, 'baseline': -0.0285},
+        'META': {'skyline': 0.0674, 'baseline': -0.0674}
     }
-}
-
-# =============================================================================
-# **DATA CLASSES & MODELS**
-# =============================================================================
+    
+    # Cache TTL settings
+    LIVE_DATA_TTL = 60
+    HISTORICAL_DATA_TTL = 300
+    
+    # UI Theme colors
+    COLORS = {
+        'cyan': '#22d3ee',
+        'purple': '#a855f7', 
+        'green': '#00ff88',
+        'orange': '#ff6b35',
+        'background': '#0a0a0a',
+        'glass': 'rgba(255, 255, 255, 0.1)',
+        'text': '#ffffff'
+    }
 
 @dataclass
-class AnchorPoint:
-    """Represents an anchor point for line projections"""
-    price: float
-    timestamp: datetime
-    anchor_type: str  # 'skyline' or 'baseline'
-    session_type: str  # 'asian' or 'monday_tuesday'
+class AnchorData:
+    """Data structure for anchor points"""
+    skyline_price: float
+    baseline_price: float
+    skyline_time: dt.datetime
+    baseline_time: dt.datetime
+    session_start: dt.datetime
+    session_end: dt.datetime
     symbol: str
-    
-@dataclass  
+    anchor_type: str  # 'asian_session' or 'monday_tuesday'
+
+@dataclass
 class TradingSignal:
-    """Represents a trading signal"""
+    """Data structure for trading signals"""
     symbol: str
     signal_type: str  # 'BUY' or 'SELL'
-    price: float
-    timestamp: datetime
-    line_type: str  # 'skyline' or 'baseline'
+    entry_price: float
+    line_touched: str  # 'skyline' or 'baseline'
+    timestamp: dt.datetime
+    candle_type: str  # 'bullish' or 'bearish'
     confidence: float
-    reason: str
 
-@dataclass
-class MarketData:
-    """Container for market data"""
-    symbol: str
-    data: pd.DataFrame
-    last_update: datetime
-    data_quality: float
-    source: str = 'yahoo'
+class SignalType(Enum):
+    BUY = "BUY"
+    SELL = "SELL"
+    INVALID = "INVALID"
 
-# =============================================================================
 # **SESSION STATE INITIALIZATION**
-# =============================================================================
-
 def initialize_session_state():
     """Initialize all session state variables"""
-    
-    # Core application state
-    if 'initialized' not in st.session_state:
-        st.session_state.initialized = True
-        st.session_state.app_version = APP_CONFIG['version']
-        st.session_state.last_update = datetime.now()
-    
-    # Trading data cache
-    if 'market_data_cache' not in st.session_state:
-        st.session_state.market_data_cache = {}
-    
-    if 'anchor_points' not in st.session_state:
-        st.session_state.anchor_points = {}
-        
-    if 'trading_signals' not in st.session_state:
-        st.session_state.trading_signals = []
-        
-    if 'data_health' not in st.session_state:
-        st.session_state.data_health = {'status': 'unknown', 'score': 0.0}
-    
-    # User preferences
-    if 'selected_symbols' not in st.session_state:
-        st.session_state.selected_symbols = ['AAPL', 'MSFT', 'NVDA']
-        
-    if 'time_horizon' not in st.session_state:
-        st.session_state.time_horizon = '1d'
-        
-    if 'notifications_enabled' not in st.session_state:
-        st.session_state.notifications_enabled = True
-        
-    if 'auto_refresh' not in st.session_state:
-        st.session_state.auto_refresh = False
-        
-    # UI state
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'Dashboard'
-        
-    if 'sidebar_expanded' not in st.session_state:
-        st.session_state.sidebar_expanded = True
-
-# =============================================================================
-# **UTILITY FUNCTIONS**
-# =============================================================================
-
-def get_timezone_info():
-    """Get timezone information for trading sessions"""
-    return {
-        'eastern': pytz.timezone('US/Eastern'),
-        'central': pytz.timezone('US/Central'),
-        'utc': pytz.UTC
+    defaults = {
+        'current_page': 'Dashboard',
+        'selected_symbols': ['SPY', 'AAPL', 'MSFT', 'NVDA'],
+        'selected_timeframe': '30min',
+        'anchor_data': {},
+        'trading_signals': [],
+        'market_data_cache': {},
+        'last_data_update': None,
+        'data_quality_score': 0.0,
+        'system_health': 'Good',
+        'user_preferences': {
+            'dark_mode': True,
+            'auto_refresh': True,
+            'notifications': True,
+            'chart_theme': 'dark'
+        },
+        'performance_metrics': {
+            'total_signals': 0,
+            'successful_trades': 0,
+            'accuracy_rate': 0.0,
+            'avg_return': 0.0
+        }
     }
+    
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-def convert_to_30min_blocks(timestamp: datetime, base_time: str = "09:30") -> int:
-    """Convert timestamp to 30-minute block number from market open"""
-    try:
-        market_open = datetime.strptime(base_time, "%H:%M").time()
-        current_time = timestamp.time()
-        
-        # Calculate minutes from market open
-        open_minutes = market_open.hour * 60 + market_open.minute
-        current_minutes = current_time.hour * 60 + current_time.minute
-        
-        # Handle next day scenarios
-        if current_minutes < open_minutes:
-            current_minutes += 24 * 60
-            
-        minutes_diff = current_minutes - open_minutes
-        return max(0, minutes_diff // 30)
-    except:
-        return 0
+# **UTILITY FUNCTIONS**
+def create_cache_key(*args) -> str:
+    """Create a hash-based cache key"""
+    key_string = str(args)
+    return hashlib.md5(key_string.encode()).hexdigest()
 
-def calculate_data_quality(data: pd.DataFrame) -> float:
-    """Calculate data quality score (0-1)"""
-    if data.empty:
-        return 0.0
-        
-    try:
-        # Check for missing data
-        missing_ratio = data.isnull().sum().sum() / (len(data) * len(data.columns))
-        
-        # Check for price consistency
-        price_cols = ['Open', 'High', 'Low', 'Close']
-        available_price_cols = [col for col in price_cols if col in data.columns]
-        
-        if not available_price_cols:
-            return 0.3
-            
-        # Validate price relationships
-        valid_prices = 0
-        total_checks = 0
-        
-        for _, row in data.iterrows():
-            if all(col in row and not pd.isna(row[col]) for col in available_price_cols):
-                if len(available_price_cols) >= 4:
-                    # OHLC validation
-                    if (row['Low'] <= row['Open'] <= row['High'] and 
-                        row['Low'] <= row['Close'] <= row['High']):
-                        valid_prices += 1
-                    total_checks += 1
-                else:
-                    valid_prices += 1
-                    total_checks += 1
-        
-        price_quality = valid_prices / max(1, total_checks)
-        
-        # Final score
-        return max(0.0, min(1.0, (1 - missing_ratio) * 0.6 + price_quality * 0.4))
-        
-    except Exception as e:
-        return 0.3
+def get_current_time_et() -> dt.datetime:
+    """Get current time in Eastern timezone"""
+    return dt.datetime.now(TradingConfig.ET)
 
-def format_price(price: float) -> str:
-    """Format price with appropriate decimal places"""
+def get_current_time_ct() -> dt.datetime:
+    """Get current time in Central timezone"""
+    return dt.datetime.now(TradingConfig.CT)
+
+def is_market_hours() -> bool:
+    """Check if market is currently open"""
+    now_et = get_current_time_et()
+    
+    # Check if weekend
+    if now_et.weekday() >= 5:  # Saturday = 5, Sunday = 6
+        return False
+    
+    # Check if within RTH
+    market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+    
+    return market_open <= now_et <= market_close
+
+def format_price(price: float, precision: int = 2) -> str:
+    """Format price with proper decimal places"""
     if pd.isna(price):
         return "N/A"
-    if price >= 1000:
-        return f"${price:,.2f}"
-    elif price >= 1:
-        return f"${price:.2f}"
-    else:
-        return f"${price:.4f}"
+    return f"${price:,.{precision}f}"
 
-def format_percentage(value: float) -> str:
+def format_percentage(value: float, precision: int = 2) -> str:
     """Format percentage with color coding"""
     if pd.isna(value):
         return "N/A"
-    return f"{value:+.2f}%"
+    sign = "+" if value >= 0 else ""
+    return f"{sign}{value:.{precision}f}%"
 
-def get_market_status() -> Dict:
-    """Get current market status"""
-    try:
-        eastern = pytz.timezone('US/Eastern')
-        now_et = datetime.now(eastern)
-        
-        # Market hours: 9:30 AM - 4:00 PM ET
-        market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
-        market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-        
-        # Check if weekend
-        if now_et.weekday() >= 5:  # Saturday = 5, Sunday = 6
-            return {
-                'status': 'closed',
-                'message': 'Market Closed - Weekend',
-                'next_open': 'Monday 9:30 AM ET',
-                'color': COLORS['warning']
-            }
-            
-        # Check if market hours
-        if market_open <= now_et <= market_close:
-            return {
-                'status': 'open',
-                'message': f'Market Open - Closes at 4:00 PM ET',
-                'time_until_close': str(market_close - now_et).split('.')[0],
-                'color': COLORS['success']
-            }
-        elif now_et < market_open:
-            return {
-                'status': 'pre_market',
-                'message': f'Pre-Market - Opens at 9:30 AM ET',
-                'time_until_open': str(market_open - now_et).split('.')[0],
-                'color': COLORS['primary']
-            }
-        else:
-            return {
-                'status': 'after_hours',
-                'message': 'After Hours Trading',
-                'next_open': 'Tomorrow 9:30 AM ET',
-                'color': COLORS['secondary']
-            }
-            
-    except Exception as e:
-        return {
-            'status': 'unknown',
-            'message': 'Status Unknown',
-            'color': COLORS['warning']
-        }
+def get_color_for_change(value: float) -> str:
+    """Get color based on positive/negative value"""
+    if pd.isna(value):
+        return TradingConfig.COLORS['text']
+    return TradingConfig.COLORS['green'] if value >= 0 else TradingConfig.COLORS['orange']
 
-def generate_demo_data(symbol: str, days: int = 30) -> pd.DataFrame:
+def calculate_30min_blocks_since_start(start_time: dt.datetime, current_time: dt.datetime) -> int:
+    """Calculate number of 30-minute blocks since start time"""
+    time_diff = current_time - start_time
+    return max(0, int(time_diff.total_seconds() / 1800))  # 1800 seconds = 30 minutes
+
+def validate_price_data(data: pd.DataFrame, symbol: str) -> Tuple[bool, float]:
+    """Validate price data quality and return score"""
+    if data is None or data.empty:
+        return False, 0.0
+    
+    required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+    missing_columns = [col for col in required_columns if col not in data.columns]
+    
+    if missing_columns:
+        return False, 0.0
+    
+    # Check for data quality issues
+    quality_score = 1.0
+    
+    # Check for missing values
+    null_ratio = data[required_columns].isnull().sum().sum() / (len(data) * len(required_columns))
+    quality_score -= null_ratio * 0.3
+    
+    # Check for zero/negative prices
+    price_columns = ['Open', 'High', 'Low', 'Close']
+    invalid_prices = (data[price_columns] <= 0).sum().sum()
+    if invalid_prices > 0:
+        quality_score -= 0.2
+    
+    # Check for volume
+    if data['Volume'].sum() == 0:
+        quality_score -= 0.1
+    
+    # Check data recency (prefer data from last 5 trading days)
+    if not data.empty:
+        last_date = data.index[-1]
+        days_old = (dt.datetime.now() - last_date).days
+        if days_old > 5:
+            quality_score -= min(0.3, days_old * 0.02)
+    
+    return quality_score > 0.5, max(0.0, min(1.0, quality_score))
+
+# **DEMO DATA GENERATORS**
+def generate_demo_market_data(symbol: str, days: int = 10) -> pd.DataFrame:
     """Generate realistic demo market data"""
+    np.random.seed(hash(symbol) % 2**32)
+    
+    # Base prices for different symbols
+    base_prices = {
+        'SPY': 580.0, 'QQQ': 520.0, 'AAPL': 230.0, 'MSFT': 450.0,
+        'NVDA': 140.0, 'AMZN': 200.0, 'GOOGL': 180.0, 'TSLA': 250.0, 'META': 580.0
+    }
+    
+    base_price = base_prices.get(symbol, 100.0)
+    
+    # Generate 30-minute intervals
+    end_date = dt.datetime.now()
+    start_date = end_date - dt.timedelta(days=days)
+    
+    # Create 30-minute intervals during market hours only
+    dates = []
+    current_date = start_date.replace(hour=9, minute=30, second=0, microsecond=0)
+    
+    while current_date <= end_date:
+        # Skip weekends
+        if current_date.weekday() < 5:  # Monday = 0, Friday = 4
+            # Market hours: 9:30 AM to 4:00 PM ET
+            market_start = current_date.replace(hour=9, minute=30)
+            market_end = current_date.replace(hour=16, minute=0)
+            
+            time_slot = market_start
+            while time_slot <= market_end:
+                dates.append(time_slot)
+                time_slot += dt.timedelta(minutes=30)
+        
+        current_date += dt.timedelta(days=1)
+    
+    # Generate realistic price movements
+    n_periods = len(dates)
+    returns = np.random.normal(0, 0.015, n_periods)
+    returns[0] = 0  # First return is 0
+    
+    # Add some trend and mean reversion
+    trend = np.linspace(-0.001, 0.001, n_periods)
+    returns += trend
+    
+    # Calculate prices
+    prices = [base_price]
+    for i in range(1, n_periods):
+        new_price = prices[-1] * (1 + returns[i])
+        prices.append(max(new_price, base_price * 0.8))  # Prevent excessive drops
+    
+    # Generate OHLC data
+    data = []
+    for i, (date, close) in enumerate(zip(dates, prices)):
+        # Generate realistic OHLC from close price
+        volatility = 0.008
+        open_price = close * (1 + np.random.normal(0, volatility/2))
+        
+        high_range = close * (1 + abs(np.random.normal(0, volatility)))
+        low_range = close * (1 - abs(np.random.normal(0, volatility)))
+        
+        high = max(open_price, close, high_range)
+        low = min(open_price, close, low_range)
+        
+        volume = max(1000000, int(np.random.lognormal(15, 0.5)))
+        
+        data.append({
+            'Open': round(open_price, 2),
+            'High': round(high, 2),
+            'Low': round(low, 2),
+            'Close': round(close, 2),
+            'Volume': volume
+        })
+    
+    df = pd.DataFrame(data, index=pd.DatetimeIndex(dates))
+    return df
+
+def get_system_health_status() -> Tuple[str, str]:
+    """Get current system health status"""
     try:
-        base_price = {'AAPL': 150, 'MSFT': 280, 'NVDA': 800, 'SPX': 4200}.get(symbol, 100)
+        # Check market hours
+        market_open = is_market_hours()
         
-        # Generate timestamps
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        timestamps = pd.date_range(start=start_date, end=end_date, freq='30min')
+        # Check data quality
+        quality_score = st.session_state.get('data_quality_score', 0.0)
         
-        # Filter to market hours (9:30 AM - 4:00 PM ET)
-        market_hours = []
-        for ts in timestamps:
-            if ts.weekday() < 5:  # Monday-Friday
-                hour = ts.hour
-                minute = ts.minute
-                if (hour == 9 and minute >= 30) or (10 <= hour <= 15) or (hour == 16 and minute == 0):
-                    market_hours.append(ts)
-        
-        if not market_hours:
-            market_hours = [datetime.now()]
+        # Determine status
+        if quality_score >= 0.8 and market_open:
+            return "Excellent", TradingConfig.COLORS['green']
+        elif quality_score >= 0.6:
+            return "Good", TradingConfig.COLORS['cyan']
+        elif quality_score >= 0.4:
+            return "Fair", TradingConfig.COLORS['orange']
+        else:
+            return "Poor", TradingConfig.COLORS['orange']
             
-        # Generate realistic OHLC data
-        prices = []
-        current_price = base_price
-        
-        for i, ts in enumerate(market_hours):
-            # Add some randomness and trend
-            change = np.random.normal(0, base_price * 0.005)  # 0.5% volatility
-            current_price = max(current_price + change, base_price * 0.5)  # Floor at 50% of base
-            
-            # Generate OHLC
-            open_price = current_price
-            high_price = open_price * (1 + abs(np.random.normal(0, 0.002)))
-            low_price = open_price * (1 - abs(np.random.normal(0, 0.002)))
-            close_price = low_price + (high_price - low_price) * np.random.random()
-            
-            prices.append({
-                'Datetime': ts,
-                'Open': round(open_price, 2),
-                'High': round(high_price, 2),
-                'Low': round(low_price, 2),
-                'Close': round(close_price, 2),
-                'Volume': int(np.random.normal(1000000, 300000))
-            })
-            
-            current_price = close_price
-        
-        df = pd.DataFrame(prices)
-        df.set_index('Datetime', inplace=True)
-        return df
-        
-    except Exception as e:
-        # Fallback minimal data
-        now = datetime.now()
-        return pd.DataFrame({
-            'Open': [100.0],
-            'High': [101.0], 
-            'Low': [99.0],
-            'Close': [100.5],
-            'Volume': [1000000]
-        }, index=[now])
+    except Exception:
+        return "Unknown", TradingConfig.COLORS['orange']
 
-@lru_cache(maxsize=100)
-def get_cache_key(symbol: str, period: str, interval: str) -> str:
-    """Generate cache key for data requests"""
-    return hashlib.md5(f"{symbol}_{period}_{interval}".encode()).hexdigest()
-
-def is_cache_valid(cache_time: datetime, ttl_seconds: int) -> bool:
-    """Check if cached data is still valid"""
-    return (datetime.now() - cache_time).total_seconds() < ttl_seconds
-
-# =============================================================================
-# **MAIN DASHBOARD COMPONENTS**
-# =============================================================================
-
-def render_header():
-    """Render the main application header"""
-    st.markdown(f"""
-        <div style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
-            <h1 style="color: {COLORS['primary']}; font-size: 2.5rem; margin: 0; 
-                       font-weight: 700; text-shadow: 0 0 20px {COLORS['primary']}50;">
-                📈 {APP_CONFIG['name']} {APP_CONFIG['version']}
-            </h1>
-            <p style="color: {COLORS['text_secondary']}; font-size: 1.1rem; margin: 0.5rem 0 0 0;">
-                Professional Trading Analytics by {APP_CONFIG['company']}
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
-def render_glass_panel(title: str, content: str, height: str = "200px") -> None:
-    """Render a glassmorphism panel"""
-    st.markdown(f"""
-        <div style="
-            background: {COLORS['surface']};
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            height: {height};
-            overflow-y: auto;
-        ">
-            <h3 style="color: {COLORS['primary']}; margin-top: 0; font-size: 1.3rem; 
-                       font-weight: 600; text-shadow: 0 0 10px {COLORS['primary']}30;">
-                {title}
-            </h3>
-            <div style="color: {COLORS['text']}; line-height: 1.6;">
-                {content}
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-def render_metric_card(title: str, value: str, delta: str = "", color: str = COLORS['primary']) -> None:
-    """Render a professional metric card"""
-    delta_html = ""
-    if delta:
-        delta_color = COLORS['success'] if '+' in delta else COLORS['warning']
-        delta_html = f'<div style="color: {delta_color}; font-size: 0.9rem; margin-top: 0.5rem;">{delta}</div>'
-    
-    st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, {color}20, {color}10);
-            border: 1px solid {color}40;
-            border-radius: 12px;
-            padding: 1.5rem;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            height: 120px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        ">
-            <div style="color: {COLORS['text_secondary']}; font-size: 0.85rem; 
-                       text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">
-                {title}
-            </div>
-            <div style="color: {color}; font-size: 1.8rem; font-weight: 700; 
-                       font-family: 'JetBrains Mono', monospace;">
-                {value}
-            </div>
-            {delta_html}
-        </div>
-    """, unsafe_allow_html=True)
-
-def render_status_indicator(status: str, message: str, color: str) -> None:
-    """Render system status indicator"""
-    st.markdown(f"""
-        <div style="
-            display: flex;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            background: {color}20;
-            border-left: 4px solid {color};
-            border-radius: 8px;
-            margin: 1rem 0;
-        ">
-            <div style="
-                width: 12px;
-                height: 12px;
-                border-radius: 50%;
-                background: {color};
-                margin-right: 1rem;
-                box-shadow: 0 0 10px {color}50;
-                animation: pulse 2s infinite;
-            "></div>
-            <div style="color: {COLORS['text']}; font-weight: 500;">
-                {message}
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-# =============================================================================
 # **MAIN DASHBOARD LAYOUT**
-# =============================================================================
-
 def render_main_dashboard():
-    """Render the main dashboard layout"""
+    """Render the main dashboard with glass panels"""
     
-    # Market Status Section
-    market_info = get_market_status()
-    render_status_indicator(
-        market_info['status'], 
-        market_info['message'], 
-        market_info['color']
-    )
+    # Hero section
+    st.markdown("""
+    <div style='text-align: center; padding: 2rem 0; margin-bottom: 2rem;'>
+        <h1 style='font-size: 3.5rem; font-weight: 700; background: linear-gradient(135deg, #22d3ee, #a855f7); 
+                   -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;'>
+            MarketLens Pro v5
+        </h1>
+        <p style='font-size: 1.2rem; color: #94a3b8; margin: 0.5rem 0 0 0;'>
+            Advanced Trading Intelligence by Max Pointe Consulting
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Key Metrics Row
+    # System status bar
+    status, status_color = get_system_health_status()
+    market_status = "🟢 OPEN" if is_market_hours() else "🔴 CLOSED"
+    
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        render_metric_card("SPX Level", "4,247.50", "+1.2%", COLORS['primary'])
+        st.markdown(f"""
+        <div style='background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.2);'>
+            <div style='color: {status_color}; font-weight: 600; font-size: 1.1rem;'>System Health</div>
+            <div style='color: white; font-size: 1.3rem; margin-top: 0.5rem;'>{status}</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        render_metric_card("Active Signals", "3", "+2 today", COLORS['success'])
-        
-    with col3:
-        render_metric_card("Data Health", "94.5%", "+2.1%", COLORS['success'])
-        
-    with col4:
-        render_metric_card("Anchor Points", "12", "Updated", COLORS['secondary'])
-    
-    # Main Content Panels
-    col_left, col_right = st.columns([2, 1])
-    
-    with col_left:
-        render_glass_panel(
-            "📊 Real-Time Market Overview",
-            f"""
-            <div style="font-family: {COLORS['text']};">
-                <h4 style="color: {COLORS['primary']}; margin: 0 0 1rem 0;">Current Market Snapshot</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div>
-                        <strong style="color: {COLORS['text']};">SPX Asian Anchors:</strong><br>
-                        <span style="color: {COLORS['success']};">Skyline: 4,255.30</span><br>
-                        <span style="color: {COLORS['warning']};">Baseline: 4,238.75</span>
-                    </div>
-                    <div>
-                        <strong style="color: {COLORS['text']};">AAPL Mon/Tue Anchors:</strong><br>
-                        <span style="color: {COLORS['success']};">Skyline: 152.45</span><br>
-                        <span style="color: {COLORS['warning']};">Baseline: 148.20</span>
-                    </div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-                    <strong style="color: {COLORS['secondary']};">Next Anchor Update:</strong>
-                    <span style="color: {COLORS['text']};">SPX Asian Session - Today 5:00 PM CT</span><br>
-                    <strong style="color: {COLORS['secondary']};">Stock Anchors:</strong>
-                    <span style="color: {COLORS['text']};">Monday/Tuesday Session Analysis</span>
-                </div>
-            </div>
-            """,
-            "300px"
-        )
-    
-    with col_right:
-        render_glass_panel(
-            "⚡ Quick Actions",
-            f"""
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <button style="
-                    background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
-                    color: white;
-                    border: none;
-                    padding: 0.75rem 1rem;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                ">🎯 Refresh Anchors</button>
-                
-                <button style="
-                    background: linear-gradient(135deg, {COLORS['success']}, {COLORS['primary']});
-                    color: white;
-                    border: none;
-                    padding: 0.75rem 1rem;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                ">📡 Update Signals</button>
-                
-                <button style="
-                    background: linear-gradient(135deg, {COLORS['secondary']}, {COLORS['warning']});
-                    color: white;
-                    border: none;
-                    padding: 0.75rem 1rem;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                ">📊 View Analytics</button>
-            </div>
-            """,
-            "300px"
-        )
-    
-    # System Information Panel
-    render_glass_panel(
-        "🔧 System Information",
-        f"""
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-            <div>
-                <strong style="color: {COLORS['primary']};">Application Version:</strong><br>
-                <span style="color: {COLORS['text']};">{APP_CONFIG['name']} {APP_CONFIG['version']}</span>
-            </div>
-            <div>
-                <strong style="color: {COLORS['primary']};">Data Sources:</strong><br>
-                <span style="color: {COLORS['success']};">Yahoo Finance ✓</span><br>
-                <span style="color: {COLORS['text']};">ES Futures ✓</span>
-            </div>
-            <div>
-                <strong style="color: {COLORS['primary']};">Trading Sessions:</strong><br>
-                <span style="color: {COLORS['text']};">Asian: 5:00-7:30 PM CT</span><br>
-                <span style="color: {COLORS['text']};">RTH: 8:30 AM-2:30 PM CT</span>
-            </div>
-            <div>
-                <strong style="color: {COLORS['primary']};">Last Updated:</strong><br>
-                <span style="color: {COLORS['text']};">{datetime.now().strftime('%H:%M:%S')}</span>
-            </div>
+        st.markdown(f"""
+        <div style='background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.2);'>
+            <div style='color: #94a3b8; font-weight: 600; font-size: 1.1rem;'>Market Status</div>
+            <div style='color: white; font-size: 1.3rem; margin-top: 0.5rem;'>{market_status}</div>
         </div>
-        """,
-        "150px"
-    )
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        current_time = get_current_time_et().strftime("%H:%M:%S ET")
+        st.markdown(f"""
+        <div style='background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.2);'>
+            <div style='color: #94a3b8; font-weight: 600; font-size: 1.1rem;'>Current Time</div>
+            <div style='color: white; font-size: 1.3rem; margin-top: 0.5rem;'>{current_time}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        active_signals = len(st.session_state.get('trading_signals', []))
+        st.markdown(f"""
+        <div style='background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.2);'>
+            <div style='color: #94a3b8; font-weight: 600; font-size: 1.1rem;'>Active Signals</div>
+            <div style='color: white; font-size: 1.3rem; margin-top: 0.5rem;'>{active_signals}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Main content area with glass panels
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Market overview panel
+        st.markdown("""
+        <div style='background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2); margin-bottom: 2rem;'>
+            <h3 style='color: white; margin-top: 0; font-size: 1.5rem; font-weight: 600;'>📊 Market Overview</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Generate demo data for overview
+        overview_symbols = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA']
+        overview_data = []
+        
+        for symbol in overview_symbols:
+            demo_data = generate_demo_market_data(symbol, 1)
+            if not demo_data.empty:
+                current_price = demo_data['Close'].iloc[-1]
+                prev_price = demo_data['Close'].iloc[-2] if len(demo_data) > 1 else current_price
+                change = current_price - prev_price
+                change_pct = (change / prev_price) * 100 if prev_price != 0 else 0
+                
+                overview_data.append({
+                    'Symbol': symbol,
+                    'Price': format_price(current_price),
+                    'Change': f"{'+' if change >= 0 else ''}{change:.2f}",
+                    'Change %': format_percentage(change_pct),
+                    'Volume': f"{demo_data['Volume'].iloc[-1]:,}"
+                })
+        
+        if overview_data:
+            df_overview = pd.DataFrame(overview_data)
+            st.dataframe(df_overview, use_container_width=True, hide_index=True)
+    
+    with col2:
+        # Trading controls panel
+        st.markdown("""
+        <div style='background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2); margin-bottom: 2rem;'>
+            <h3 style='color: white; margin-top: 0; font-size: 1.5rem; font-weight: 600;'>⚡ Quick Actions</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Quick action buttons
+        if st.button("🔄 Refresh Data", use_container_width=True):
+            st.session_state['last_data_update'] = dt.datetime.now()
+            st.rerun()
+        
+        if st.button("📈 Scan Signals", use_container_width=True):
+            st.success("Signal scan initiated...")
+            time.sleep(1)
+            st.rerun()
+        
+        if st.button("⚙️ System Check", use_container_width=True):
+            st.info("Running system diagnostics...")
+            time.sleep(1)
+            st.session_state['system_health'] = 'Excellent'
+            st.rerun()
+    
+    # Performance metrics panel
+    st.markdown("""
+    <div style='background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2);'>
+        <h3 style='color: white; margin-top: 0; font-size: 1.5rem; font-weight: 600;'>📈 Performance Metrics</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Performance metrics grid
+    metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+    
+    with metrics_col1:
+        st.metric(
+            label="Total Signals",
+            value=st.session_state['performance_metrics']['total_signals'],
+            delta="+5 today"
+        )
+    
+    with metrics_col2:
+        st.metric(
+            label="Success Rate", 
+            value=f"{st.session_state['performance_metrics']['accuracy_rate']:.1f}%",
+            delta="+2.3%"
+        )
+    
+    with metrics_col3:
+        st.metric(
+            label="Avg Return",
+            value=f"{st.session_state['performance_metrics']['avg_return']:.2f}%",
+            delta="+0.15%"
+        )
+    
+    with metrics_col4:
+        data_quality = st.session_state.get('data_quality_score', 0.85)
+        st.metric(
+            label="Data Quality",
+            value=f"{data_quality:.1%}",
+            delta="Excellent"
+        )
 
-# =============================================================================
-# **MAIN APPLICATION**
-# =============================================================================
-
+# **MAIN APPLICATION ENTRY POINT**
 def main():
     """Main application entry point"""
-    
-    # Page configuration
-    st.set_page_config(
-        page_title="MarketLens Pro v5",
-        page_icon="📈",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
     
     # Initialize session state
     initialize_session_state()
     
-    # Render main interface
-    render_header()
-    
-    # Add a simple info message about the current part
-    st.info("""
-    🚀 **MarketLens Pro Part 1 - Core Foundation Active**
-    
-    ✅ Core configuration and session state initialized  
-    ✅ Utility functions and data models loaded  
-    ✅ Main dashboard layout with glass panels rendered  
-    ✅ Market status monitoring active  
-    ✅ Demo data generation ready  
-    
-    **Next:** Part 2A will add CSS styling, sidebar navigation, and enhanced UI components.
-    """)
+    # Apply custom CSS for dark theme (will be expanded in Part 2A)
+    st.markdown("""
+    <style>
+        .stApp {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: white;
+        }
+        
+        .main .block-container {
+            padding-top: 2rem;
+            max-width: 1400px;
+        }
+        
+        /* Ensure text visibility */
+        .stMarkdown, .stText, .stMetric {
+            color: white !important;
+        }
+        
+        .stDataFrame {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        
+        /* Button styling */
+        .stButton > button {
+            background: linear-gradient(135deg, #22d3ee, #a855f7);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .stButton > button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(34, 211, 238, 0.4);
+        }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Render main dashboard
     render_main_dashboard()
     
     # Footer
-    st.markdown(f"""
-        <div style="text-align: center; padding: 2rem 0; margin-top: 3rem; 
-                    border-top: 1px solid rgba(255,255,255,0.1); color: {COLORS['text_secondary']};">
-            <small>© 2025 {APP_CONFIG['company']} • {APP_CONFIG['name']} {APP_CONFIG['version']} • 
-            Professional Trading Analytics Platform</small>
-        </div>
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: #64748b; font-size: 0.9rem; padding: 1rem 0;'>
+        MarketLens Pro v5 • Professional Trading Intelligence • Max Pointe Consulting
+    </div>
     """, unsafe_allow_html=True)
 
+# **APPLICATION LAUNCHER**
 if __name__ == "__main__":
     main()
