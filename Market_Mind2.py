@@ -347,13 +347,13 @@ def get_market_status():
     now = get_current_time('ET')
     
     if is_market_hours():
-        return "🟢 MARKET OPEN", "#00ff88"
+        return "🟢 OPEN", "#00ff88"
     elif now.hour < 9 or (now.hour == 9 and now.minute < 30):
-        return "🟡 PRE-MARKET", "#ff6b35"
+        return "🟡 PRE", "#ff6b35"
     elif now.hour >= 16:
-        return "🔴 AFTER-HOURS", "#ef4444"
+        return "🔴 AH", "#ef4444"  # AH = After Hours
     else:
-        return "⚫ MARKET CLOSED", "#64748b"
+        return "⚫ CLOSED", "#64748b"
 
 # ============================================================================
 # CACHE MANAGEMENT & DATA FETCHING
@@ -486,9 +486,9 @@ def render_market_overview():
     session_hours = (datetime.now() - st.session_state.session_start_time).total_seconds() / 3600
     
     with col1:
-        # Shorten market status text
-        status_short = market_status.replace("MARKET ", "").replace("-", " ")
-        st.metric("Market", status_short, get_current_time('ET').strftime('%H:%M ET'))
+        # Use the short status directly - no additional shortening needed
+        market_status, _ = get_market_status()
+        st.metric("Market", market_status, get_current_time('ET').strftime('%H:%M ET'))
     
     with col2:
         st.metric("Data Quality", f"{quality_score:.1f}%", st.session_state.data_health['connection_status'])
