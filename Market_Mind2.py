@@ -1344,7 +1344,7 @@ def main():
             st.error(f"Loading enhanced dashboard failed, using basic version")
             show_basic_dashboard()
     elif current_page == 'Anchors':
-        show_placeholder_page("⚓ Anchors", "Advanced anchor detection and analysis system.")
+        show_anchors_page()
     elif current_page == 'Forecasts':
         show_placeholder_page("🔮 Forecasts", "Price projection and forecasting engine.")
     elif current_page == 'Signals':
@@ -1369,6 +1369,958 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+# ==========================================
+# **PART 3A: SPX ANCHOR DETECTION ENGINE**
+# MarketLens Pro v5 by Max Pointe Consulting
+# ==========================================
+
+class SPXAnchorSystem:
+    """
+    SPX Asian Session Anchor Detection Engine
+    """
+    
+    def __init__(self, data_engine):
+        self.data_engine = data_engine
+        self.anchor_cache = {}
+    
+    def get_es_to_spx_offset(self):
+        """
+        Calculate dynamic ES to SPX offset
+        """
+        try:
+            # Get current ES and SPX prices
+            es_ticker = yf.Ticker('ES=F')
+            spx_ticker = yf.Ticker('^GSPC')
+            
+            es_price = es_ticker.info.get('regularMarketPrice') or es_ticker.info.get('previousClose')
+            spx_price = spx_ticker.info.get('regularMarketPrice') or spx_ticker.info.get('previousClose')
+            
+            if es_price and spx_price:
+                offset = spx_price - es_price
+                return offset
+            else:
+                # Fallback to typical offset
+                return 0.0
+                
+        except Exception:
+            return 0.0
+    
+    def get_asian_session_data(self, analysis_date):
+        """
+        Get ES futures data for Asian session (5:00-7:30 PM CT previous day)
+        """
+        try:
+            # Calculate previous trading day
+            if analysis_date.weekday() == 0:  # Monday
+                previous_day = analysis_date - timedelta(days=3)  # Previous Friday
+            else:
+                previous_day = analysis_date - timedelta(days=1)
+            
+            # Define Asian session times in CT
+            asian_start = TradingConfig.CT_TZ.localize(
+                datetime.combine(previous_day, TradingConfig.ASIAN_SESSION_START)
+            )
+            asian_end = TradingConfig.CT_TZ.localize(
+                datetime.combine(previous_day, TradingConfig.ASIAN_SESSION_END)
+            )
+            
+            # Fetch ES=F data for wider period to ensure coverage
+            es_data, _ = self.data_engine.get_market_data(
+                'ES=F', 
+                period='5d',  # Get 5 days to ensure coverage
+                interval='30m'
+            )
+            
+            if es_data is None or es_data.empty:
+                return None, "No ES futures data available"
+            
+            # Convert to CT timezone
+            es_data_ct = es_data.copy()
+            es_data_ct.index = es_data_ct.index.tz_convert(TradingConfig.CT_TZ)
+            
+            # Filter for Asian session
+            asian_mask = (es_data_ct.index >= asian_start) & (es_data_ct.index <= asian_end)
+            asian_session_data = es_data_ct[asian_mask]
+            
+            if asian_session_data.empty:
+                return None, f"No data found for Asian session {asian_start.strftime('%Y-%m-%d %H:%M')} - {asian_end.strftime('%H:%M')} CT"
+            
+            return asian_session_data, None
+            
+        except Exception as e:
+            return None, f"Error fetching Asian session data: {str(e)}"
+    
+    def detect_swing_points(self, data):
+        """
+        Detect swing highs and lows using CLOSE prices only (line chart methodology)
+        """
+        if data is None or len(data) < 3:
+            return None, None, None, None
+        
+        # Use CLOSE prices only for swing detection
+        closes = data['Close']
+        
+        # Find absolute highest and lowest CLOSE prices
+        skyline_anchor = closes.max()  # Highest close
+        baseline_anchor = closes.min()  # Lowest close
+        
+        # Find the exact times when these occurred
+        skyline_time = data[closes == skyline_anchor].index[0]
+        baseline_time = data[closes == baseline_anchor].index[0]
+        
+        return skyline_anchor, baseline_anchor, skyline_time, baseline_time
+    
+    def detect_asian_session_anchors(self, analysis_date):
+        """
+        Detect Skyline and Baseline anchors from Asian session ES data
+        """
+        cache_key = f"asian_anchors_{analysis_date}"
+        
+        # Check cache first
+        if cache_key in self.anchor_cache:
+            return self.anchor_cache[cache_key]
+        
+        # Get Asian session data
+        asian_data, error = self.get_asian_session_data(analysis_date)
+        
+        if asian_data is None:
+            result = {
+                'skyline_anchor': None,
+                'baseline_anchor': None,
+                'skyline_time': None,
+                'baseline_time': None,
+                'es_skyline': None,
+                'es_baseline': None,
+                'es_to_spx_offset': 0.0,
+                'error': error,
+                'session_start': None,
+                'session_end': None,
+                'data_points': 0,
+                'analysis_date': analysis_date
+            }
+            self.anchor_cache[cache_key] = result
+            return result
+        
+        # Detect swing points using CLOSE prices only
+        es_skyline, es_baseline, skyline_time, baseline_time = self.detect_swing_points(asian_data)
+        
+        if es_skyline is None:
+            result = {
+                'skyline_anchor': None,
+                'baseline_anchor': None,
+                'skyline_time': None,
+                'baseline_time': None,
+                'es_skyline': None,
+                'es_baseline': None,
+                'es_to_spx_offset': 0.0,
+                'error': "Unable to detect swing points",
+                'session_start': asian_data.index[0] if not asian_data.empty else None,
+                'session_end': asian_data.index[-1] if not asian_data.empty else None,
+                'data_points': len(asian_data),
+                'analysis_date': analysis_date
+            }
+            self.anchor_cache[cache_key] = result
+            return result
+        
+        # Get ES to SPX offset
+        es_to_spx_offset = self.get_es_to_spx_offset()
+        
+        # Convert ES anchors to SPX equivalent
+        spx_skyline = es_skyline + es_to_spx_offset
+        spx_baseline = es_baseline + es_to_spx_offset
+        
+        result = {
+            'skyline_anchor': spx_skyline,
+            'baseline_anchor': spx_baseline,
+            'skyline_time': skyline_time,
+            'baseline_time': baseline_time,
+            'es_skyline': es_skyline,
+            'es_baseline': es_baseline,
+            'es_to_spx_offset': es_to_spx_offset,
+            'session_start': asian_data.index[0],
+            'session_end': asian_data.index[-1],
+            'data_points': len(asian_data),
+            'error': None,
+            'analysis_date': analysis_date,
+            'session_range': es_skyline - es_baseline,
+            'session_duration': (asian_data.index[-1] - asian_data.index[0]).total_seconds() / 3600  # hours
+        }
+        
+        # Cache the result
+        self.anchor_cache[cache_key] = result
+        
+        return result
+    
+    def validate_anchor_quality(self, anchors):
+        """
+        Validate the quality of detected anchors
+        """
+        if not anchors or anchors.get('error'):
+            return 0, ["Anchor detection failed"]
+        
+        quality_score = 100
+        issues = []
+        
+        # Check data points
+        if anchors['data_points'] < 3:
+            quality_score -= 50
+            issues.append(f"Insufficient data points: {anchors['data_points']}")
+        elif anchors['data_points'] < 5:
+            quality_score -= 20
+            issues.append(f"Limited data points: {anchors['data_points']}")
+        
+        # Check session range
+        if anchors.get('session_range'):
+            if anchors['session_range'] < 5:  # Less than 5 points range
+                quality_score -= 30
+                issues.append(f"Narrow session range: {anchors['session_range']:.2f} points")
+            elif anchors['session_range'] > 100:  # More than 100 points range
+                quality_score -= 20
+                issues.append(f"Unusually wide range: {anchors['session_range']:.2f} points")
+        
+        # Check session duration
+        if anchors.get('session_duration'):
+            expected_duration = 2.5  # 2.5 hours
+            if abs(anchors['session_duration'] - expected_duration) > 1:
+                quality_score -= 15
+                issues.append(f"Session duration variance: {anchors['session_duration']:.1f}h vs expected 2.5h")
+        
+        # Check if anchors are reasonable
+        if anchors['skyline_anchor'] and anchors['baseline_anchor']:
+            if anchors['skyline_anchor'] <= anchors['baseline_anchor']:
+                quality_score = 0
+                issues.append("Invalid anchors: Skyline <= Baseline")
+        
+        return max(0, quality_score), issues
+    
+    def get_anchor_summary(self, analysis_date):
+        """
+        Get comprehensive anchor summary with quality assessment
+        """
+        anchors = self.detect_asian_session_anchors(analysis_date)
+        quality_score, quality_issues = self.validate_anchor_quality(anchors)
+        
+        summary = {
+            'anchors': anchors,
+            'quality_score': quality_score,
+            'quality_issues': quality_issues,
+            'status': 'EXCELLENT' if quality_score > 90 else 'GOOD' if quality_score > 70 else 'POOR' if quality_score > 30 else 'FAILED',
+            'timestamp': datetime.now(TradingConfig.ET_TZ)
+        }
+        
+        return summary
+
+# ==========================================
+# INITIALIZE SPX ANCHOR SYSTEM
+# ==========================================
+@st.cache_resource
+def get_spx_anchor_system():
+    """
+    Get cached SPX anchor system instance
+    """
+    data_engine = get_market_data_engine()
+    return SPXAnchorSystem(data_engine)
+
+
+
+
+
+
+
+
+
+# ==========================================
+# **PART 3B: SPX PROJECTION SYSTEM**
+# MarketLens Pro v5 by Max Pointe Consulting
+# ==========================================
+
+class SPXProjectionSystem:
+    """
+    SPX Slope-Based Projection System for RTH Trading
+    """
+    
+    def __init__(self, anchor_system):
+        self.anchor_system = anchor_system
+        self.projection_cache = {}
+    
+    def generate_rth_time_blocks(self, analysis_date):
+        """
+        Generate 30-minute time blocks for RTH (8:30 AM - 2:30 PM CT)
+        """
+        # Define RTH session times
+        rth_start = TradingConfig.CT_TZ.localize(
+            datetime.combine(analysis_date, TradingConfig.RTH_START_CT)
+        )
+        rth_end = TradingConfig.CT_TZ.localize(
+            datetime.combine(analysis_date, time(14, 30))  # 2:30 PM CT
+        )
+        
+        time_blocks = []
+        current_time = rth_start
+        block_number = 0
+        
+        while current_time <= rth_end:
+            time_blocks.append({
+                'time': current_time,
+                'block_number': block_number,
+                'time_str': current_time.strftime('%H:%M CT')
+            })
+            
+            # Move to next 30-minute block
+            current_time += timedelta(minutes=30)
+            block_number += 1
+        
+        return time_blocks
+    
+    def calculate_slope_projections(self, anchors, analysis_date):
+        """
+        Calculate Skyline and Baseline projections using SPX slopes
+        """
+        if not anchors or anchors['skyline_anchor'] is None:
+            return None
+        
+        cache_key = f"projections_{analysis_date}_{anchors['skyline_anchor']}"
+        
+        # Check cache
+        if cache_key in self.projection_cache:
+            return self.projection_cache[cache_key]
+        
+        # Generate RTH time blocks
+        time_blocks = self.generate_rth_time_blocks(analysis_date)
+        
+        projections = {
+            'skyline_levels': [],
+            'baseline_levels': [],
+            'times': [],
+            'block_numbers': [],
+            'time_strings': [],
+            'skyline_changes': [],
+            'baseline_changes': []
+        }
+        
+        # Calculate projected levels for each time block
+        for block in time_blocks:
+            block_num = block['block_number']
+            
+            # Apply SPX slopes: +0.2255 for Skyline, -0.2255 for Baseline
+            skyline_level = anchors['skyline_anchor'] + (TradingConfig.SPX_SLOPES['skyline'] * block_num)
+            baseline_level = anchors['baseline_anchor'] + (TradingConfig.SPX_SLOPES['baseline'] * block_num)
+            
+            # Calculate change from anchor
+            skyline_change = skyline_level - anchors['skyline_anchor']
+            baseline_change = baseline_level - anchors['baseline_anchor']
+            
+            projections['skyline_levels'].append(skyline_level)
+            projections['baseline_levels'].append(baseline_level)
+            projections['times'].append(block['time'])
+            projections['block_numbers'].append(block_num)
+            projections['time_strings'].append(block['time_str'])
+            projections['skyline_changes'].append(skyline_change)
+            projections['baseline_changes'].append(baseline_change)
+        
+        # Add metadata
+        projections['anchor_spread'] = anchors['skyline_anchor'] - anchors['baseline_anchor']
+        projections['total_blocks'] = len(time_blocks)
+        projections['session_start'] = time_blocks[0]['time'] if time_blocks else None
+        projections['session_end'] = time_blocks[-1]['time'] if time_blocks else None
+        
+        # Cache the result
+        self.projection_cache[cache_key] = projections
+        
+        return projections
+    
+    def get_current_projected_levels(self, analysis_date):
+        """
+        Get current projected levels based on current time
+        """
+        # Get anchors and projections
+        anchors = self.anchor_system.detect_asian_session_anchors(analysis_date)
+        if anchors['error']:
+            return None
+        
+        projections = self.calculate_slope_projections(anchors, analysis_date)
+        if not projections:
+            return None
+        
+        # Get current time and calculate current block
+        current_time = datetime.now(TradingConfig.CT_TZ)
+        current_block = self.get_current_rth_block(current_time, analysis_date)
+        
+        if current_block is None:
+            return {
+                'status': 'OUTSIDE_RTH',
+                'message': 'Current time is outside RTH session',
+                'current_block': None,
+                'skyline_level': None,
+                'baseline_level': None
+            }
+        
+        # Get levels for current block
+        if current_block < len(projections['skyline_levels']):
+            return {
+                'status': 'ACTIVE',
+                'current_block': current_block,
+                'skyline_level': projections['skyline_levels'][current_block],
+                'baseline_level': projections['baseline_levels'][current_block],
+                'skyline_change': projections['skyline_changes'][current_block],
+                'baseline_change': projections['baseline_changes'][current_block],
+                'time_string': projections['time_strings'][current_block],
+                'blocks_remaining': projections['total_blocks'] - current_block - 1
+            }
+        else:
+            return {
+                'status': 'RTH_ENDED',
+                'message': 'RTH session has ended',
+                'current_block': current_block,
+                'skyline_level': None,
+                'baseline_level': None
+            }
+    
+    def get_current_rth_block(self, current_time, analysis_date):
+        """
+        Calculate current RTH 30-minute block number
+        """
+        rth_start = TradingConfig.CT_TZ.localize(
+            datetime.combine(analysis_date, TradingConfig.RTH_START_CT)
+        )
+        rth_end = TradingConfig.CT_TZ.localize(
+            datetime.combine(analysis_date, time(14, 30))  # 2:30 PM CT
+        )
+        
+        # Check if current time is within RTH
+        if current_time < rth_start:
+            return None  # Before RTH starts
+        elif current_time > rth_end:
+            return None  # After RTH ends
+        
+        # Calculate block number
+        time_diff = current_time - rth_start
+        block_number = int(time_diff.total_seconds() / 1800)  # 1800 seconds = 30 minutes
+        
+        return block_number
+    
+    def get_levels_for_time(self, target_time, analysis_date):
+        """
+        Get projected levels for a specific time
+        """
+        # Get anchors and projections
+        anchors = self.anchor_system.detect_asian_session_anchors(analysis_date)
+        if anchors['error']:
+            return None
+        
+        projections = self.calculate_slope_projections(anchors, analysis_date)
+        if not projections:
+            return None
+        
+        # Calculate block for target time
+        target_block = self.get_current_rth_block(target_time, analysis_date)
+        
+        if target_block is None or target_block >= len(projections['skyline_levels']):
+            return None
+        
+        return {
+            'block_number': target_block,
+            'skyline_level': projections['skyline_levels'][target_block],
+            'baseline_level': projections['baseline_levels'][target_block],
+            'skyline_change': projections['skyline_changes'][target_block],
+            'baseline_change': projections['baseline_changes'][target_block],
+            'time_string': projections['time_strings'][target_block]
+        }
+    
+    def create_projection_table(self, analysis_date, show_all_blocks=False):
+        """
+        Create a detailed projection table for display
+        """
+        # Get anchors and projections
+        anchors = self.anchor_system.detect_asian_session_anchors(analysis_date)
+        if anchors['error']:
+            return None
+        
+        projections = self.calculate_slope_projections(anchors, analysis_date)
+        if not projections:
+            return None
+        
+        # Create table data
+        table_data = []
+        current_block = self.get_current_rth_block(datetime.now(TradingConfig.CT_TZ), analysis_date)
+        
+        # Show limited blocks if not showing all
+        blocks_to_show = range(len(projections['times'])) if show_all_blocks else range(min(10, len(projections['times'])))
+        
+        for i in blocks_to_show:
+            is_current = (current_block == i) if current_block is not None else False
+            
+            table_data.append({
+                'Block': f"#{i}",
+                'Time': projections['time_strings'][i],
+                'Skyline': format_price(projections['skyline_levels'][i]),
+                'Baseline': format_price(projections['baseline_levels'][i]),
+                'Sky Change': f"{projections['skyline_changes'][i]:+.2f}",
+                'Base Change': f"{projections['baseline_changes'][i]:+.2f}",
+                'Status': '🔴 CURRENT' if is_current else '⚪ Pending' if current_block is None or i > current_block else '✅ Past'
+            })
+        
+        return pd.DataFrame(table_data)
+    
+    def get_projection_statistics(self, analysis_date):
+        """
+        Get statistical information about projections
+        """
+        # Get anchors and projections
+        anchors = self.anchor_system.detect_asian_session_anchors(analysis_date)
+        if anchors['error']:
+            return None
+        
+        projections = self.calculate_slope_projections(anchors, analysis_date)
+        if not projections:
+            return None
+        
+        # Calculate statistics
+        skyline_range = max(projections['skyline_levels']) - min(projections['skyline_levels'])
+        baseline_range = max(projections['baseline_levels']) - min(projections['baseline_levels'])
+        
+        stats = {
+            'anchor_spread': projections['anchor_spread'],
+            'total_blocks': projections['total_blocks'],
+            'skyline_start': projections['skyline_levels'][0],
+            'skyline_end': projections['skyline_levels'][-1],
+            'skyline_range': skyline_range,
+            'baseline_start': projections['baseline_levels'][0],
+            'baseline_end': projections['baseline_levels'][-1],
+            'baseline_range': baseline_range,
+            'session_duration_hours': projections['total_blocks'] * 0.5,  # Each block is 0.5 hours
+            'slope_skyline': TradingConfig.SPX_SLOPES['skyline'],
+            'slope_baseline': TradingConfig.SPX_SLOPES['baseline']
+        }
+        
+        return stats
+
+# ==========================================
+# INITIALIZE SPX PROJECTION SYSTEM
+# ==========================================
+@st.cache_resource
+def get_spx_projection_system():
+    """
+    Get cached SPX projection system instance
+    """
+    anchor_system = get_spx_anchor_system()
+    return SPXProjectionSystem(anchor_system)
+
+
+
+
+# ==========================================
+# **PART 3C: SPX ANCHOR VISUALIZATION**
+# MarketLens Pro v5 by Max Pointe Consulting
+# ==========================================
+
+def create_anchor_chart(symbol, analysis_date):
+    """
+    Create comprehensive SPX chart with Asian session anchors and RTH projections
+    """
+    data_engine = get_market_data_engine()
+    anchor_system = get_spx_anchor_system()
+    projection_system = get_spx_projection_system()
+    
+    # Get SPX data for analysis date and surrounding days
+    spx_data, _ = data_engine.get_market_data(symbol, period='3d', interval='30m')
+    
+    if spx_data is None or spx_data.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No SPX data available for anchor visualization",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="#ffffff")
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(15, 15, 35, 0.9)',
+            paper_bgcolor='rgba(15, 15, 35, 0.9)',
+            font_color='#ffffff',
+            height=600
+        )
+        return fig
+    
+    # Get anchors and projections
+    anchors = anchor_system.detect_asian_session_anchors(analysis_date)
+    
+    # Create base candlestick chart with intelligent scaling
+    current_price = spx_data['Close'].iloc[-1]
+    y_min, y_max = calculate_chart_range(current_price, 'SPX', volatility_factor=1.5)
+    
+    fig = go.Figure(data=[go.Candlestick(
+        x=spx_data.index,
+        open=spx_data['Open'],
+        high=spx_data['High'],
+        low=spx_data['Low'],
+        close=spx_data['Close'],
+        increasing_line_color='#00ff88',
+        decreasing_line_color='#ff6b35',
+        increasing_fillcolor='rgba(0, 255, 136, 0.3)',
+        decreasing_fillcolor='rgba(255, 107, 53, 0.3)',
+        line=dict(width=1),
+        name='SPX'
+    )])
+    
+    # Add anchor lines and projections if available
+    if anchors and not anchors['error']:
+        projections = projection_system.calculate_slope_projections(anchors, analysis_date)
+        
+        if projections:
+            # Convert projection times to pandas timestamps for plotting
+            projection_times = [pd.Timestamp(t) for t in projections['times']]
+            
+            # Add Skyline projection line
+            fig.add_trace(go.Scatter(
+                x=projection_times,
+                y=projections['skyline_levels'],
+                mode='lines',
+                name='Skyline Anchor',
+                line=dict(color='#22d3ee', width=3, dash='solid'),
+                opacity=0.9,
+                hovertemplate='<b>Skyline</b><br>Time: %{x}<br>Level: $%{y:.2f}<extra></extra>'
+            ))
+            
+            # Add Baseline projection line
+            fig.add_trace(go.Scatter(
+                x=projection_times,
+                y=projections['baseline_levels'],
+                mode='lines',
+                name='Baseline Anchor',
+                line=dict(color='#a855f7', width=3, dash='solid'),
+                opacity=0.9,
+                hovertemplate='<b>Baseline</b><br>Time: %{x}<br>Level: $%{y:.2f}<extra></extra>'
+            ))
+            
+            # Add anchor origin points
+            fig.add_trace(go.Scatter(
+                x=[projection_times[0], projection_times[0]],
+                y=[anchors['skyline_anchor'], anchors['baseline_anchor']],
+                mode='markers',
+                name='Anchor Origins',
+                marker=dict(
+                    symbol=['triangle-up', 'triangle-down'],
+                    size=[15, 15],
+                    color=['#22d3ee', '#a855f7'],
+                    line=dict(color='#ffffff', width=2)
+                ),
+                hovertemplate='<b>%{text}</b><br>Level: $%{y:.2f}<extra></extra>',
+                text=['Skyline Origin', 'Baseline Origin']
+            ))
+            
+            # Highlight current block if in RTH
+            current_levels = projection_system.get_current_projected_levels(analysis_date)
+            if current_levels and current_levels['status'] == 'ACTIVE':
+                current_block = current_levels['current_block']
+                if current_block < len(projection_times):
+                    # Add current block highlight
+                    fig.add_trace(go.Scatter(
+                        x=[projection_times[current_block]],
+                        y=[current_levels['skyline_level']],
+                        mode='markers',
+                        name='Current Block',
+                        marker=dict(
+                            symbol='circle',
+                            size=20,
+                            color='rgba(255, 255, 255, 0.8)',
+                            line=dict(color='#22d3ee', width=3)
+                        ),
+                        hovertemplate=f'<b>Current Block #{current_block}</b><br>Skyline: $%{{y:.2f}}<extra></extra>'
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=[projection_times[current_block]],
+                        y=[current_levels['baseline_level']],
+                        mode='markers',
+                        name='Current Block',
+                        marker=dict(
+                            symbol='circle',
+                            size=20,
+                            color='rgba(255, 255, 255, 0.8)',
+                            line=dict(color='#a855f7', width=3)
+                        ),
+                        hovertemplate=f'<b>Current Block #{current_block}</b><br>Baseline: $%{{y:.2f}}<extra></extra>',
+                        showlegend=False
+                    ))
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text=f"SPX Asian Session Anchors - {analysis_date.strftime('%Y-%m-%d')}",
+            font=dict(size=18, color="#ffffff", family="Space Grotesk"),
+            x=0.02
+        ),
+        plot_bgcolor='rgba(15, 15, 35, 0.9)',
+        paper_bgcolor='rgba(15, 15, 35, 0.9)',
+        font_color='#ffffff',
+        height=600,
+        margin=dict(l=60, r=20, t=60, b=60),
+        xaxis=dict(
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickfont=dict(family="JetBrains Mono")
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickfont=dict(family="JetBrains Mono"),
+            range=[y_min, y_max],
+            tickformat='$,.0f'
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.15,
+            xanchor="center",
+            x=0.5,
+            font=dict(color="#ffffff", size=10)
+        ),
+        dragmode='pan'
+    )
+    
+    # Remove range selector
+    fig.update_layout(xaxis_rangeslider_visible=False)
+    
+    return fig
+
+def create_projection_overview_chart(analysis_date):
+    """
+    Create overview chart showing projection progression
+    """
+    projection_system = get_spx_projection_system()
+    anchor_system = get_spx_anchor_system()
+    
+    # Get anchors and projections
+    anchors = anchor_system.detect_asian_session_anchors(analysis_date)
+    if anchors['error']:
+        return None
+    
+    projections = projection_system.calculate_slope_projections(anchors, analysis_date)
+    if not projections:
+        return None
+    
+    # Create progression chart
+    fig = go.Figure()
+    
+    # Add skyline progression
+    fig.add_trace(go.Scatter(
+        x=list(range(len(projections['skyline_levels']))),
+        y=projections['skyline_levels'],
+        mode='lines+markers',
+        name='Skyline Progression',
+        line=dict(color='#22d3ee', width=3),
+        marker=dict(size=6, color='#22d3ee')
+    ))
+    
+    # Add baseline progression
+    fig.add_trace(go.Scatter(
+        x=list(range(len(projections['baseline_levels']))),
+        y=projections['baseline_levels'],
+        mode='lines+markers',
+        name='Baseline Progression',
+        line=dict(color='#a855f7', width=3),
+        marker=dict(size=6, color='#a855f7')
+    ))
+    
+    # Highlight current block
+    current_levels = projection_system.get_current_projected_levels(analysis_date)
+    if current_levels and current_levels['status'] == 'ACTIVE':
+        current_block = current_levels['current_block']
+        fig.add_vline(
+            x=current_block,
+            line_dash="dash",
+            line_color="#ffffff",
+            line_width=2,
+            annotation_text=f"Current Block #{current_block}",
+            annotation_position="top"
+        )
+    
+    fig.update_layout(
+        title=dict(
+            text="RTH Projection Progression",
+            font=dict(size=16, color="#ffffff", family="Space Grotesk"),
+            x=0.5
+        ),
+        plot_bgcolor='rgba(15, 15, 35, 0.9)',
+        paper_bgcolor='rgba(15, 15, 35, 0.9)',
+        font_color='#ffffff',
+        height=300,
+        xaxis=dict(
+            title="30-Minute Block Number",
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            color='#ffffff'
+        ),
+        yaxis=dict(
+            title="SPX Level",
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            color='#ffffff',
+            tickformat='$,.0f'
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5,
+            font=dict(color="#ffffff", size=10)
+        )
+    )
+    
+    return fig
+
+def show_anchors_page():
+    """
+    Display the SPX Anchors analysis page
+    """
+    st.markdown("# ⚓ **SPX Asian Session Anchors**")
+    st.markdown("---")
+    
+    # Get systems
+    anchor_system = get_spx_anchor_system()
+    projection_system = get_spx_projection_system()
+    
+    # Get analysis date from session state
+    analysis_date = st.session_state.analysis_date
+    
+    # Get anchor summary
+    anchor_summary = anchor_system.get_anchor_summary(analysis_date)
+    anchors = anchor_summary['anchors']
+    
+    # Status Overview Row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        status_color = "normal" if anchor_summary['status'] in ['EXCELLENT', 'GOOD'] else "inverse"
+        create_metric_card(
+            title="Anchor Status",
+            value=anchor_summary['status'],
+            delta=f"Quality: {anchor_summary['quality_score']}/100",
+            delta_color=status_color
+        )
+    
+    with col2:
+        current_levels = projection_system.get_current_projected_levels(analysis_date)
+        if current_levels and current_levels.get('skyline_level'):
+            create_metric_card(
+                title="Current Skyline",
+                value=format_price(current_levels['skyline_level']),
+                delta=f"Block #{current_levels['current_block']}" if current_levels.get('current_block') is not None else None
+            )
+        else:
+            create_metric_card(
+                title="Current Skyline", 
+                value="N/A",
+                delta="Outside RTH" if current_levels and current_levels['status'] == 'OUTSIDE_RTH' else None
+            )
+    
+    with col3:
+        if current_levels and current_levels.get('baseline_level'):
+            create_metric_card(
+                title="Current Baseline",
+                value=format_price(current_levels['baseline_level']),
+                delta=f"Block #{current_levels['current_block']}" if current_levels.get('current_block') is not None else None
+            )
+        else:
+            create_metric_card(
+                title="Current Baseline",
+                value="N/A", 
+                delta="Outside RTH" if current_levels and current_levels['status'] == 'OUTSIDE_RTH' else None
+            )
+    
+    with col4:
+        if current_levels and current_levels.get('blocks_remaining') is not None:
+            create_metric_card(
+                title="Blocks Remaining",
+                value=str(current_levels['blocks_remaining']),
+                delta="30-min intervals"
+            )
+        else:
+            create_metric_card(title="Blocks Remaining", value="N/A")
+    
+    # Main Anchor Chart
+    st.markdown("### 📈 **SPX Anchor Chart**")
+    anchor_chart = create_anchor_chart('^GSPC', analysis_date)
+    st.plotly_chart(anchor_chart, use_container_width=True)
+    
+    # Anchor Details and Projection Overview
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📊 **Anchor Details**")
+        if anchors and not anchors['error']:
+            create_info_card(
+                "Asian Session Summary",
+                f"<b>Skyline:</b> {format_price(anchors['skyline_anchor'])}<br>"
+                f"<b>Baseline:</b> {format_price(anchors['baseline_anchor'])}<br>"
+                f"<b>Spread:</b> {anchors['skyline_anchor'] - anchors['baseline_anchor']:.2f} points<br>"
+                f"<b>Session:</b> {anchors['session_start'].strftime('%H:%M')} - {anchors['session_end'].strftime('%H:%M')} CT<br>"
+                f"<b>Data Points:</b> {anchors['data_points']}"
+            )
+            
+            # ES Futures Details
+            create_info_card(
+                "ES Futures Data",
+                f"<b>ES Skyline:</b> {format_price(anchors['es_skyline'])}<br>"
+                f"<b>ES Baseline:</b> {format_price(anchors['es_baseline'])}<br>"
+                f"<b>ES-SPX Offset:</b> {anchors['es_to_spx_offset']:+.2f}<br>"
+                f"<b>Session Range:</b> {anchors.get('session_range', 0):.2f} points"
+            )
+        else:
+            create_status_indicator("error", anchors['error'] if anchors else "No anchor data available")
+    
+    with col2:
+        st.markdown("#### 📈 **Projection Overview**")
+        projection_chart = create_projection_overview_chart(analysis_date)
+        if projection_chart:
+            st.plotly_chart(projection_chart, use_container_width=True)
+        else:
+            st.error("Unable to generate projection overview")
+    
+    # Projection Table
+    st.markdown("### 📋 **RTH Projection Table**")
+    projection_table = projection_system.create_projection_table(analysis_date, show_all_blocks=False)
+    if projection_table is not None:
+        st.dataframe(projection_table, use_container_width=True, hide_index=True)
+        
+        # Show all blocks button
+        if st.button("📄 Show All RTH Blocks", key="show_all_blocks"):
+            full_table = projection_system.create_projection_table(analysis_date, show_all_blocks=True)
+            st.dataframe(full_table, use_container_width=True, hide_index=True)
+    else:
+        st.error("Unable to generate projection table")
+    
+    # Quality Issues
+    if anchor_summary['quality_issues']:
+        st.markdown("### ⚠️ **Quality Issues**")
+        for issue in anchor_summary['quality_issues']:
+            st.warning(f"⚠️ {issue}")
+
+# ==========================================
+# UPDATE MAIN NAVIGATION TO INCLUDE ANCHORS PAGE
+# ==========================================
+def update_main_navigation_for_anchors():
+    """
+    This function should be called in the main() function to handle the Anchors page
+    """
+    # This will be integrated into the main navigation in Part 1H
+    pass
+
+
+
+
+
+
+
+
+
+
 
 
 
