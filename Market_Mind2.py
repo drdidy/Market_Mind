@@ -123,15 +123,23 @@ def apply_custom_css():
         font-weight: bold;
     }
     
-    /* Alert Box Styling - Flexible Heights with Uniform Appearance */
+    /* Alert Box Styling - Uniform Grid Layout */
+    .anchor-analysis-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin: 12px 0;
+    }
+    
     .stAlert > div {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
         border: 1px solid rgba(34, 211, 238, 0.3);
         border-radius: 12px;
         backdrop-filter: blur(10px);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        min-height: 200px;
         padding: 20px;
+        height: 220px;
+        overflow-y: auto;
         display: flex;
         align-items: flex-start;
     }
@@ -139,6 +147,7 @@ def apply_custom_css():
     .stAlert > div > div {
         width: 100%;
         line-height: 1.4;
+        font-size: 0.9rem;
     }
     
     /* Dataframe Styling */
@@ -570,8 +579,11 @@ def render_anchor_analysis():
         • Slope Rate: ±{SLOPES['SPX']['skyline']}/block
         • Projections: Real-time
         
-        **Time Window:** 5:00-7:30 PM CT
-        **Next Update:** {next_analysis}
+        **Analysis Window**
+        5:00-7:30 PM CT (Previous Day)
+        
+        **Next Update**
+        {next_analysis}
         """)
     
     with col2:
@@ -581,29 +593,42 @@ def render_anchor_analysis():
         **📈 STOCK ANCHOR SYSTEM**
         
         • Mon/Tue Analysis: {mon_tue_status}
-        • Symbols: {len(SYMBOLS['STOCKS'])} configured
         • Cross-Day Detection: ✅ Active
         • Custom Slopes: Per symbol
+        • Swing Point Tracking: ✅ Live
         
-        **Tracking:** {', '.join(list(SYMBOLS['STOCKS'].keys())[:3])}+
-        **Status:** Monitoring swing points
+        **Analysis Method**
+        Monday & Tuesday combined sessions
+        
+        **Current Status**
+        Monitoring swing highs/lows
         """)
     
     with col3:
-        data_points = st.session_state.data_health['successful_requests']
-        quality_score = st.session_state.data_health['data_quality_score']
-        analysis_quality = "Excellent" if quality_score > 90 else "Good" if quality_score > 70 else "Fair"
+        # Show portfolio overview - what traders actually care about
+        total_symbols = len(SYMBOLS['STOCKS']) + 2  # stocks + SPX + ES
+        market_cap_mix = "Large Cap Focus"
+        sectors = "Tech, Consumer, EV"
         
         st.warning(f"""
-        **⚡ SYSTEM PERFORMANCE**
+        **📊 PORTFOLIO OVERVIEW**
         
-        • Data Points: {data_points} processed
-        • Quality Level: {analysis_quality}
-        • Cache Items: {len(st.session_state.market_data_cache)} stored
-        • Update Rate: {LIVE_DATA_TTL}s intervals
+        **Index Tracking**
+        • S&P 500 (SPX)
+        • E-mini S&P 500 Futures (ES)
         
-        **System Load:** Optimal performance
-        **Response Time:** Sub-second analysis
+        **Stock Portfolio**
+        • AAPL - Apple Inc.
+        • MSFT - Microsoft Corp.
+        • NVDA - NVIDIA Corp.
+        • AMZN - Amazon.com Inc.
+        • GOOGL - Alphabet Inc.
+        • TSLA - Tesla Inc.
+        • META - Meta Platforms Inc.
+        
+        **Portfolio Stats**
+        {total_symbols} total symbols | {market_cap_mix}
+        **Sectors:** {sectors}
         """)
 
 def render_live_market_feed():
