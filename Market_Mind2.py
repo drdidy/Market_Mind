@@ -477,3 +477,529 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+# ==========================================
+# **PART 2A: DATA ENGINE & MARKET ANALYTICS FOUNDATION**
+# MarketLens Pro v5 by Max Pointe Consulting
+# ==========================================
+
+# ==========================================
+# DATA ENGINE
+# ==========================================
+class MarketDataEngine:
+    """
+    Professional market data engine with validation and quality scoring
+    """
+    
+    def __init__(self):
+        self.data_cache = {}
+        self.quality_scores = {}
+        self.last_update = {}
+    
+    @staticmethod
+    def validate_data_quality(data, symbol):
+        """
+        Comprehensive data quality validation and scoring
+        """
+        if data is None or data.empty:
+            return 0, ["No data available"]
+        
+        quality_score = 100
+        issues = []
+        
+        # Check for missing values
+        missing_pct = data.isnull().sum().sum() / (len(data) * len(data.columns)) * 100
+        if missing_pct > 5:
+            quality_score -= 20
+            issues.append(f"High missing data: {missing_pct:.1f}%")
+        elif missing_pct > 1:
+            quality_score -= 5
+            issues.append(f"Some missing data: {missing_pct:.1f}%")
+        
+        # Check for reasonable price ranges
+        if 'Close' in data.columns:
+            price_range = data['Close'].max() - data['Close'].min()
+            price_volatility = price_range / data['Close'].mean() * 100
+            
+            if symbol.startswith('^') and price_volatility > 15:  # SPX check
+                quality_score -= 10
+                issues.append("High volatility detected")
+            elif not symbol.startswith('^') and price_volatility > 25:  # Stock check
+                quality_score -= 10
+                issues.append("High volatility detected")
+        
+        # Check data freshness
+        if not data.empty:
+            last_timestamp = data.index[-1]
+            hours_old = (datetime.now(pytz.UTC) - last_timestamp.tz_convert(pytz.UTC)).total_seconds() / 3600
+            
+            if hours_old > 24:
+                quality_score -= 15
+                issues.append(f"Data is {hours_old:.1f} hours old")
+            elif hours_old > 8:
+                quality_score -= 5
+                issues.append("Data not current")
+        
+        # Check for data consistency
+        if 'High' in data.columns and 'Low' in data.columns and 'Close' in data.columns:
+            invalid_bars = ((data['High'] < data['Low']) | 
+                           (data['Close'] > data['High']) | 
+                           (data['Close'] < data['Low'])).sum()
+            
+            if invalid_bars > 0:
+                quality_score -= 25
+                issues.append(f"{invalid_bars} invalid price bars")
+        
+        return max(0, quality_score), issues
+    
+    def get_market_data(self, symbol, period='5d', interval='30m', force_refresh=False):
+        """
+        Market data fetching with quality validation
+        """
+        cache_key = f"{symbol}_{period}_{interval}"
+        current_time = datetime.now()
+        
+        # Check cache validity
+        if (not force_refresh and 
+            cache_key in self.data_cache and 
+            cache_key in self.last_update and
+            (current_time - self.last_update[cache_key]).total_seconds() < TradingConfig.HISTORICAL_TTL):
+            return self.data_cache[cache_key], self.quality_scores.get(cache_key, (100, []))
+        
+        try:
+            # Fetch data
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period=period, interval=interval)
+            
+            if data.empty:
+                return None, (0, ["No data returned from source"])
+            
+            # Ensure timezone
+            if data.index.tz is None:
+                data.index = data.index.tz_localize('America/New_York')
+            
+            # Validate quality
+            quality_score, issues = self.validate_data_quality(data, symbol)
+            
+            # Cache results
+            self.data_cache[cache_key] = data
+            self.quality_scores[cache_key] = (quality_score, issues)
+            self.last_update[cache_key] = current_time
+            
+            return data, (quality_score, issues)
+            
+        except Exception as e:
+            error_msg = f"Data fetch error for {symbol}: {str(e)}"
+            return None, (0, [error_msg])
+    
+    def get_current_market_snapshot(self, symbol):
+        """
+        Get comprehensive current market snapshot
+        """
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            
+            # Get recent price data for calculations
+            recent_data, _ = self.get_market_data(symbol, period='2d', interval='1m')
+            
+            snapshot = {
+                'symbol': symbol,
+                'current_price': info.get('regularMarketPrice') or info.get('currentPrice'),
+                'previous_close': info.get('previousClose'),
+                'day_change': None,
+                'day_change_pct': None,
+                'volume': info.get('regularMarketVolume'),
+                'avg_volume': info.get('averageVolume'),
+                'market_cap': info.get('marketCap'),
+                'pe_ratio': info.get('forwardPE'),
+                'fifty_two_week_high': info.get('fiftyTwoWeekHigh'),
+                'fifty_two_week_low': info.get('fiftyTwoWeekLow'),
+                'timestamp': datetime.now(TradingConfig.ET_TZ)
+            }
+            
+            # Calculate change if we have both prices
+            if snapshot['current_price'] and snapshot['previous_close']:
+                snapshot['day_change'] = snapshot['current_price'] - snapshot['previous_close']
+                snapshot['day_change_pct'] = (snapshot['day_change'] / snapshot['previous_close']) * 100
+            
+            # Add volatility metrics if we have recent data
+            if recent_data is not None and not recent_data.empty and len(recent_data) > 20:
+                returns = recent_data['Close'].pct_change().dropna()
+                snapshot['volatility'] = returns.std() * np.sqrt(252) * 100  # Annualized volatility
+                snapshot['avg_true_range'] = self.calculate_atr(recent_data)
+            
+            return snapshot
+            
+        except Exception as e:
+            return {
+                'symbol': symbol,
+                'error': str(e),
+                'timestamp': datetime.now(TradingConfig.ET_TZ)
+            }
+    
+    @staticmethod
+    def calculate_atr(data, period=14):
+        """
+        Calculate Average True Range for volatility measurement
+        """
+        if len(data) < period + 1:
+            return None
+        
+        high_low = data['High'] - data['Low']
+        high_close_prev = np.abs(data['High'] - data['Close'].shift(1))
+        low_close_prev = np.abs(data['Low'] - data['Close'].shift(1))
+        
+        true_range = np.maximum(high_low, np.maximum(high_close_prev, low_close_prev))
+        atr = true_range.rolling(window=period).mean().iloc[-1]
+        
+        return atr
+
+# ==========================================
+# MARKET ANALYTICS ENGINE
+# ==========================================
+class MarketAnalytics:
+    """
+    Professional market analytics and calculations
+    """
+    
+    def __init__(self, data_engine):
+        self.data_engine = data_engine
+    
+    def calculate_ema(self, data, period):
+        """
+        Calculate Exponential Moving Average
+        """
+        if 'Close' not in data.columns or len(data) < period:
+            return None
+        
+        return data['Close'].ewm(span=period, adjust=False).mean()
+    
+    def detect_ema_crossover(self, data, fast_period=8, slow_period=21):
+        """
+        Detect EMA crossover signals
+        """
+        if len(data) < max(fast_period, slow_period) + 1:
+            return None
+        
+        fast_ema = self.calculate_ema(data, fast_period)
+        slow_ema = self.calculate_ema(data, slow_period)
+        
+        if fast_ema is None or slow_ema is None:
+            return None
+        
+        # Current and previous crossover states
+        current_above = fast_ema.iloc[-1] > slow_ema.iloc[-1]
+        previous_above = fast_ema.iloc[-2] > slow_ema.iloc[-2] if len(fast_ema) > 1 else current_above
+        
+        crossover_type = None
+        if current_above and not previous_above:
+            crossover_type = "bullish"
+        elif not current_above and previous_above:
+            crossover_type = "bearish"
+        
+        return {
+            'fast_ema': fast_ema.iloc[-1],
+            'slow_ema': slow_ema.iloc[-1],
+            'crossover_type': crossover_type,
+            'fast_above_slow': current_above,
+            'timestamp': data.index[-1]
+        }
+    
+    def calculate_volume_profile(self, data, bins=20):
+        """
+        Calculate volume profile for price levels
+        """
+        if 'Volume' not in data.columns or 'Close' not in data.columns:
+            return None
+        
+        price_min = data['Close'].min()
+        price_max = data['Close'].max()
+        price_range = price_max - price_min
+        
+        if price_range == 0:
+            return None
+        
+        # Create price bins
+        bin_size = price_range / bins
+        price_bins = np.arange(price_min, price_max + bin_size, bin_size)
+        
+        # Calculate volume at each price level
+        volume_profile = []
+        for i in range(len(price_bins) - 1):
+            bin_low = price_bins[i]
+            bin_high = price_bins[i + 1]
+            
+            # Find candles in this price range
+            in_range = ((data['Low'] <= bin_high) & (data['High'] >= bin_low))
+            volume_in_range = data[in_range]['Volume'].sum()
+            
+            volume_profile.append({
+                'price_low': bin_low,
+                'price_high': bin_high,
+                'price_mid': (bin_low + bin_high) / 2,
+                'volume': volume_in_range,
+                'volume_pct': 0  # Will calculate after all bins
+            })
+        
+        # Calculate percentages
+        total_volume = sum(vp['volume'] for vp in volume_profile)
+        if total_volume > 0:
+            for vp in volume_profile:
+                vp['volume_pct'] = (vp['volume'] / total_volume) * 100
+        
+        return volume_profile
+    
+    def get_market_sentiment_score(self, symbol):
+        """
+        Calculate comprehensive market sentiment score
+        """
+        try:
+            # Get recent data for analysis
+            data, (quality_score, _) = self.data_engine.get_market_data(
+                symbol, period='5d', interval='30m'
+            )
+            
+            if data is None or len(data) < 50:
+                return None
+            
+            sentiment_score = 50  # Neutral baseline
+            factors = []
+            
+            # Price momentum (last 5 periods vs previous 5)
+            recent_avg = data['Close'].tail(5).mean()
+            previous_avg = data['Close'].iloc[-10:-5].mean()
+            
+            if recent_avg > previous_avg:
+                momentum_boost = min(((recent_avg - previous_avg) / previous_avg) * 1000, 20)
+                sentiment_score += momentum_boost
+                factors.append(f"Positive momentum: +{momentum_boost:.1f}")
+            else:
+                momentum_drag = max(((recent_avg - previous_avg) / previous_avg) * 1000, -20)
+                sentiment_score += momentum_drag
+                factors.append(f"Negative momentum: {momentum_drag:.1f}")
+            
+            # Volume analysis
+            recent_volume = data['Volume'].tail(5).mean()
+            avg_volume = data['Volume'].mean()
+            
+            if recent_volume > avg_volume * 1.2:
+                sentiment_score += 10
+                factors.append("High volume activity: +10")
+            elif recent_volume < avg_volume * 0.8:
+                sentiment_score -= 5
+                factors.append("Low volume activity: -5")
+            
+            # EMA crossover influence
+            ema_signal = self.detect_ema_crossover(data)
+            if ema_signal and ema_signal['crossover_type']:
+                if ema_signal['crossover_type'] == 'bullish':
+                    sentiment_score += 15
+                    factors.append("EMA bullish crossover: +15")
+                else:
+                    sentiment_score -= 15
+                    factors.append("EMA bearish crossover: -15")
+            
+            # Volatility adjustment
+            atr = self.data_engine.calculate_atr(data)
+            if atr:
+                current_price = data['Close'].iloc[-1]
+                volatility_pct = (atr / current_price) * 100
+                
+                if volatility_pct > 3:  # High volatility
+                    sentiment_score -= 5
+                    factors.append("High volatility: -5")
+            
+            # Data quality influence
+            if quality_score < 80:
+                sentiment_score -= 10
+                factors.append("Data quality concerns: -10")
+            
+            # Normalize to 0-100 range
+            sentiment_score = max(0, min(100, sentiment_score))
+            
+            return {
+                'score': round(sentiment_score, 1),
+                'level': self.get_sentiment_level(sentiment_score),
+                'factors': factors,
+                'timestamp': datetime.now(TradingConfig.ET_TZ)
+            }
+            
+        except Exception as e:
+            return None
+    
+    @staticmethod
+    def get_sentiment_level(score):
+        """
+        Convert sentiment score to descriptive level
+        """
+        if score >= 75:
+            return "Very Bullish"
+        elif score >= 60:
+            return "Bullish"
+        elif score >= 40:
+            return "Neutral"
+        elif score >= 25:
+            return "Bearish"
+        else:
+            return "Very Bearish"
+
+# ==========================================
+# INITIALIZE ENGINES
+# ==========================================
+@st.cache_resource
+def get_market_data_engine():
+    """
+    Get cached market data engine instance
+    """
+    return MarketDataEngine()
+
+@st.cache_resource
+def get_market_analytics():
+    """
+    Get cached market analytics instance
+    """
+    data_engine = get_market_data_engine()
+    return MarketAnalytics(data_engine)
+
+# ==========================================
+# UPDATE DASHBOARD WITH REAL DATA
+# ==========================================
+def show_dashboard_with_data():
+    st.markdown("# 📊 **MarketLens Pro Dashboard**")
+    st.markdown("---")
+    
+    # Get engines
+    data_engine = get_market_data_engine()
+    analytics = get_market_analytics()
+    
+    # Get current market data
+    symbol = st.session_state.selected_symbol
+    snapshot = data_engine.get_current_market_snapshot(symbol)
+    
+    # Market Overview Row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        symbol_name = symbol.replace('^', '') if symbol.startswith('^') else symbol
+        current_price = snapshot.get('current_price')
+        day_change_pct = snapshot.get('day_change_pct')
+        
+        create_metric_card(
+            title=f"{symbol_name} Price",
+            value=format_price(current_price) if current_price else "Loading...",
+            delta=format_percentage(day_change_pct) if day_change_pct else None,
+            delta_color="normal"
+        )
+    
+    with col2:
+        # Get sentiment score
+        sentiment = analytics.get_market_sentiment_score(symbol)
+        sentiment_level = sentiment['level'] if sentiment else "Calculating..."
+        sentiment_score = sentiment['score'] if sentiment else 0
+        
+        create_metric_card(
+            title="Market Sentiment",
+            value=sentiment_level,
+            delta=f"Score: {sentiment_score:.1f}" if sentiment else None
+        )
+    
+    with col3:
+        # Get data quality
+        data, (quality_score, issues) = data_engine.get_market_data(symbol, period='2d', interval='30m')
+        quality_status = "EXCELLENT" if quality_score > 90 else "GOOD" if quality_score > 70 else "POOR"
+        
+        create_metric_card(
+            title="Data Quality",
+            value=quality_status,
+            delta=f"{quality_score:.0f}/100" if quality_score else None,
+            delta_color="normal" if quality_score > 70 else "inverse"
+        )
+    
+    with col4:
+        # Volume analysis
+        volume = snapshot.get('volume')
+        avg_volume = snapshot.get('avg_volume')
+        
+        if volume and avg_volume:
+            volume_ratio = volume / avg_volume
+            volume_status = "HIGH" if volume_ratio > 1.5 else "NORMAL" if volume_ratio > 0.8 else "LOW"
+            delta_text = f"{volume_ratio:.1f}x avg"
+        else:
+            volume_status = "N/A"
+            delta_text = None
+        
+        create_metric_card(
+            title="Volume Activity",
+            value=volume_status,
+            delta=delta_text
+        )
+    
+    # Market Analysis Section
+    st.markdown("### 📈 **Market Analysis**")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if data is not None:
+            # EMA Analysis
+            ema_signal = analytics.detect_ema_crossover(data)
+            if ema_signal:
+                crossover_info = ema_signal['crossover_type'] or "No recent crossover"
+                trend_status = "Bullish Trend" if ema_signal['fast_above_slow'] else "Bearish Trend"
+                
+                create_info_card(
+                    "EMA Analysis (8/21)",
+                    f"Current Status: {trend_status}. Recent Signal: {crossover_info.title()}. "
+                    f"Fast EMA: {format_price(ema_signal['fast_ema'])}, "
+                    f"Slow EMA: {format_price(ema_signal['slow_ema'])}"
+                )
+            else:
+                create_info_card("EMA Analysis", "Insufficient data for EMA calculation.")
+        else:
+            create_info_card("EMA Analysis", "Loading market data...")
+    
+    with col2:
+        if data is not None:
+            # Volatility Analysis
+            atr = data_engine.calculate_atr(data)
+            volatility = snapshot.get('volatility')
+            
+            if atr and snapshot.get('current_price'):
+                atr_pct = (atr / snapshot['current_price']) * 100
+                vol_level = "High" if atr_pct > 3 else "Normal" if atr_pct > 1 else "Low"
+                
+                create_info_card(
+                    "Volatility Analysis",
+                    f"ATR: {format_price(atr)} ({atr_pct:.2f}% of price). "
+                    f"Volatility Level: {vol_level}. "
+                    f"Annualized Volatility: {volatility:.1f}%" if volatility else "ATR analysis available."
+                )
+            else:
+                create_info_card("Volatility Analysis", "Calculating volatility metrics...")
+        else:
+            create_info_card("Volatility Analysis", "Loading volatility data...")
+    
+    # Data Quality Report
+    if quality_score < 90:
+        st.markdown("### ⚠️ **Data Quality Report**")
+        if issues:
+            for issue in issues:
+                st.warning(f"Data Issue: {issue}")
+    
+    # System Status
+    create_info_card(
+        "System Status", 
+        f"MarketLens Pro is operational. Monitoring {symbol_name} with real-time data feeds. "
+        f"All analytics engines active. Ready for anchor-based analysis."
+    )
+
+
