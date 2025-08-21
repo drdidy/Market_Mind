@@ -605,45 +605,42 @@ def render_anchor_analysis():
         """)
     
     with col3:
-        # Show portfolio overview - what traders actually care about
-        total_symbols = len(SYMBOLS['STOCKS']) + 2  # stocks + SPX + ES
-        market_cap_mix = "Large Cap Focus"
-        sectors = "Tech, Consumer, EV"
+        # Show active monitoring status - not portfolio overview again
+        active_symbols = len(st.session_state.selected_symbols)
+        total_available = len(SYMBOLS['STOCKS']) + 2
         
         st.warning(f"""
-        **📊 PORTFOLIO OVERVIEW**
+        **⚡ MONITORING STATUS**
         
-        **Index Tracking**
-        • S&P 500 (SPX)
-        • E-mini S&P 500 Futures (ES)
+        **Currently Active**
+        • Symbols Tracked: {active_symbols}/{total_available}
+        • Data Feed: Real-time
+        • Update Frequency: {LIVE_DATA_TTL}s
+        • Analysis Engine: Running
         
-        **Stock Portfolio**
-        • AAPL - Apple Inc.
-        • MSFT - Microsoft Corp.
-        • NVDA - NVIDIA Corp.
-        • AMZN - Amazon.com Inc.
-        • GOOGL - Alphabet Inc.
-        • TSLA - Tesla Inc.
-        • META - Meta Platforms Inc.
+        **Session Statistics**
+        • Uptime: {((datetime.now() - st.session_state.session_start_time).total_seconds() / 3600):.1f}h
+        • Data Points: {st.session_state.data_health['successful_requests']}
+        • Cache Items: {len(st.session_state.market_data_cache)}
+        • Analysis Runs: {st.session_state.analysis_runs}
         
-        **Portfolio Stats**
-        {total_symbols} total symbols | {market_cap_mix}
-        **Sectors:** {sectors}
+        **System Status: Operational**
         """)
 
 def render_live_market_feed():
     """Render live market data feed with analytics"""
     st.subheader("📊 Live Market Feed")
     
-    symbols_to_analyze = ['SPX', 'AAPL', 'MSFT', 'NVDA']
+    # Show ALL symbols being tracked
+    all_symbols = ['SPX'] + list(SYMBOLS['STOCKS'].keys())
     
-    # Mobile-friendly: 2 columns x 2 rows instead of 4 columns
-    for i in range(0, len(symbols_to_analyze), 2):
-        cols = st.columns(2)
+    # Display in rows of 4 for better mobile layout
+    for i in range(0, len(all_symbols), 4):
+        cols = st.columns(4)
         
         for j, col in enumerate(cols):
-            if i + j < len(symbols_to_analyze):
-                symbol_key = symbols_to_analyze[i + j]
+            if i + j < len(all_symbols):
+                symbol_key = all_symbols[i + j]
                 symbol = SYMBOLS.get(symbol_key, SYMBOLS['STOCKS'].get(symbol_key))
                 
                 if symbol:
