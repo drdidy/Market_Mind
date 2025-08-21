@@ -1251,7 +1251,6 @@ def show_basic_dashboard():
 
 
 
-
 # ==========================================
 # **PART 1H: MAIN APPLICATION & NAVIGATION**
 # MarketLens Pro v5 by Max Pointe Consulting
@@ -1376,6 +1375,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
 
 
 # ==========================================
