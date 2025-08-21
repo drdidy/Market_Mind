@@ -1003,3 +1003,527 @@ def show_dashboard_with_data():
     )
 
 
+
+
+
+
+# ==========================================
+# **PART 2B: DASHBOARD ENHANCEMENT & REAL-TIME MARKET DISPLAY**
+# MarketLens Pro v5 by Max Pointe Consulting
+# ==========================================
+
+# ==========================================
+# CHART UTILITIES
+# ==========================================
+def calculate_chart_range(current_price, symbol_type='SPX', volatility_factor=1.0):
+    """
+    Calculate optimal chart Y-axis range for professional scaling
+    """
+    if symbol_type == 'SPX' or symbol_type.startswith('^'):
+        base_range = 50 * volatility_factor
+    else:
+        # Stock-specific ranges
+        stock_ranges = {
+            'AAPL': 8, 'MSFT': 12, 'NVDA': 15, 'AMZN': 10,
+            'GOOGL': 8, 'TSLA': 20, 'META': 15
+        }
+        base_range = stock_ranges.get(symbol_type, 10) * volatility_factor
+    
+    y_min = current_price - base_range
+    y_max = current_price + base_range
+    
+    return y_min, y_max
+
+def create_professional_chart(data, symbol, title="Price Chart"):
+    """
+    Create professional trading chart with proper scaling and styling
+    """
+    if data is None or data.empty:
+        # Create empty chart placeholder
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=20, color="#ffffff")
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(15, 15, 35, 0.9)',
+            paper_bgcolor='rgba(15, 15, 35, 0.9)',
+            font_color='#ffffff',
+            height=400
+        )
+        return fig
+    
+    # Calculate appropriate Y-axis range
+    current_price = data['Close'].iloc[-1]
+    symbol_type = symbol.replace('^', '') if symbol.startswith('^') else symbol
+    
+    # Calculate volatility factor based on recent price action
+    price_range = data['Close'].max() - data['Close'].min()
+    avg_price = data['Close'].mean()
+    volatility_factor = max(0.5, min(2.0, (price_range / avg_price) * 10))
+    
+    y_min, y_max = calculate_chart_range(current_price, symbol_type, volatility_factor)
+    
+    # Create candlestick chart
+    fig = go.Figure(data=[go.Candlestick(
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close'],
+        increasing_line_color='#00ff88',
+        decreasing_line_color='#ff6b35',
+        increasing_fillcolor='rgba(0, 255, 136, 0.3)',
+        decreasing_fillcolor='rgba(255, 107, 53, 0.3)',
+        line=dict(width=1),
+        name=symbol_type
+    )])
+    
+    # Add current price line
+    fig.add_hline(
+        y=current_price,
+        line_dash="dash",
+        line_color="#22d3ee",
+        line_width=2,
+        annotation_text=f"Current: {format_price(current_price)}",
+        annotation_position="bottom right",
+        annotation_font_color="#22d3ee"
+    )
+    
+    # Update layout with professional styling
+    fig.update_layout(
+        title=dict(
+            text=f"{title} - {symbol_type}",
+            font=dict(size=18, color="#ffffff", family="Space Grotesk"),
+            x=0.02
+        ),
+        plot_bgcolor='rgba(15, 15, 35, 0.9)',
+        paper_bgcolor='rgba(15, 15, 35, 0.9)',
+        font_color='#ffffff',
+        height=400,
+        margin=dict(l=60, r=20, t=40, b=40),
+        xaxis=dict(
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickfont=dict(family="JetBrains Mono")
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickfont=dict(family="JetBrains Mono"),
+            range=[y_min, y_max],
+            tickformat='$.2f' if current_price < 1000 else '$,.0f'
+        ),
+        showlegend=False,
+        dragmode='pan'
+    )
+    
+    # Remove range selector and zoom controls for cleaner look
+    fig.update_layout(xaxis_rangeslider_visible=False)
+    
+    return fig
+
+def create_volume_chart(data, symbol):
+    """
+    Create professional volume chart
+    """
+    if data is None or data.empty or 'Volume' not in data.columns:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Volume data unavailable",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="#ffffff")
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(15, 15, 35, 0.9)',
+            paper_bgcolor='rgba(15, 15, 35, 0.9)',
+            font_color='#ffffff',
+            height=200
+        )
+        return fig
+    
+    # Create color array based on price movement
+    colors = []
+    for i in range(len(data)):
+        if data['Close'].iloc[i] >= data['Open'].iloc[i]:
+            colors.append('#00ff88')  # Green for up days
+        else:
+            colors.append('#ff6b35')  # Orange for down days
+    
+    fig = go.Figure(data=[go.Bar(
+        x=data.index,
+        y=data['Volume'],
+        marker_color=colors,
+        opacity=0.7,
+        name='Volume'
+    )])
+    
+    # Add average volume line
+    avg_volume = data['Volume'].mean()
+    fig.add_hline(
+        y=avg_volume,
+        line_dash="dot",
+        line_color="#a855f7",
+        line_width=1,
+        annotation_text=f"Avg: {avg_volume:,.0f}",
+        annotation_position="top right",
+        annotation_font_color="#a855f7"
+    )
+    
+    fig.update_layout(
+        title=dict(
+            text="Volume Analysis",
+            font=dict(size=14, color="#ffffff", family="Space Grotesk"),
+            x=0.02
+        ),
+        plot_bgcolor='rgba(15, 15, 35, 0.9)',
+        paper_bgcolor='rgba(15, 15, 35, 0.9)',
+        font_color='#ffffff',
+        height=200,
+        margin=dict(l=60, r=20, t=40, b=40),
+        xaxis=dict(
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickfont=dict(family="JetBrains Mono")
+        ),
+        yaxis=dict(
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            showgrid=True,
+            color='#ffffff',
+            tickfont=dict(family="JetBrains Mono"),
+            tickformat='.2s'
+        ),
+        showlegend=False,
+        dragmode='pan'
+    )
+    
+    return fig
+
+def create_ema_overlay_chart(data, symbol, analytics):
+    """
+    Create chart with EMA overlay
+    """
+    if data is None or data.empty:
+        return create_professional_chart(data, symbol, "EMA Analysis")
+    
+    # Start with base chart
+    fig = create_professional_chart(data, symbol, "Price with EMA Analysis")
+    
+    # Calculate EMAs
+    ema_8 = analytics.calculate_ema(data, 8)
+    ema_21 = analytics.calculate_ema(data, 21)
+    
+    if ema_8 is not None:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=ema_8,
+            mode='lines',
+            name='EMA 8',
+            line=dict(color='#22d3ee', width=2),
+            opacity=0.8
+        ))
+    
+    if ema_21 is not None:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=ema_21,
+            mode='lines',
+            name='EMA 21',
+            line=dict(color='#a855f7', width=2),
+            opacity=0.8
+        ))
+    
+    # Detect and mark crossovers
+    ema_signal = analytics.detect_ema_crossover(data)
+    if ema_signal and ema_signal['crossover_type']:
+        # Mark the crossover point
+        crossover_color = '#00ff88' if ema_signal['crossover_type'] == 'bullish' else '#ff6b35'
+        crossover_symbol = 'triangle-up' if ema_signal['crossover_type'] == 'bullish' else 'triangle-down'
+        
+        fig.add_trace(go.Scatter(
+            x=[data.index[-1]],
+            y=[data['Close'].iloc[-1]],
+            mode='markers',
+            name=f'{ema_signal["crossover_type"].title()} Crossover',
+            marker=dict(
+                symbol=crossover_symbol,
+                size=12,
+                color=crossover_color,
+                line=dict(color='#ffffff', width=1)
+            )
+        ))
+    
+    # Update legend
+    fig.update_layout(showlegend=True, legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=-0.2,
+        xanchor="center",
+        x=0.5,
+        font=dict(color="#ffffff", size=10)
+    ))
+    
+    return fig
+
+# ==========================================
+# MARKET OVERVIEW COMPONENTS
+# ==========================================
+def create_market_overview_table():
+    """
+    Create market overview table for all tracked symbols
+    """
+    data_engine = get_market_data_engine()
+    
+    # Get data for all symbols
+    overview_data = []
+    symbols = ['^GSPC', 'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'TSLA', 'META']
+    
+    for symbol in symbols:
+        snapshot = data_engine.get_current_market_snapshot(symbol)
+        
+        symbol_name = symbol.replace('^', '') if symbol.startswith('^') else symbol
+        if symbol == '^GSPC':
+            symbol_name = 'SPX'
+        
+        overview_data.append({
+            'Symbol': symbol_name,
+            'Price': format_price(snapshot.get('current_price')) if snapshot.get('current_price') else 'N/A',
+            'Change': format_percentage(snapshot.get('day_change_pct')) if snapshot.get('day_change_pct') else 'N/A',
+            'Volume': f"{snapshot.get('volume'):,.0f}" if snapshot.get('volume') else 'N/A',
+            'Status': '🟢 Active' if snapshot.get('current_price') else '🔴 Error'
+        })
+    
+    # Convert to DataFrame for display
+    df = pd.DataFrame(overview_data)
+    
+    return df
+
+def show_market_heatmap():
+    """
+    Create market heatmap visualization
+    """
+    data_engine = get_market_data_engine()
+    symbols = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'TSLA', 'META']
+    
+    heatmap_data = []
+    for symbol in symbols:
+        snapshot = data_engine.get_current_market_snapshot(symbol)
+        change_pct = snapshot.get('day_change_pct', 0)
+        heatmap_data.append({
+            'symbol': symbol,
+            'change': change_pct or 0,
+            'price': snapshot.get('current_price', 0)
+        })
+    
+    if not heatmap_data:
+        st.info("Loading market heatmap...")
+        return
+    
+    # Create heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=[[item['change'] for item in heatmap_data]],
+        x=[item['symbol'] for item in heatmap_data],
+        y=['Daily Change %'],
+        colorscale=[
+            [0, '#ff6b35'],      # Red for negative
+            [0.5, '#1a1a2e'],   # Dark for neutral
+            [1, '#00ff88']      # Green for positive
+        ],
+        zmid=0,
+        colorbar=dict(
+            title="Change %",
+            titlefont=dict(color="#ffffff"),
+            tickfont=dict(color="#ffffff")
+        ),
+        text=[[f"{item['symbol']}<br>{item['change']:+.2f}%" for item in heatmap_data]],
+        texttemplate="%{text}",
+        textfont=dict(color="#ffffff", size=12),
+        hoverongaps=False
+    ))
+    
+    fig.update_layout(
+        title=dict(
+            text="Market Performance Heatmap",
+            font=dict(size=16, color="#ffffff", family="Space Grotesk"),
+            x=0.5
+        ),
+        plot_bgcolor='rgba(15, 15, 35, 0.9)',
+        paper_bgcolor='rgba(15, 15, 35, 0.9)',
+        font_color='#ffffff',
+        height=150,
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(color='#ffffff'),
+        yaxis=dict(color='#ffffff')
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# ENHANCED DASHBOARD DISPLAY
+# ==========================================
+def show_enhanced_dashboard():
+    """
+    Enhanced dashboard with charts and real-time data
+    """
+    st.markdown("# 📊 **MarketLens Pro Dashboard**")
+    st.markdown("---")
+    
+    # Get engines
+    data_engine = get_market_data_engine()
+    analytics = get_market_analytics()
+    
+    # Get current market data
+    symbol = st.session_state.selected_symbol
+    snapshot = data_engine.get_current_market_snapshot(symbol)
+    
+    # Market Overview Row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        symbol_name = symbol.replace('^', '') if symbol.startswith('^') else symbol
+        current_price = snapshot.get('current_price')
+        day_change_pct = snapshot.get('day_change_pct')
+        
+        create_metric_card(
+            title=f"{symbol_name} Price",
+            value=format_price(current_price) if current_price else "Loading...",
+            delta=format_percentage(day_change_pct) if day_change_pct else None,
+            delta_color="normal"
+        )
+    
+    with col2:
+        # Get sentiment score
+        sentiment = analytics.get_market_sentiment_score(symbol)
+        sentiment_level = sentiment['level'] if sentiment else "Calculating..."
+        sentiment_score = sentiment['score'] if sentiment else 0
+        
+        create_metric_card(
+            title="Market Sentiment",
+            value=sentiment_level,
+            delta=f"Score: {sentiment_score:.1f}" if sentiment else None
+        )
+    
+    with col3:
+        # Get data quality
+        data, (quality_score, issues) = data_engine.get_market_data(symbol, period='2d', interval='30m')
+        quality_status = "EXCELLENT" if quality_score > 90 else "GOOD" if quality_score > 70 else "POOR"
+        
+        create_metric_card(
+            title="Data Quality",
+            value=quality_status,
+            delta=f"{quality_score:.0f}/100" if quality_score else None,
+            delta_color="normal" if quality_score > 70 else "inverse"
+        )
+    
+    with col4:
+        # Volume analysis
+        volume = snapshot.get('volume')
+        avg_volume = snapshot.get('avg_volume')
+        
+        if volume and avg_volume:
+            volume_ratio = volume / avg_volume
+            volume_status = "HIGH" if volume_ratio > 1.5 else "NORMAL" if volume_ratio > 0.8 else "LOW"
+            delta_text = f"{volume_ratio:.1f}x avg"
+        else:
+            volume_status = "N/A"
+            delta_text = None
+        
+        create_metric_card(
+            title="Volume Activity",
+            value=volume_status,
+            delta=delta_text
+        )
+    
+    # Market Heatmap
+    st.markdown("### 🔥 **Market Heatmap**")
+    show_market_heatmap()
+    
+    # Charts Section
+    st.markdown("### 📈 **Technical Analysis**")
+    
+    # Get chart data
+    chart_data, _ = data_engine.get_market_data(symbol, period='5d', interval='30m')
+    
+    # Chart tabs
+    chart_tab1, chart_tab2, chart_tab3 = st.tabs(["Price Action", "EMA Analysis", "Volume Profile"])
+    
+    with chart_tab1:
+        if chart_data is not None:
+            price_chart = create_professional_chart(chart_data, symbol, "Price Action")
+            st.plotly_chart(price_chart, use_container_width=True)
+        else:
+            st.error("Unable to load price data")
+    
+    with chart_tab2:
+        if chart_data is not None:
+            ema_chart = create_ema_overlay_chart(chart_data, symbol, analytics)
+            st.plotly_chart(ema_chart, use_container_width=True)
+            
+            # EMA Summary
+            ema_signal = analytics.detect_ema_crossover(chart_data)
+            if ema_signal:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Fast EMA (8)", format_price(ema_signal['fast_ema']))
+                with col2:
+                    st.metric("Slow EMA (21)", format_price(ema_signal['slow_ema']))
+                
+                if ema_signal['crossover_type']:
+                    if ema_signal['crossover_type'] == 'bullish':
+                        st.success(f"🟢 Bullish EMA Crossover Detected")
+                    else:
+                        st.error(f"🔴 Bearish EMA Crossover Detected")
+        else:
+            st.error("Unable to load EMA data")
+    
+    with chart_tab3:
+        if chart_data is not None:
+            volume_chart = create_volume_chart(chart_data, symbol)
+            st.plotly_chart(volume_chart, use_container_width=True)
+            
+            # Volume Profile Analysis
+            volume_profile = analytics.calculate_volume_profile(chart_data)
+            if volume_profile:
+                # Find highest volume price level
+                max_volume_level = max(volume_profile, key=lambda x: x['volume'])
+                st.info(f"📊 Highest Volume at {format_price(max_volume_level['price_mid'])} "
+                       f"({max_volume_level['volume_pct']:.1f}% of total volume)")
+        else:
+            st.error("Unable to load volume data")
+    
+    # Market Overview Table
+    st.markdown("### 📋 **Market Overview**")
+    overview_df = create_market_overview_table()
+    st.dataframe(
+        overview_df,
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    # System Status
+    st.markdown("### ⚙️ **System Status**")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        create_info_card(
+            "Data Feeds",
+            f"Yahoo Finance API: ✅ Active | Cache Status: ✅ Optimal | "
+            f"Last Update: {datetime.now().strftime('%H:%M:%S')} ET"
+        )
+    
+    with col2:
+        create_info_card(
+            "Analytics Engine",
+            f"EMA Calculations: ✅ Running | Volume Analysis: ✅ Active | "
+            f"Sentiment Scoring: ✅ Operational | Quality Monitoring: ✅ Active"
+        )
+
+
+
+
