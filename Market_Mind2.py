@@ -123,14 +123,17 @@ def apply_custom_css():
         font-weight: bold;
     }
     
-    /* Alert Box Styling */
+    /* Alert Box Styling - Uniform Heights */
     .stAlert > div {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
         border: 1px solid rgba(34, 211, 238, 0.3);
         border-radius: 12px;
         backdrop-filter: blur(10px);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        min-height: 140px;
+        min-height: 180px;
+        height: 180px;
+        display: flex;
+        align-items: center;
     }
     
     /* Dataframe Styling */
@@ -551,34 +554,34 @@ def render_anchor_analysis():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        anchor_status = "🟢 Active Analysis" if is_market_hours() or is_asian_session() else "⏸️ Standby Mode"
+        anchor_status = "🟢 Active" if is_market_hours() or is_asian_session() else "⏸️ Standby"
         next_analysis = (datetime.now() + timedelta(seconds=LIVE_DATA_TTL)).strftime('%H:%M:%S')
         
         st.info(f"""
         **📊 SPX ANCHOR SYSTEM**
         
-        • Asian Session Analysis: {anchor_status}
-        • ES Futures Monitoring: ✅ Configured
-        • Slope Calculations: ±{SLOPES['SPX']['skyline']} per block
-        • Price Projections: Real-time
+        • Asian Session: {anchor_status}
+        • ES Futures: ✅ Configured
+        • Slope: ±{SLOPES['SPX']['skyline']} per block
+        • Projections: Real-time
         
-        **Analysis Window:** 5:00-7:30 PM CT (Previous Day)
+        **Window:** 5:00-7:30 PM CT
         **Next Update:** {next_analysis}
         """)
     
     with col2:
-        mon_tue_status = "🟢 Ready for Analysis" if datetime.now().weekday() in [0, 1] else "⏳ Awaiting Monday/Tuesday"
+        mon_tue_status = "🟢 Ready" if datetime.now().weekday() in [0, 1] else "⏳ Awaiting Mon/Tue"
         
         st.success(f"""
-        **📈 INDIVIDUAL STOCKS ANCHOR**
+        **📈 STOCK ANCHOR SYSTEM**
         
-        • Monday/Tuesday Analysis: {mon_tue_status}
-        • Symbols Configured: {len(SYMBOLS['STOCKS'])}
+        • Mon/Tue Analysis: {mon_tue_status}
+        • Symbols: {len(SYMBOLS['STOCKS'])} configured
         • Cross-Day Detection: ✅ Active
-        • Slope Variations: Custom per symbol
+        • Custom Slopes: Per symbol
         
-        **Active Symbols:** {', '.join(list(SYMBOLS['STOCKS'].keys())[:4])}
-        **Analysis Status:** Monitoring swing points
+        **Active:** {', '.join(list(SYMBOLS['STOCKS'].keys())[:4])}
+        **Status:** Monitoring swings
         """)
     
     with col3:
@@ -587,15 +590,15 @@ def render_anchor_analysis():
         analysis_quality = "Excellent" if quality_score > 90 else "Good" if quality_score > 70 else "Fair"
         
         st.warning(f"""
-        **⚡ ANALYSIS PERFORMANCE**
+        **⚡ SYSTEM PERFORMANCE**
         
-        • Data Points Processed: {data_points}
-        • Analysis Quality: {analysis_quality}
-        • Cache Efficiency: {len(st.session_state.market_data_cache)} items
-        • Update Frequency: {LIVE_DATA_TTL}s intervals
+        • Data Points: {data_points}
+        • Quality: {analysis_quality}
+        • Cache Items: {len(st.session_state.market_data_cache)}
+        • Update Rate: {LIVE_DATA_TTL}s
         
         **System Load:** Optimal
-        **Response Time:** Sub-second analysis
+        **Response:** Sub-second
         """)
 
 def render_live_market_feed():
