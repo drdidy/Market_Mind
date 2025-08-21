@@ -86,16 +86,16 @@ def apply_custom_css():
         max-width: 100%;
     }
     
-    /* Metric Styling */
+    /* Metric Styling - Mobile Optimized */
     [data-testid="metric-container"] {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
         border: 1px solid rgba(34, 211, 238, 0.3);
         border-radius: 12px;
-        padding: 16px;
+        padding: 12px;
         margin: 8px 0;
         backdrop-filter: blur(10px);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        height: 120px;
+        min-height: 100px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -106,6 +106,21 @@ def apply_custom_css():
         display: flex;
         flex-direction: column;
         justify-content: center;
+    }
+    
+    /* Ensure text doesn't overflow */
+    [data-testid="metric-container"] [data-testid="metric-label"],
+    [data-testid="metric-container"] [data-testid="metric-value"],
+    [data-testid="metric-container"] [data-testid="metric-delta"] {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.9rem;
+    }
+    
+    [data-testid="metric-container"] [data-testid="metric-value"] {
+        font-size: 1.2rem;
+        font-weight: bold;
     }
     
     /* Alert Box Styling */
@@ -141,7 +156,7 @@ def apply_custom_css():
     
     .custom-header h1 {
         color: #22d3ee;
-        font-size: 3rem;
+        font-size: 2.2rem;
         font-weight: 700;
         margin: 0;
         text-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
@@ -149,9 +164,35 @@ def apply_custom_css():
     
     .custom-header p {
         color: #94a3b8;
-        font-size: 1.2rem;
+        font-size: 1rem;
         margin: 8px 0 0 0;
         opacity: 0.9;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .custom-header h1 {
+            font-size: 1.8rem;
+        }
+        
+        .custom-header p {
+            font-size: 0.9rem;
+        }
+        
+        [data-testid="metric-container"] {
+            min-height: 80px;
+            padding: 8px;
+        }
+        
+        [data-testid="metric-container"] [data-testid="metric-label"],
+        [data-testid="metric-container"] [data-testid="metric-value"],
+        [data-testid="metric-container"] [data-testid="metric-delta"] {
+            font-size: 0.8rem;
+        }
+        
+        [data-testid="metric-container"] [data-testid="metric-value"] {
+            font-size: 1rem;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -435,60 +476,73 @@ def render_header():
 
 def render_market_overview():
     """Render market overview with real analytics"""
-    st.subheader("📈 Market Overview & Analytics")
+    st.subheader("📈 Market Overview")
     
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # Mobile-friendly: 2 rows of metrics instead of 5 columns
+    col1, col2, col3 = st.columns(3)
     
     market_status, _ = get_market_status()
     quality_score = st.session_state.data_health['data_quality_score']
     session_hours = (datetime.now() - st.session_state.session_start_time).total_seconds() / 3600
     
     with col1:
-        st.metric("Market Status", market_status, get_current_time('ET').strftime('%H:%M:%S ET'))
+        # Shorten market status text
+        status_short = market_status.replace("MARKET ", "").replace("-", " ")
+        st.metric("Market", status_short, get_current_time('ET').strftime('%H:%M ET'))
     
     with col2:
         st.metric("Data Quality", f"{quality_score:.1f}%", st.session_state.data_health['connection_status'])
     
     with col3:
-        st.metric("Analysis Session", f"{session_hours:.1f}h", f"{st.session_state.analysis_runs} runs")
+        st.metric("Session", f"{session_hours:.1f}h", f"{st.session_state.analysis_runs} runs")
+    
+    # Second row
+    col4, col5, col6 = st.columns(3)
     
     with col4:
-        st.metric("Symbols Tracked", len(st.session_state.selected_symbols), "Active monitoring")
+        st.metric("Symbols", len(st.session_state.selected_symbols), "tracking")
     
     with col5:
         blocks = calculate_30min_blocks_since_market_open()
-        st.metric("Market Blocks", f"{blocks}/13", "30-min periods")
+        st.metric("Blocks", f"{blocks}/13", "30min periods")
+    
+    with col6:
+        st.metric("Opportunities", st.session_state.opportunities_identified, "identified")
 
 def render_analytics_dashboard():
     """Render quantitative analytics dashboard"""
     st.subheader("🧮 Quantitative Analytics")
     
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    # Mobile-friendly: 3 columns x 2 rows instead of 6 columns
+    col1, col2, col3 = st.columns(3)
     
     metrics = st.session_state.analytics_metrics
     
     with col1:
-        vol_display = f"{metrics['market_volatility']:.1f}%" if metrics['market_volatility'] > 0 else "Calculating..."
-        st.metric("Market Volatility", vol_display, "Annualized")
+        vol_display = f"{metrics['market_volatility']:.1f}%" if metrics['market_volatility'] > 0 else "..."
+        st.metric("Volatility", vol_display, "annualized")
     
     with col2:
-        trend_display = f"{metrics['trend_strength']:.1f}%" if metrics['trend_strength'] > 0 else "Analyzing..."
-        st.metric("Trend Strength", trend_display, "Correlation R²")
+        trend_display = f"{metrics['trend_strength']:.1f}%" if metrics['trend_strength'] > 0 else "..."
+        st.metric("Trend", trend_display, "strength")
     
     with col3:
-        risk_display = f"{metrics['risk_score']:.1f}" if metrics['risk_score'] > 0 else "Computing..."
+        risk_display = f"{metrics['risk_score']:.1f}" if metrics['risk_score'] > 0 else "..."
         st.metric("Risk Score", risk_display, "0-100 scale")
     
+    # Second row
+    col4, col5, col6 = st.columns(3)
+    
     with col4:
-        opp_display = f"{metrics['opportunity_score']:.1f}" if metrics['opportunity_score'] > 0 else "Evaluating..."
-        st.metric("Opportunity Score", opp_display, "0-100 scale")
+        opp_display = f"{metrics['opportunity_score']:.1f}" if metrics['opportunity_score'] > 0 else "..."
+        st.metric("Opportunity", opp_display, "score")
     
     with col5:
-        st.metric("Signal Opportunities", st.session_state.opportunities_identified, "Identified today")
+        st.metric("Signals", st.session_state.opportunities_identified, "today")
     
     with col6:
-        momentum_display = f"{metrics['momentum_index']:.1f}%" if metrics['momentum_index'] != 0 else "Measuring..."
-        st.metric("Momentum Index", momentum_display, "20-period change")
+        momentum_display = f"{metrics['momentum_index']:.1f}%" if metrics['momentum_index'] != 0 else "..."
+        st.metric("Momentum", momentum_display, "index")
 
 def render_anchor_analysis():
     """Render anchor system analysis"""
@@ -546,12 +600,13 @@ def render_anchor_analysis():
 
 def render_live_market_feed():
     """Render live market data feed with analytics"""
-    st.subheader("📊 Live Market Analytics Feed")
+    st.subheader("📊 Live Market Feed")
     
     symbols_to_analyze = ['SPX', 'AAPL', 'MSFT', 'NVDA']
     
-    for i in range(0, len(symbols_to_analyze), 4):
-        cols = st.columns(4)
+    # Mobile-friendly: 2 columns x 2 rows instead of 4 columns
+    for i in range(0, len(symbols_to_analyze), 2):
+        cols = st.columns(2)
         
         for j, col in enumerate(cols):
             if i + j < len(symbols_to_analyze):
@@ -564,7 +619,7 @@ def render_live_market_feed():
                     if quote:
                         with col:
                             delta_color = "normal" if quote['change'] >= 0 else "inverse"
-                            vol_text = f"Vol: {quote['volatility']:.1f}%"
+                            vol_text = f"Volatility: {quote['volatility']:.1f}%"
                             
                             st.metric(
                                 label=f"{symbol_key}",
