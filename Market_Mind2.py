@@ -296,10 +296,12 @@ def show_notifications():
 # MAIN DASHBOARD STRUCTURE
 # ============================================================================
 
-def create_glass_panel(content, height: int = None, key: str = None):
-    """Create a glassmorphism panel for content"""
-    panel_style = f"""
-    <div style="
+def create_glass_panel(content_func, height: int = None, key: str = None):
+    """Create a glassmorphism panel for content using Streamlit components"""
+    # Apply glassmorphism styling
+    st.markdown(f"""
+    <style>
+    .glass-panel {{
         background: {COLORS['glass']};
         backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -309,43 +311,54 @@ def create_glass_panel(content, height: int = None, key: str = None):
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         {'height: ' + str(height) + 'px;' if height else ''}
         overflow: auto;
-        color: white;
-    ">
-    {content}
-    </div>
-    """
-    return st.markdown(panel_style, unsafe_allow_html=True)
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Use Streamlit container with the styling
+    with st.container():
+        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+        content_func()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def render_hero_section():
-    """Render the main hero section"""
+    """Render the main hero section using Streamlit components"""
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
+        # Custom styling for the title
         st.markdown(f"""
-        <div style="text-align: center; padding: 2rem 0;">
-            <h1 style="
-                font-family: 'Space Grotesk', sans-serif;
-                font-size: 3rem;
-                font-weight: 700;
-                background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                margin-bottom: 0.5rem;
-            ">{APP_NAME}</h1>
-            <p style="
-                font-size: 1.2rem;
-                color: rgba(255, 255, 255, 0.8);
-                margin-bottom: 0;
-            ">Professional Trading Analytics Platform</p>
-            <p style="
-                font-size: 0.9rem;
-                color: rgba(255, 255, 255, 0.6);
-            ">by {COMPANY}</p>
-        </div>
+        <style>
+        .hero-title {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, {COLORS['primary']}, {COLORS['secondary']});
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }}
+        .hero-subtitle {{
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            margin-bottom: 0;
+        }}
+        .hero-company {{
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+        }}
+        </style>
         """, unsafe_allow_html=True)
+        
+        st.markdown(f'<h1 class="hero-title">{APP_NAME}</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="hero-subtitle">Professional Trading Analytics Platform</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="hero-company">by {COMPANY}</p>', unsafe_allow_html=True)
 
 def render_dashboard_overview():
-    """Render main dashboard content"""
+    """Render main dashboard content using Streamlit components"""
     
     # Hero Section
     render_hero_section()
@@ -354,113 +367,103 @@ def render_dashboard_overview():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        create_glass_panel("""
-            <h3 style="color: white; margin-bottom: 10px;">📊 Market Status</h3>
-            <p style="color: #00ff88; font-size: 1.4rem; font-weight: bold; margin: 0;">ACTIVE</p>
-            <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Real-time monitoring</p>
-        """)
+        def market_status_content():
+            st.markdown("### 📊 Market Status")
+            st.success("**ACTIVE**")
+            st.caption("Real-time monitoring")
+        create_glass_panel(market_status_content)
     
     with col2:
-        create_glass_panel("""
-            <h3 style="color: white; margin-bottom: 10px;">🎯 Active Signals</h3>
-            <p style="color: #22d3ee; font-size: 1.4rem; font-weight: bold; margin: 0;">3</p>
-            <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Pending analysis</p>
-        """)
+        def active_signals_content():
+            st.markdown("### 🎯 Active Signals")
+            st.info("**3**")
+            st.caption("Pending analysis")
+        create_glass_panel(active_signals_content)
     
     with col3:
-        create_glass_panel("""
-            <h3 style="color: white; margin-bottom: 10px;">⚡ Performance</h3>
-            <p style="color: #a855f7; font-size: 1.4rem; font-weight: bold; margin: 0;">87.3%</p>
-            <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">System accuracy</p>
-        """)
+        def performance_content():
+            st.markdown("### ⚡ Performance")
+            st.markdown("**87.3%**")
+            st.caption("System accuracy")
+        create_glass_panel(performance_content)
     
     with col4:
-        create_glass_panel("""
-            <h3 style="color: white; margin-bottom: 10px;">🔄 Last Update</h3>
-            <p style="color: #ff6b35; font-size: 1.4rem; font-weight: bold; margin: 0;">Live</p>
-            <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Auto-refresh enabled</p>
-        """)
+        def last_update_content():
+            st.markdown("### 🔄 Last Update")
+            st.warning("**Live**")
+            st.caption("Auto-refresh enabled")
+        create_glass_panel(last_update_content)
 
     # Main Content Areas
-    st.markdown("---")
+    st.divider()
     
     # System Overview
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        create_glass_panel("""
-            <h2 style="color: white; margin-bottom: 20px;">🎯 Trading System Overview</h2>
-            <div style="color: rgba(255,255,255,0.9); line-height: 1.6;">
-                <h4 style="color: #22d3ee;">SPX Anchor System (Asian Session)</h4>
-                <p>• Analyzes ES futures during Asian session (5:00-7:30 PM CT)</p>
-                <p>• Projects Skyline/Baseline anchors through RTH using ±0.2255 slopes</p>
-                <p>• Entry signals based on 30-minute candle interactions</p>
-                
-                <h4 style="color: #a855f7; margin-top: 20px;">Individual Stock System (Mon/Tue)</h4>
-                <p>• Combines Monday and Tuesday session data for cross-day analysis</p>
-                <p>• Uses stock-specific slopes for line projections</p>
-                <p>• Optimized for Wednesday/Thursday trading opportunities</p>
-                
-                <h4 style="color: #00ff88; margin-top: 20px;">Signal Generation</h4>
-                <p>• BUY: Bearish candle touches line from above, closes above</p>
-                <p>• SELL: Bullish candle touches line from below, closes below</p>
-            </div>
-        """)
+        def system_overview_content():
+            st.markdown("## 🎯 Trading System Overview")
+            
+            st.markdown("#### SPX Anchor System (Asian Session)")
+            st.write("• Analyzes ES futures during Asian session (5:00-7:30 PM CT)")
+            st.write("• Projects Skyline/Baseline anchors through RTH using ±0.2255 slopes")
+            st.write("• Entry signals based on 30-minute candle interactions")
+            
+            st.markdown("#### Individual Stock System (Mon/Tue)")
+            st.write("• Combines Monday and Tuesday session data for cross-day analysis")
+            st.write("• Uses stock-specific slopes for line projections")
+            st.write("• Optimized for Wednesday/Thursday trading opportunities")
+            
+            st.markdown("#### Signal Generation")
+            st.write("• **BUY:** Bearish candle touches line from above, closes above")
+            st.write("• **SELL:** Bullish candle touches line from below, closes below")
+        
+        create_glass_panel(system_overview_content)
     
     with col2:
-        create_glass_panel("""
-            <h2 style="color: white; margin-bottom: 20px;">⚙️ System Status</h2>
-            <div style="color: rgba(255,255,255,0.9);">
-                <div style="margin-bottom: 15px;">
-                    <span style="color: #00ff88;">●</span> Data Feed: <strong>Connected</strong>
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <span style="color: #00ff88;">●</span> Asian Session: <strong>Monitoring</strong>
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <span style="color: #22d3ee;">●</span> Anchor Detection: <strong>Active</strong>
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <span style="color: #a855f7;">●</span> Signal Engine: <strong>Running</strong>
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <span style="color: #ff6b35;">●</span> Cache System: <strong>Optimized</strong>
-                </div>
-                
-                <hr style="border-color: rgba(255,255,255,0.2); margin: 20px 0;">
-                
-                <h4 style="color: white;">Quick Actions</h4>
-                <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">
-                    Use the sidebar to navigate between different analysis tools and configure your trading parameters.
-                </p>
-            </div>
-        """)
+        def system_status_content():
+            st.markdown("## ⚙️ System Status")
+            
+            st.success("● Data Feed: **Connected**")
+            st.success("● Asian Session: **Monitoring**")
+            st.info("● Anchor Detection: **Active**")
+            st.info("● Signal Engine: **Running**")
+            st.warning("● Cache System: **Optimized**")
+            
+            st.divider()
+            
+            st.markdown("#### Quick Actions")
+            st.caption("Use the sidebar to navigate between different analysis tools and configure your trading parameters.")
+        
+        create_glass_panel(system_status_content)
 
     # Additional Info Section
-    st.markdown("---")
-    create_glass_panel("""
-        <h2 style="color: white; margin-bottom: 20px;">📈 Market Intelligence Engine</h2>
-        <div style="color: rgba(255,255,255,0.9); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-            <div>
-                <h4 style="color: #22d3ee;">Real-Time Analysis</h4>
-                <p>• Live price monitoring with 60-second refresh</p>
-                <p>• Automated anchor detection and validation</p>
-                <p>• Dynamic line projection calculations</p>
-            </div>
-            <div>
-                <h4 style="color: #a855f7;">Technical Indicators</h4>
-                <p>• EMA crossover detection (8 & 21 periods)</p>
-                <p>• Volume analysis and momentum tracking</p>
-                <p>• Fibonacci retracement levels</p>
-            </div>
-            <div>
-                <h4 style="color: #00ff88;">Risk Management</h4>
-                <p>• Data quality validation scoring</p>
-                <p>• Signal confidence metrics</p>
-                <p>• Performance tracking and analytics</p>
-            </div>
-        </div>
-    """)
+    st.divider()
+    
+    def market_intelligence_content():
+        st.markdown("## 📈 Market Intelligence Engine")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("#### Real-Time Analysis")
+            st.write("• Live price monitoring with 60-second refresh")
+            st.write("• Automated anchor detection and validation")
+            st.write("• Dynamic line projection calculations")
+        
+        with col2:
+            st.markdown("#### Technical Indicators")
+            st.write("• EMA crossover detection (8 & 21 periods)")
+            st.write("• Volume analysis and momentum tracking")
+            st.write("• Fibonacci retracement levels")
+        
+        with col3:
+            st.markdown("#### Risk Management")
+            st.write("• Data quality validation scoring")
+            st.write("• Signal confidence metrics")
+            st.write("• Performance tracking and analytics")
+    
+    create_glass_panel(market_intelligence_content)
 
 # ============================================================================
 # MAIN APPLICATION ENTRY POINT
@@ -523,20 +526,19 @@ def main():
         render_dashboard_overview()
     else:
         # Placeholder for other pages (will be built in subsequent parts)
-        create_glass_panel(f"""
-            <h2 style="color: white;">🚧 {st.session_state.current_page} Module</h2>
-            <p style="color: rgba(255,255,255,0.8);">
-                This module will be implemented in the next development phase.
-                The {st.session_state.current_page.lower()} functionality is being built with the 
-                comprehensive anchor system and real-time data integration.
-            </p>
-            <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">
-                Return to Dashboard to see the current system status and overview.
-            </p>
-        """)
+        def placeholder_content():
+            st.markdown(f"## 🚧 {st.session_state.current_page} Module")
+            st.info(f"""
+            This module will be implemented in the next development phase.
+            The {st.session_state.current_page.lower()} functionality is being built with the 
+            comprehensive anchor system and real-time data integration.
+            """)
+            st.caption("Return to Dashboard to see the current system status and overview.")
+        
+        create_glass_panel(placeholder_content)
     
     # Footer
-    st.markdown("---")
+    st.divider()
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(f"""
