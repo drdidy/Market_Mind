@@ -420,17 +420,12 @@ def assess_market_regime(market_data: Dict) -> str:
 # ============================================================================
 
 def fetch_elite_quote(symbol: str) -> Optional[Dict]:
-    """Fetch REAL elite market data with advanced metrics - no caching for testing"""
+    """Fetch REAL elite market data with advanced metrics"""
     try:
-        # Force fresh data - no caching during testing
         ticker = yf.Ticker(symbol)
-        
-        # Get recent data
         hist = ticker.history(period='30d', interval='1d')
-        info = ticker.info
         
         if hist.empty:
-            st.error(f"❌ No data received for {symbol}")
             return None
         
         current_price = float(hist['Close'].iloc[-1])
@@ -458,9 +453,6 @@ def fetch_elite_quote(symbol: str) -> Optional[Dict]:
         change = current_price - prev_close
         change_pct = (change / prev_close * 100) if prev_close != 0 else 0
         
-        # Debug info - show what we actually got
-        st.write(f"✅ {symbol}: ${current_price:.2f} ({change_pct:+.2f}%) - Volume: {current_volume:,}")
-        
         return {
             'symbol': symbol,
             'price': current_price,
@@ -477,41 +469,28 @@ def fetch_elite_quote(symbol: str) -> Optional[Dict]:
             'last_update': datetime.now().strftime('%H:%M:%S')
         }
         
-    except Exception as e:
-        st.error(f"❌ Error fetching {symbol}: {str(e)}")
+    except Exception:
         return None
 
 def update_market_intelligence():
     """Update comprehensive market intelligence with REAL data"""
-    st.write("🔄 Fetching REAL market data from Yahoo Finance...")
-    
     intelligence = {}
     
-    # Fetch data for all symbols - show progress
+    # Fetch data for all symbols silently in background
     all_symbols = [TRADING_UNIVERSE['INDEX']] + list(TRADING_UNIVERSE['MEGA_CAPS'].keys())
     
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    for i, symbol in enumerate(all_symbols):
-        status_text.text(f"Fetching {symbol}...")
-        progress_bar.progress((i + 1) / len(all_symbols))
-        
+    for symbol in all_symbols:
         data = fetch_elite_quote(symbol)
         if data:
             intelligence[symbol] = data
-        else:
-            st.warning(f"⚠️ Failed to fetch data for {symbol}")
     
-    progress_bar.empty()
-    status_text.empty()
+    # Update session state with real data
+    st.session_state.market_intelligence = intelligence
+    st.session_state.market_regime = assess_market_regime(intelligence)
     
-    if intelligence:
-        st.success(f"✅ Successfully fetched data for {len(intelligence)}/{len(all_symbols)} symbols")
-        st.session_state.market_intelligence = intelligence
-        st.session_state.market_regime = assess_market_regime(intelligence)
-    else:
-        st.error("❌ Failed to fetch any market data")
+    # Update sync score based on successful data fetches
+    success_rate = len(intelligence) / len(all_symbols) * 100
+    st.session_state.market_sync_score = success_rate
     
     return intelligence
 
@@ -625,57 +604,84 @@ def render_trading_intelligence():
         """, unsafe_allow_html=True)
 
 def render_live_market_matrix():
-    """Render comprehensive live market matrix"""
+    """Render comprehensive live market matrix with REAL data"""
     st.markdown("### 📈 Live Market Matrix")
     
     intelligence = st.session_state.market_intelligence
     
     if not intelligence:
-        st.warning("⏳ Loading market intelligence...")
+        st.warning("⏳ Loading market data...")
         return
     
-    # Create market matrix dataframe
+    # Create market matrix dataframe with REAL data
     matrix_data = []
     
     for symbol, data in intelligence.items():
-        # Determine trend direction
-        momentum = data.get('momentum_5d', 0)
-        trend = "🟢 BULLISH" if momentum > 1 else "🔴 BEARISH" if momentum < -1 else "🟡 NEUTRAL"
+        # Use actual fetched data
+        price = data.get('price', 0)
+        change_pct = data.get('change_pct', 0)
+        rsi = data.get('rsi', 50)
+        volatility = data.get('volatility', 0)
+        support = data.get('support', 0)
+        resistance = data.get('resistance', 0)
+        volume = data.get('volume', 0)
         
-        # Risk assessment
-        vol = data.get('volatility', 20)
-        risk_level = "HIGH" if vol > 30 else "MEDIUM" if vol > 20 else "LOW"
+        # Determine trend direction from REAL momentum
+        momentum = data.get('momentum_5d', 0)
+        if momentum > 1:
+            trend = "🟢 BULLISH"
+        elif momentum < -1:
+            trend = "🔴 BEARISH"
+        else:
+            trend = "🟡 NEUTRAL"
+        
+        # Risk assessment from REAL volatility
+        if volatility > 30:
+            risk_level = "HIGH"
+        elif volatility > 20:
+            risk_level = "MEDIUM"
+        else:
+            risk_level = "LOW"
         
         matrix_data.append({
             'Symbol': symbol,
-            'Price': f"${data.get('price', 0):.2f}",
-            'Change %': f"{data.get('change_pct', 0):+.2f}%",
-            'RSI': f"{data.get('rsi', 50):.1f}",
-            'Volatility': f"{vol:.1f}%",
+            'Price': f"${price:.2f}",
+            'Change %': f"{change_pct:+.2f}%",
+            'Volume': f"{volume:,.0f}",
+            'RSI': f"{rsi:.1f}",
+            'Volatility': f"{volatility:.1f}%",
             'Trend': trend,
             'Risk': risk_level,
-            'Support': f"${data.get('support', 0):.2f}",
-            'Resistance': f"${data.get('resistance', 0):.2f}"
+            'Support': f"${support:.2f}",
+            'Resistance': f"${resistance:.2f}"
         })
     
-    df = pd.DataFrame(matrix_data)
-    
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            'Symbol': st.column_config.TextColumn('Symbol', width='small'),
-            'Price': st.column_config.TextColumn('Price', width='small'),
-            'Change %': st.column_config.TextColumn('Change %', width='small'),
-            'RSI': st.column_config.TextColumn('RSI', width='small'),
-            'Volatility': st.column_config.TextColumn('Vol %', width='small'),
-            'Trend': st.column_config.TextColumn('Trend', width='medium'),
-            'Risk': st.column_config.TextColumn('Risk', width='small'),
-            'Support': st.column_config.TextColumn('Support', width='small'),
-            'Resistance': st.column_config.TextColumn('Resistance', width='small')
-        }
-    )
+    if matrix_data:
+        df = pd.DataFrame(matrix_data)
+        
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                'Symbol': st.column_config.TextColumn('Symbol', width='small'),
+                'Price': st.column_config.TextColumn('Price', width='small'),
+                'Change %': st.column_config.TextColumn('Change %', width='small'),
+                'Volume': st.column_config.TextColumn('Volume', width='medium'),
+                'RSI': st.column_config.TextColumn('RSI', width='small'),
+                'Volatility': st.column_config.TextColumn('Vol %', width='small'),
+                'Trend': st.column_config.TextColumn('Trend', width='medium'),
+                'Risk': st.column_config.TextColumn('Risk', width='small'),
+                'Support': st.column_config.TextColumn('Support', width='small'),
+                'Resistance': st.column_config.TextColumn('Resistance', width='small')
+            }
+        )
+        
+        # Show last update time
+        last_update = datetime.now().strftime('%H:%M:%S ET')
+        st.caption(f"Last updated: {last_update}")
+    else:
+        st.error("No market data available")
 
 def render_elite_insights():
     """Render elite market insights"""
