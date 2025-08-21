@@ -529,6 +529,7 @@ def render_anchor_analysis():
     
     with col3:
         data_points = st.session_state.data_health['successful_requests']
+        quality_score = st.session_state.data_health['data_quality_score']
         analysis_quality = "Excellent" if quality_score > 90 else "Good" if quality_score > 70 else "Fair"
         
         st.warning(f"""
