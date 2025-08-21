@@ -391,7 +391,7 @@ def main():
         '📋 Contracts',
         '📐 Fibonacci',
         '📄 Export',
-        '⚙️ Settings'
+        '📈 Analytics'
     ]
     
     # Create navigation buttons
@@ -463,8 +463,8 @@ def main():
         show_placeholder_page("📐 Fibonacci", "Fibonacci retracement analysis with 78.6% emphasis.")
     elif current_page == 'Export':
         show_placeholder_page("📄 Export", "Professional reporting and data export capabilities.")
-    elif current_page == 'Settings':
-        show_placeholder_page("⚙️ Settings", "Application configuration and preferences.")
+    elif current_page == 'Analytics':
+        show_placeholder_page("📈 Analytics", "Advanced market analytics and performance metrics.")
     
     # Footer
     st.markdown("---")
