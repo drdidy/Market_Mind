@@ -1344,7 +1344,14 @@ def main():
             st.error(f"Loading enhanced dashboard failed, using basic version")
             show_basic_dashboard()
     elif current_page == 'Anchors':
-        show_anchors_page()
+        # Try to use anchors page, fall back to placeholder if not available
+        try:
+            show_anchors_page()
+        except NameError:
+            show_placeholder_page("⚓ Anchors", "Advanced anchor detection and analysis system. Add Parts 3A, 3B, and 3C to enable this module.")
+        except Exception as e:
+            st.error(f"Error loading anchors page: {str(e)}")
+            show_placeholder_page("⚓ Anchors", "Anchor system encountered an error.")
     elif current_page == 'Forecasts':
         show_placeholder_page("🔮 Forecasts", "Price projection and forecasting engine.")
     elif current_page == 'Signals':
@@ -1369,7 +1376,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 # ==========================================
