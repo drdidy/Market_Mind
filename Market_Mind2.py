@@ -989,8 +989,6 @@ def main():
                     direction=em_direction,
                 )
                 st.session_state["em_df"] = df_em
-                st.session_state["em_value"] = em_value
-                st.session_state["em_direction"] = em_direction
                 st.success("Expected move channel generated for RTH grid.")
 
         df_em = st.session_state.get("em_df")
@@ -1130,7 +1128,7 @@ def main():
         df_mode, df_ch, h_ch = get_active_channel()
         df_contract = st.session_state.get("contract_df")
         df_em = st.session_state.get("em_df")
-        em_value = st.session_state.get("em_value")
+        em_value = st.session_state.get("em_value")  # from EM widget, if used
 
         if df_ch is None or h_ch is None:
             st.warning("No active rails channel found. Build rails in the first tab.")
