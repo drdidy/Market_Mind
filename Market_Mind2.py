@@ -1,3 +1,4 @@
+#
 # spx_prophet.py
 # SPX Prophet — Institutional Edition
 # Where Structure Becomes Foresight.
