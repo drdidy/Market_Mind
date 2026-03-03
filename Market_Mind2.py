@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 def inject_custom_css():
-    [span_3](start_span)[span_4](start_span)"""Injects the dark theme and custom font CSS[span_3](end_span)[span_4](end_span)."""
+    """Injects the dark theme and custom font CSS."""
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600&display=swap');
@@ -67,7 +67,7 @@ def inject_custom_css():
 
 # --- 3. CORE MATHEMATICS & TIME HANDLING ---
 def count_candles_between(start_dt: datetime, end_dt: datetime) -> int:
-    [span_5](start_span)"""Counts 30-min intervals excluding weekends/maintenance[span_5](end_span)."""
+    """Counts 30-min intervals excluding weekends/maintenance."""
     if start_dt.tzinfo is None: start_dt = CT_TZ.localize(start_dt)
     if end_dt.tzinfo is None: end_dt = CT_TZ.localize(end_dt)
     if start_dt >= end_dt: return 0
@@ -93,7 +93,7 @@ def count_candles_between(start_dt: datetime, end_dt: datetime) -> int:
 
 # --- 4. UI COMPONENTS ---
 def render_section_banner(icon: str, title: str, subtitle: str, color: str):
-    [span_6](start_span)"""Renders a highly styled section header[span_6](end_span)."""
+    """Renders a highly styled section header."""
     html = f"""
     <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid {color}; display: flex; align-items: center; gap: 15px;">
         <div style="font-size: 2.5rem;">{icon}</div>
@@ -109,13 +109,13 @@ def render_section_banner(icon: str, title: str, subtitle: str, color: str):
 def main():
     inject_custom_css()
     
-    # [span_7](start_span)Sidebar[span_7](end_span)
+    # Sidebar
     with st.sidebar:
         st.markdown("<h2 class='orbitron' style='color: #00d4ff;'>SPX PROPHET 2.0</h2>", unsafe_allow_html=True)
         st.markdown("---")
         st.write("Controls and Settings will populate here.")
         
-    # [span_8](start_span)Main Tabs[span_8](end_span)
+    # Main Tabs
     tab_map, tab_asian, tab_ny, tab_log = st.tabs([
         "🗺️ STRUCTURAL MAP", 
         "🌏 ASIAN SESSION", 
@@ -124,19 +124,19 @@ def main():
     ])
     
     with tab_map:
-        [span_9](start_span)render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff") # Cyan[span_9](end_span)
+        render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff") # Cyan
         st.info("The yfinance historical ES=F data and line ladder will be rendered here.")
         
     with tab_asian:
-        [span_10](start_span)render_section_banner("🌏", "ASIAN SESSION", "ES Futures Prop Firm Scalping Framework", "#ff9100") # Orange[span_10](end_span)
+        render_section_banner("🌏", "ASIAN SESSION", "ES Futures Prop Firm Scalping Framework", "#ff9100") # Orange
         st.info("6:00 PM decision points and position sizing calculator will go here.")
         
     with tab_ny:
-        [span_11](start_span)render_section_banner("🗽", "NY SESSION", "SPX 0DTE Options Signal Generation", "#b388ff") # Purple[span_11](end_span)
+        render_section_banner("🗽", "NY SESSION", "SPX 0DTE Options Signal Generation", "#b388ff") # Purple
         st.info("9:00 AM signal cards, Black-Scholes premium projections, and confluence scoring will go here.")
         
     with tab_log:
-        [span_12](start_span)render_section_banner("📓", "TRADE LOG", "Daily Journal & Performance Metrics", "#00e676") # Green[span_12](end_span)
+        render_section_banner("📓", "TRADE LOG", "Daily Journal & Performance Metrics", "#00e676") # Green
         st.info("Rich text editor and Plotly equity curves will go here.")
 
 if __name__ == "__main__":
