@@ -27,25 +27,19 @@ def inject_custom_css():
         
         .stApp { background-color: #060910; color: #ccd6f6; }
         
-        /* Typography */
         h1, h2, h3, .orbitron { font-family: 'Orbitron', sans-serif !important; letter-spacing: 2px; }
         p, span, .rajdhani { font-family: 'Rajdhani', sans-serif !important; }
         .jetbrains { font-family: 'JetBrains Mono', monospace !important; }
         
-        /* Metric Cards */
         .metric-card {
             background: rgba(17, 25, 40, 0.75);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
+            border-radius: 10px; padding: 15px; text-align: center;
         }
         .metric-value { font-family: 'JetBrains Mono'; font-size: 1.5rem; font-weight: bold; color: #00d4ff; }
         
-        /* Sidebar Styling */
         section[data-testid="stSidebar"] { background-color: #0a0e17 !important; border-right: 1px solid #1e293b; }
         
-        /* Tab Styling */
         .stTabs [data-baseweb="tab-list"] { gap: 24px; background-color: transparent; }
         .stTabs [data-baseweb="tab"] {
             height: 50px; white-space: pre-wrap; background-color: transparent;
@@ -53,20 +47,11 @@ def inject_custom_css():
             font-family: 'Orbitron', sans-serif !important; color: #8892b0;
         }
         .stTabs [aria-selected="true"] { color: #ccd6f6 !important; border-bottom-color: #00d4ff !important; }
-        
-        /* Ladder Table */
-        .ladder-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        .ladder-table th { font-family: 'Orbitron', sans-serif; text-align: left; padding: 12px; border-bottom: 1px solid #1e293b; color: #8892b0; }
-        .ladder-table td { font-family: 'JetBrains Mono', monospace; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .ladder-row-asc { color: #ff5252; } /* Resistance */
-        .ladder-row-desc { color: #00e676; } /* Support */
-        .ladder-row-key { font-weight: bold; background-color: rgba(255,255,255,0.03); }
         </style>
     """, unsafe_allow_html=True)
 
 # --- 3. CORE MATHEMATICS & TIME HANDLING ---
 def count_candles_between(start_dt: datetime, end_dt: datetime) -> int:
-    """Counts 30-min intervals excluding weekends/maintenance."""
     if start_dt.tzinfo is None: start_dt = CT_TZ.localize(start_dt)
     if end_dt.tzinfo is None: end_dt = CT_TZ.localize(end_dt)
     if start_dt >= end_dt: return 0
@@ -77,7 +62,6 @@ def count_candles_between(start_dt: datetime, end_dt: datetime) -> int:
     while current_time < end_dt:
         weekday = current_time.weekday()
         hour = current_time.hour
-        
         is_maintenance = (hour >= MAINTENANCE_START_HOUR and hour < MAINTENANCE_END_HOUR)
         is_saturday = (weekday == 5)
         is_sunday_pre_open = (weekday == 6 and hour < MAINTENANCE_END_HOUR)
@@ -85,7 +69,6 @@ def count_candles_between(start_dt: datetime, end_dt: datetime) -> int:
         
         if not (is_maintenance or is_saturday or is_sunday_pre_open or is_friday_post_close):
             candle_count += 1
-            
         current_time += timedelta(minutes=CANDLE_MINUTES)
     return candle_count
 
@@ -95,11 +78,9 @@ def project_line_value(anchor_price: float, anchor_time: datetime, target_time: 
     return anchor_price + price_change if is_ascending else anchor_price - price_change
 
 def get_next_trading_day_9am(target_date: date) -> datetime:
-    """Finds 9:00 AM CT for the next valid trading day after the target date."""
     next_day = target_date + timedelta(days=1)
-    while next_day.weekday() > 4:  # Skip 5 (Sat), 6 (Sun)
+    while next_day.weekday() > 4: 
         next_day += timedelta(days=1)
-    # Combine with 9:00 AM and localize
     dt = datetime.combine(next_day, datetime.min.time()) + timedelta(hours=9)
     return CT_TZ.localize(dt)
 
@@ -114,20 +95,18 @@ def get_market_data(symbol="ES=F"):
         else:
             data.index = data.index.tz_convert(CT_TZ)
         return data
-    except Exception as e:
+    except Exception:
         return None
 
 def filter_ny_session(df, target_date):
     target_date_str = target_date.strftime('%Y-%m-%d')
     try:
-        day_data = df.loc[target_date_str]
-        return day_data.between_time('08:30', '15:00')
+        return df.loc[target_date_str].between_time('08:30', '15:00')
     except KeyError:
         return pd.DataFrame()
 
 def detect_inflection_points(ny_data):
     if ny_data.empty or len(ny_data) < 2: return None
-        
     bounces, rejections = [], []
     closes = np.asarray(ny_data['Close'])
     times = ny_data.index
@@ -153,50 +132,31 @@ def detect_inflection_points(ny_data):
     return {'bounces': bounces, 'rejections': rejections, 'hw': hw, 'lw': lw}
 
 def calculate_ladder(inflections, target_9am):
-    """Projects all lines to 9AM and identifies key levels."""
     lines = []
-    
-    # Project Ascending (Resistance)
     if inflections['hw']:
         val = project_line_value(inflections['hw']['price'], inflections['hw']['time'], target_9am, True)
         lines.append({'label': 'HW', 'name': 'Highest Wick', 'dir': 'Ascending', 'val': val, 'is_key': True})
         
-    highest_bounce_val = -float('inf')
-    hb_ref = None
+    hb_val, hb_ref = -float('inf'), None
     for i, b in enumerate(inflections['bounces']):
         val = project_line_value(b['price'], b['time'], target_9am, True)
-        line_obj = {'label': f'B{i+1}', 'name': 'Bounce', 'dir': 'Ascending', 'val': val, 'is_key': False}
-        lines.append(line_obj)
-        if val > highest_bounce_val:
-            highest_bounce_val = val
-            hb_ref = line_obj
-            
-    if hb_ref:
-        hb_ref['is_key'] = True
-        hb_ref['label'] = 'HB'
-        hb_ref['name'] = 'Highest Bounce'
+        line = {'label': f'B{i+1}', 'name': 'Bounce', 'dir': 'Ascending', 'val': val, 'is_key': False}
+        lines.append(line)
+        if val > hb_val: hb_val, hb_ref = val, line
+    if hb_ref: hb_ref.update({'is_key': True, 'label': 'HB', 'name': 'Highest Bounce'})
 
-    # Project Descending (Support)
     if inflections['lw']:
         val = project_line_value(inflections['lw']['price'], inflections['lw']['time'], target_9am, False)
         lines.append({'label': 'LW', 'name': 'Lowest Wick', 'dir': 'Descending', 'val': val, 'is_key': True})
         
-    lowest_rej_val = float('inf')
-    lr_ref = None
+    lr_val, lr_ref = float('inf'), None
     for i, r in enumerate(inflections['rejections']):
         val = project_line_value(r['price'], r['time'], target_9am, False)
-        line_obj = {'label': f'R{i+1}', 'name': 'Rejection', 'dir': 'Descending', 'val': val, 'is_key': False}
-        lines.append(line_obj)
-        if val < lowest_rej_val:
-            lowest_rej_val = val
-            lr_ref = line_obj
-            
-    if lr_ref:
-        lr_ref['is_key'] = True
-        lr_ref['label'] = 'LR'
-        lr_ref['name'] = 'Lowest Rejection'
+        line = {'label': f'R{i+1}', 'name': 'Rejection', 'dir': 'Descending', 'val': val, 'is_key': False}
+        lines.append(line)
+        if val < lr_val: lr_val, lr_ref = val, line
+    if lr_ref: lr_ref.update({'is_key': True, 'label': 'LR', 'name': 'Lowest Rejection'})
 
-    # Sort from highest price to lowest price
     lines.sort(key=lambda x: x['val'], reverse=True)
     return lines
 
@@ -217,6 +177,59 @@ def render_metric_card(label, value, color="#00d4ff"):
         <div class="metric-value" style="color: {color};">{value}</div>
     </div>
     """, unsafe_allow_html=True)
+
+def render_pro_ladder(ladder, current_price):
+    """Renders a sleek, DOM-style price stack with the current price injected."""
+    # Inject current price into the ladder copy
+    display_ladder = ladder.copy()
+    display_ladder.append({
+        'label': 'CURRENT', 'name': 'Market Price', 'dir': 'Neutral', 
+        'val': current_price, 'is_key': True, 'is_live': True
+    })
+    # Sort strictly by price
+    display_ladder.sort(key=lambda x: x['val'], reverse=True)
+
+    html = '<div style="display: flex; flex-direction: column; gap: 6px;">'
+    for item in display_ladder:
+        if item.get('is_live'):
+            bg = "linear-gradient(90deg, rgba(0,212,255,0.15) 0%, rgba(0,0,0,0) 100%)"
+            border = "3px solid #00d4ff"
+            color = "#00d4ff"
+            icon = "🎯"
+            dist_text = ""
+        else:
+            dist = item['val'] - current_price
+            dist_text = f"<span style='font-size: 0.8rem; color: #64748b; margin-left: 10px;'>({dist:+.2f} pts)</span>"
+            
+            if item['dir'] == 'Ascending': # Resistance
+                bg = "linear-gradient(90deg, rgba(255,23,68,0.1) 0%, rgba(0,0,0,0) 100%)"
+                border = "3px solid #ff1744" if item['is_key'] else "1px solid #ff5252"
+                color = "#ff1744" if item['is_key'] else "#ff5252"
+                icon = "🔻" 
+            else: # Support
+                bg = "linear-gradient(90deg, rgba(0,230,118,0.1) 0%, rgba(0,0,0,0) 100%)"
+                border = "3px solid #00e676" if item['is_key'] else "1px solid #69f0ae"
+                color = "#00e676" if item['is_key'] else "#69f0ae"
+                icon = "🔺" 
+                
+        weight = "bold" if item.get('is_key') else "normal"
+        marker = "💎 " if item.get('is_key') and not item.get('is_live') else ""
+        
+        html += f"""
+        <div style="background: {bg}; border-left: {border}; padding: 12px 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 1.1rem;">{icon}</span>
+                <span style="color: {color}; font-weight: {weight}; font-family: 'Orbitron', sans-serif; font-size: 1.1rem;">{marker}{item['label']}</span>
+                <span style="color: #8892b0; font-size: 0.9rem; font-family: 'Rajdhani', sans-serif;">{item['name']}</span>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <span style="color: #ccd6f6; font-size: 1.2rem; font-weight: {weight};">{item['val']:.2f}</span>
+                {dist_text}
+            </div>
+        </div>
+        """
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 # --- 6. MAIN APP ---
 def main():
@@ -249,46 +262,33 @@ def main():
                 target_9am = get_next_trading_day_9am(target_date)
                 ladder = calculate_ladder(inflections, target_9am)
                 
-                col1, col2, col3, col4 = st.columns(4)
-                closes = np.asarray(ny_data['Close'])
-                opens = np.asarray(ny_data['Open'])
-                last_price = float(closes[-1])
-                change = last_price - float(opens[0])
+                closes = np.asarray(es_data['Close'])
+                current_live_price = float(closes[-1])
                 
-                with col1: render_metric_card("NY Session Close", f"{last_price:.2f}")
+                ny_closes = np.asarray(ny_data['Close'])
+                ny_opens = np.asarray(ny_data['Open'])
+                ny_last_price = float(ny_closes[-1])
+                change = ny_last_price - float(ny_opens[0])
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1: render_metric_card("NY Session Close", f"{ny_last_price:.2f}")
                 with col2: render_metric_card("Session Net", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
                 with col3: render_metric_card("Target Projection", target_9am.strftime("%m/%d 9:00 AM"), "#ffd740")
                 with col4: render_metric_card("Lines Projected", str(len(ladder)), "#b388ff")
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Layout: Chart on Left, Ladder on Right
-                chart_col, ladder_col = st.columns([1.5, 1])
+                chart_col, ladder_col = st.columns([1.2, 1])
                 
                 with chart_col:
                     st.markdown(f"<h3 class='orbitron' style='font-size: 1.1rem;'>PRICE ACTION ({target_date.strftime('%m/%d')})</h3>", unsafe_allow_html=True)
                     fig = go.Figure(data=[go.Candlestick(x=ny_data.index, open=ny_data['Open'], high=ny_data['High'], low=ny_data['Low'], close=ny_data['Close'])])
-                    fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=450, xaxis_rangeslider_visible=False)
+                    fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=550, xaxis_rangeslider_visible=False)
                     st.plotly_chart(fig, use_container_width=True)
                 
                 with ladder_col:
-                    st.markdown(f"<h3 class='orbitron' style='font-size: 1.1rem;'>9:00 AM PROJECTED LADDER</h3>", unsafe_allow_html=True)
-                    
-                    # Build HTML Table
-                    html_table = "<table class='ladder-table'><tr><th>Level</th><th>Direction</th><th>Projected Price</th></tr>"
-                    for row in ladder:
-                        row_class = "ladder-row-asc" if row['dir'] == 'Ascending' else "ladder-row-desc"
-                        key_class = "ladder-row-key" if row['is_key'] else ""
-                        icon = "🔴" if row['dir'] == 'Ascending' else "🟢"
-                        marker = "💎 " if row['is_key'] else ""
-                        html_table += f"<tr class='{row_class} {key_class}'>"
-                        html_table += f"<td>{marker}{row['label']} ({row['name']})</td>"
-                        html_table += f"<td>{icon} {row['dir']}</td>"
-                        html_table += f"<td>{row['val']:.2f}</td>"
-                        html_table += "</tr>"
-                    html_table += "</table>"
-                    
-                    st.markdown(html_table, unsafe_allow_html=True)
+                    st.markdown(f"<h3 class='orbitron' style='font-size: 1.1rem;'>9:00 AM PROJECTED STACK</h3>", unsafe_allow_html=True)
+                    render_pro_ladder(ladder, current_live_price)
 
             else:
                 st.warning(f"No NY Session data found for {target_date.strftime('%Y-%m-%d')}.")
