@@ -180,45 +180,69 @@ def render_metric_card(label, value, color="#38bdf8"):
     st.markdown(f'<div class="metric-card"><div class="rajdhani" style="color: #64748b; font-size: 0.85rem; font-weight: 700; letter-spacing: 1px;">{label}</div><div class="metric-value" style="color: {color};">{value}</div></div>', unsafe_allow_html=True)
 
 def render_spatial_ruler(ladder, current_price):
-    """Next-Gen Spatial UI: Maps prices accurately to a visual vertical ruler."""
+    """Next-Gen Spatial UI: Maps prices accurately to a visual vertical ruler with Anti-Collision Logic."""
     if not ladder:
         st.write("No structural lines to display.")
         return
 
-    all_prices = [l['val'] for l in ladder] + [current_price]
-    max_p, min_p = max(all_prices) + 5, min(all_prices) - 5
+    all_items = ladder.copy()
+    all_items.append({'label': 'CURRENT', 'name': 'Market Price', 'dir': 'Neutral', 'val': current_price, 'is_key': True, 'is_live': True})
+    
+    # Sort descending by price (Highest price at top / 0%)
+    all_items.sort(key=lambda x: x['val'], reverse=True)
+    
+    max_p = all_items[0]['val']
+    min_p = all_items[-1]['val']
+    padding = (max_p - min_p) * 0.1 if max_p != min_p else 10
+    max_p += padding
+    min_p -= padding
     price_range = max_p - min_p if max_p != min_p else 1
 
-    html = f"""<div style="position: relative; height: 600px; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-top: 1rem; overflow: hidden;">
+    # Calculate pure proportional percentages
+    for item in all_items:
+        item['top_pct'] = 100 - (((item['val'] - min_p) / price_range) * 100)
+
+    # --- ANTI-COLLISION ALGORITHM ---
+    min_gap = 7.0 # Minimum 7% vertical gap between elements
+    for i in range(1, len(all_items)):
+        if all_items[i]['top_pct'] - all_items[i-1]['top_pct'] < min_gap:
+            all_items[i]['top_pct'] = all_items[i-1]['top_pct'] + min_gap
+
+    # Re-center if the algorithm pushed the bottom items out of bounds
+    overflow = all_items[-1]['top_pct'] - 95
+    if overflow > 0:
+        for item in all_items:
+            item['top_pct'] -= overflow
+
+    # Build UI Block
+    html = f"""<div style="position: relative; height: 750px; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-top: 1rem; overflow: hidden;">
         <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.1);"></div>"""
 
-    # Render Lines
-    for l in ladder:
-        top_pct = 100 - (((l['val'] - min_p) / price_range) * 100)
-        is_asc = l['dir'] == 'Ascending'
-        color = "#f43f5e" if is_asc else "#10b981" # Red/Green
-        align = "right" if is_asc else "left"
-        left_pos = "0" if is_asc else "50%"
-        width = "50%"
-        border_side = "border-right" if is_asc else "border-left"
-        weight = "800" if l['is_key'] else "400"
-        opacity = "1" if l['is_key'] else "0.5"
+    for l in all_items:
+        top_pct = l['top_pct']
         
-        html += f"""<div style="position: absolute; top: {top_pct}%; left: {left_pos}; width: {width}; transform: translateY(-50%); text-align: {align}; padding: 0 15px; opacity: {opacity};">
-            <div style="font-family: 'JetBrains Mono'; font-size: 0.85rem; color: {color}; {border_side}: 2px solid {color}; padding-{align}: 10px;">
-                <span style="font-family: 'Orbitron'; font-weight: {weight};">{l['label']}</span> {l['val']:.2f}
-            </div>
-        </div>"""
-
-    # Render Current Price (Target)
-    curr_top = 100 - (((current_price - min_p) / price_range) * 100)
-    html += f"""<div style="position: absolute; top: {curr_top}%; left: 0; right: 0; transform: translateY(-50%); z-index: 10;">
-        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); border-radius: 4px; padding: 8px; width: 250px; margin: 0 auto; text-align: center; backdrop-filter: blur(5px);">
-            <div style="color: #e2e8f0; font-family: 'Rajdhani'; font-size: 0.8rem; text-transform: uppercase;">Current Action</div>
-            <div style="color: #38bdf8; font-family: 'JetBrains Mono'; font-size: 1.4rem; font-weight: 800;">{current_price:.2f}</div>
-        </div>
-    </div>"""
-    
+        if l.get('is_live'):
+            html += f"""<div style="position: absolute; top: {top_pct}%; left: 0; right: 0; transform: translateY(-50%); z-index: 10;">
+                <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); border-radius: 4px; padding: 8px; width: 250px; margin: 0 auto; text-align: center; backdrop-filter: blur(5px);">
+                    <div style="color: #e2e8f0; font-family: 'Rajdhani'; font-size: 0.8rem; text-transform: uppercase;">Current Action</div>
+                    <div style="color: #38bdf8; font-family: 'JetBrains Mono'; font-size: 1.4rem; font-weight: 800;">{l['val']:.2f}</div>
+                </div>
+            </div>"""
+        else:
+            is_asc = l['dir'] == 'Ascending'
+            color = "#f43f5e" if is_asc else "#10b981" # Red/Green
+            align = "right" if is_asc else "left"
+            left_pos = "0" if is_asc else "50%"
+            border_side = "border-right" if is_asc else "border-left"
+            weight = "800" if l['is_key'] else "400"
+            opacity = "1" if l['is_key'] else "0.5"
+            
+            html += f"""<div style="position: absolute; top: {top_pct}%; left: {left_pos}; width: 50%; transform: translateY(-50%); text-align: {align}; padding: 0 15px; opacity: {opacity}; z-index: 5;">
+                <div style="display: inline-block; font-family: 'JetBrains Mono'; font-size: 0.85rem; color: {color}; {border_side}: 2px solid {color}; padding-{align}: 10px; background: rgba(15,23,42,0.8); border-radius: 4px;">
+                    <span style="font-family: 'Orbitron'; font-weight: {weight};">{l['label']}</span> {l['val']:.2f}
+                </div>
+            </div>"""
+            
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
