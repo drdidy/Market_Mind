@@ -79,12 +79,10 @@ def inject_custom_css():
 def get_market_data(symbol="ES=F"):
     """Fetches 30m candle data for the last 5 days."""
     try:
-        # Using Ticker().history() is generally more stable in Streamlit than download()
         ticker = yf.Ticker(symbol)
         data = ticker.history(period="5d", interval="30m")
         return data
     except Exception as e:
-        st.error(f"Data Fetch Error: {e}")
         return None
 
 # --- 4. UI COMPONENTS ---
@@ -133,31 +131,38 @@ def main():
     with tab_map:
         render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff")
         
-        # Safeguard: Check if data exists and is not empty before parsing
-        if es_data is not None and not es_data.empty:
+        # Safeguard: Check if data exists and has length
+        if es_data is not None and len(es_data) > 0:
             col1, col2, col3, col4 = st.columns(4)
             
-            # Use float extraction to ensure cleaner formatting
-            last_price = float(es_data['Close'].iloc[-1])
-            open_price = float(es_data['Open'].iloc[-1])
-            change = last_price - open_price
-            
-            with col1: render_metric_card("Current ES", f"{last_price:.2f}")
-            with col2: render_metric_card("24h Change", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
-            with col3: render_metric_card("Cone Rate", "0.52")
-            with col4: render_metric_card("Active Lines", "0")
+            try:
+                # Bulletproof extraction: Convert to numpy array first to strip pandas formatting
+                closes = np.asarray(es_data['Close'])
+                opens = np.asarray(es_data['Open'])
+                
+                # Get the last scalar value
+                last_price = float(closes[-1])
+                open_price = float(opens[-1])
+                change = last_price - open_price
+                
+                with col1: render_metric_card("Current ES", f"{last_price:.2f}")
+                with col2: render_metric_card("24h Change", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
+                with col3: render_metric_card("Cone Rate", "0.52")
+                with col4: render_metric_card("Active Lines", "0")
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Chart Rendering
-            st.markdown("<h3 class='orbitron' style='font-size: 1.1rem;'>30M PRICE ACTION</h3>", unsafe_allow_html=True)
-            fig = go.Figure(data=[go.Candlestick(x=es_data.index,
-                            open=es_data['Open'], high=es_data['High'],
-                            low=es_data['Low'], close=es_data['Close'])])
-            
-            # Updated to use_container_width (fixed typo)
-            fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=400)
-            st.plotly_chart(fig, use_container_width=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Chart Rendering
+                st.markdown("<h3 class='orbitron' style='font-size: 1.1rem;'>30M PRICE ACTION</h3>", unsafe_allow_html=True)
+                fig = go.Figure(data=[go.Candlestick(x=es_data.index,
+                                open=es_data['Open'], high=es_data['High'],
+                                low=es_data['Low'], close=es_data['Close'])])
+                
+                fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=400)
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Error processing price metrics: {e}. yfinance may have returned an unexpected data structure.")
         else:
             st.warning("Awaiting Market Data: The liquidity provider returned an empty dataset. This usually happens on weekends or outside trading hours.")
 
