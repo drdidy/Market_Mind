@@ -51,6 +51,26 @@ def inject_custom_css():
             background-color: #0a0e17 !important;
             border-right: 1px solid #1e293b;
         }
+        
+        /* Tab Styling overrides to fit dark theme */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 24px;
+            background-color: transparent;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            white-space: pre-wrap;
+            background-color: transparent;
+            border-radius: 4px 4px 0px 0px;
+            gap: 1px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            font-family: 'Orbitron', sans-serif !important;
+            color: #8892b0;
+        }
+        .stTabs [aria-selected="true"] {
+            color: #ccd6f6 !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -59,7 +79,9 @@ def inject_custom_css():
 def get_market_data(symbol="ES=F"):
     """Fetches 30m candle data for the last 5 days."""
     try:
-        data = yf.download(symbol, period="5d", interval="30m")
+        # Using Ticker().history() is generally more stable in Streamlit than download()
+        ticker = yf.Ticker(symbol)
+        data = ticker.history(period="5d", interval="30m")
         return data
     except Exception as e:
         st.error(f"Data Fetch Error: {e}")
@@ -111,10 +133,14 @@ def main():
     with tab_map:
         render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff")
         
-        if es_data is not None:
+        # Safeguard: Check if data exists and is not empty before parsing
+        if es_data is not None and not es_data.empty:
             col1, col2, col3, col4 = st.columns(4)
-            last_price = es_data['Close'].iloc[-1]
-            change = last_price - es_data['Open'].iloc[-1]
+            
+            # Use float extraction to ensure cleaner formatting
+            last_price = float(es_data['Close'].iloc[-1])
+            open_price = float(es_data['Open'].iloc[-1])
+            change = last_price - open_price
             
             with col1: render_metric_card("Current ES", f"{last_price:.2f}")
             with col2: render_metric_card("24h Change", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
@@ -123,17 +149,29 @@ def main():
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Placeholder for the Chart
+            # Chart Rendering
             st.markdown("<h3 class='orbitron' style='font-size: 1.1rem;'>30M PRICE ACTION</h3>", unsafe_allow_html=True)
             fig = go.Figure(data=[go.Candlestick(x=es_data.index,
                             open=es_data['Open'], high=es_data['High'],
                             low=es_data['Low'], close=es_data['Close'])])
+            
+            # Updated to use_container_width (fixed typo)
             fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=400)
-            st.plotly_chart(fig, use_container_視野=True)
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.warning("Connecting to Liquidity Provider (yfinance)...")
+            st.warning("Awaiting Market Data: The liquidity provider returned an empty dataset. This usually happens on weekends or outside trading hours.")
 
-    # (Other tabs remain as placeholders for now)
+    with tab_asian:
+        render_section_banner("🌏", "ASIAN SESSION", "ES Futures Prop Firm Scalping Framework", "#ff9100")
+        st.info("6:00 PM decision points and position sizing calculator will go here.")
+        
+    with tab_ny:
+        render_section_banner("🗽", "NY SESSION", "SPX 0DTE Options Signal Generation", "#b388ff")
+        st.info("9:00 AM signal cards, Black-Scholes premium projections, and confluence scoring will go here.")
+        
+    with tab_log:
+        render_section_banner("📓", "TRADE LOG", "Daily Journal & Performance Metrics", "#00e676")
+        st.info("Rich text editor and Plotly equity curves will go here.")
 
 if __name__ == "__main__":
     main()
