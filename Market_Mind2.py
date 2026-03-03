@@ -8,10 +8,9 @@ import pytz
 
 # --- 1. SYSTEM CONSTANTS ---
 RATE_PER_CANDLE = 0.52
-CANDLE_MINUTES = 30
 CT_TZ = pytz.timezone('US/Central')
-MAINTENANCE_START_HOUR = 16  # 4:00 PM CT
-MAINTENANCE_END_HOUR = 17    # 5:00 PM CT
+MAINTENANCE_START_HOUR = 16 
+MAINTENANCE_END_HOUR = 17 
 
 # --- 2. STREAMLIT CONFIG & THEME ---
 st.set_page_config(
@@ -21,80 +20,54 @@ st.set_page_config(
 )
 
 def inject_custom_css():
-    """Injects the dark theme and custom font CSS."""
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600&display=swap');
         
-        /* Base Dark Theme */
-        .stApp {
-            background-color: #060910;
-            color: #ccd6f6;
+        .stApp { background-color: #060910; color: #ccd6f6; }
+        
+        /* Typography */
+        h1, h2, h3, .orbitron { font-family: 'Orbitron', sans-serif !important; letter-spacing: 2px; }
+        p, span, .rajdhani { font-family: 'Rajdhani', sans-serif !important; }
+        .jetbrains { font-family: 'JetBrains Mono', monospace !important; }
+        
+        /* Metric Cards */
+        .metric-card {
+            background: rgba(17, 25, 40, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-family: 'JetBrains Mono';
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00d4ff;
         }
         
-        /* Font Assignments */
-        h1, h2, h3, .orbitron {
-            font-family: 'Orbitron', sans-serif !important;
-        }
-        p, span, .rajdhani {
-            font-family: 'Rajdhani', sans-serif !important;
-        }
-        code, .jetbrains, .price-display {
-            font-family: 'JetBrains Mono', monospace !important;
-        }
-        
-        /* Tab Styling overrides to fit dark theme */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 24px;
-            background-color: transparent;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 50px;
-            white-space: pre-wrap;
-            background-color: transparent;
-            border-radius: 4px 4px 0px 0px;
-            gap: 1px;
-            padding-top: 10px;
-            padding-bottom: 10px;
-            font-family: 'Orbitron', sans-serif !important;
-            color: #8892b0;
-        }
-        .stTabs [aria-selected="true"] {
-            color: #ccd6f6 !important;
+        /* Sidebar Styling */
+        section[data-testid="stSidebar"] {
+            background-color: #0a0e17 !important;
+            border-right: 1px solid #1e293b;
         }
         </style>
     """, unsafe_allow_html=True)
 
-# --- 3. CORE MATHEMATICS & TIME HANDLING ---
-def count_candles_between(start_dt: datetime, end_dt: datetime) -> int:
-    """Counts 30-min intervals excluding weekends/maintenance."""
-    if start_dt.tzinfo is None: start_dt = CT_TZ.localize(start_dt)
-    if end_dt.tzinfo is None: end_dt = CT_TZ.localize(end_dt)
-    if start_dt >= end_dt: return 0
-        
-    candle_count = 0
-    current_time = start_dt
-    
-    while current_time < end_dt:
-        weekday = current_time.weekday()
-        hour = current_time.hour
-        
-        is_maintenance = (hour >= MAINTENANCE_START_HOUR and hour < MAINTENANCE_END_HOUR)
-        is_saturday = (weekday == 5)
-        is_sunday_pre_open = (weekday == 6 and hour < MAINTENANCE_END_HOUR)
-        is_friday_post_close = (weekday == 4 and hour >= MAINTENANCE_START_HOUR)
-        
-        if not (is_maintenance or is_saturday or is_sunday_pre_open or is_friday_post_close):
-            candle_count += 1
-            
-        current_time += timedelta(minutes=CANDLE_MINUTES)
-        
-    return candle_count
+# --- 3. DATA ENGINE ---
+@st.cache_data(ttl=300)
+def get_market_data(symbol="ES=F"):
+    """Fetches 30m candle data for the last 5 days."""
+    try:
+        data = yf.download(symbol, period="5d", interval="30m")
+        return data
+    except Exception as e:
+        st.error(f"Data Fetch Error: {e}")
+        return None
 
 # --- 4. UI COMPONENTS ---
 def render_section_banner(icon: str, title: str, subtitle: str, color: str):
-    """Renders a highly styled section header."""
-    html = f"""
+    st.markdown(f"""
     <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid {color}; display: flex; align-items: center; gap: 15px;">
         <div style="font-size: 2.5rem;">{icon}</div>
         <div>
@@ -102,42 +75,65 @@ def render_section_banner(icon: str, title: str, subtitle: str, color: str):
             <span class="rajdhani" style="color: #8892b0; font-size: 1.1rem;">{subtitle}</span>
         </div>
     </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- 5. MAIN APPLICATION LAYOUT ---
+def render_metric_card(label, value, color="#00d4ff"):
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="rajdhani" style="color: #8892b0; font-size: 0.9rem; text-transform: uppercase;">{label}</div>
+        <div class="metric-value" style="color: {color};">{value}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- 5. MAIN APP ---
 def main():
     inject_custom_css()
     
-    # Sidebar
+    # --- SIDEBAR ---
     with st.sidebar:
-        st.markdown("<h2 class='orbitron' style='color: #00d4ff;'>SPX PROPHET 2.0</h2>", unsafe_allow_html=True)
-        st.markdown("---")
-        st.write("Controls and Settings will populate here.")
+        st.markdown("<h2 class='orbitron' style='color: #00d4ff; font-size: 1.2rem;'>SYSTEM STATUS</h2>", unsafe_allow_html=True)
+        render_metric_card("Engine State", "OPERATIONAL", "#00e676")
+        st.markdown("<br>", unsafe_allow_html=True)
         
-    # Main Tabs
-    tab_map, tab_asian, tab_ny, tab_log = st.tabs([
-        "🗺️ STRUCTURAL MAP", 
-        "🌏 ASIAN SESSION", 
-        "🗽 NY SESSION", 
-        "📓 TRADE LOG"
-    ])
+        st.markdown("<h3 class='orbitron' style='font-size: 0.9rem;'>SESSION CONTROLS</h3>", unsafe_allow_html=True)
+        target_date = st.date_input("Analysis Date", datetime.now())
+        manual_offset = st.number_input("ES-SPX Offset", value=0.0, step=0.25)
+        
+        st.markdown("---")
+        st.button("🔄 Force Data Refresh")
+
+    # --- TABS ---
+    tab_map, tab_asian, tab_ny, tab_log = st.tabs(["🗺️ STRUCTURAL MAP", "🌏 ASIAN SESSION", "🗽 NY SESSION", "📓 TRADE LOG"])
+    
+    # FETCH DATA
+    es_data = get_market_data()
     
     with tab_map:
-        render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff") # Cyan
-        st.info("The yfinance historical ES=F data and line ladder will be rendered here.")
+        render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff")
         
-    with tab_asian:
-        render_section_banner("🌏", "ASIAN SESSION", "ES Futures Prop Firm Scalping Framework", "#ff9100") # Orange
-        st.info("6:00 PM decision points and position sizing calculator will go here.")
-        
-    with tab_ny:
-        render_section_banner("🗽", "NY SESSION", "SPX 0DTE Options Signal Generation", "#b388ff") # Purple
-        st.info("9:00 AM signal cards, Black-Scholes premium projections, and confluence scoring will go here.")
-        
-    with tab_log:
-        render_section_banner("📓", "TRADE LOG", "Daily Journal & Performance Metrics", "#00e676") # Green
-        st.info("Rich text editor and Plotly equity curves will go here.")
+        if es_data is not None:
+            col1, col2, col3, col4 = st.columns(4)
+            last_price = es_data['Close'].iloc[-1]
+            change = last_price - es_data['Open'].iloc[-1]
+            
+            with col1: render_metric_card("Current ES", f"{last_price:.2f}")
+            with col2: render_metric_card("24h Change", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
+            with col3: render_metric_card("Cone Rate", "0.52")
+            with col4: render_metric_card("Active Lines", "0")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Placeholder for the Chart
+            st.markdown("<h3 class='orbitron' style='font-size: 1.1rem;'>30M PRICE ACTION</h3>", unsafe_allow_html=True)
+            fig = go.Figure(data=[go.Candlestick(x=es_data.index,
+                            open=es_data['Open'], high=es_data['High'],
+                            low=es_data['Low'], close=es_data['Close'])])
+            fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=400)
+            st.plotly_chart(fig, use_container_視野=True)
+        else:
+            st.warning("Connecting to Liquidity Provider (yfinance)...")
+
+    # (Other tabs remain as placeholders for now)
 
 if __name__ == "__main__":
     main()
