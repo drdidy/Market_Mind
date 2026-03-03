@@ -52,7 +52,7 @@ def inject_custom_css():
             border-right: 1px solid #1e293b;
         }
         
-        /* Tab Styling overrides to fit dark theme */
+        /* Tab Styling overrides */
         .stTabs [data-baseweb="tab-list"] {
             gap: 24px;
             background-color: transparent;
@@ -74,16 +74,79 @@ def inject_custom_css():
         </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATA ENGINE ---
+# --- 3. DATA ENGINE & AUTO-DETECTION ---
 @st.cache_data(ttl=300)
 def get_market_data(symbol="ES=F"):
-    """Fetches 30m candle data for the last 5 days."""
+    """Fetches 30m candle data for the last 5 days and ensures Central Time."""
     try:
         ticker = yf.Ticker(symbol)
-        data = ticker.history(period="5d", interval="30m")
+        data = ticker.history(period="10d", interval="30m")
+        # Ensure timezone is Central Time
+        if data.index.tz is None:
+            data.index = data.index.tz_localize('UTC').tz_convert(CT_TZ)
+        else:
+            data.index = data.index.tz_convert(CT_TZ)
         return data
     except Exception as e:
         return None
+
+def filter_ny_session(df, target_date):
+    """Filters data to a specific date and NY session hours (8:30 AM - 3:00 PM CT)."""
+    target_date_str = target_date.strftime('%Y-%m-%d')
+    try:
+        day_data = df.loc[target_date_str]
+        # Filter to NY session times
+        ny_data = day_data.between_time('08:30', '15:00')
+        return ny_data
+    except KeyError:
+        return pd.DataFrame() # Return empty if date not in data
+
+def detect_inflection_points(ny_data):
+    """Scans NY session data to find bounces, rejections, and extreme wicks."""
+    if ny_data.empty or len(ny_data) < 2:
+        return None
+        
+    bounces = []
+    rejections = []
+    
+    closes = np.asarray(ny_data['Close'])
+    times = ny_data.index
+    n = len(closes)
+    
+    # 1. Line Chart Bounces and Rejections
+    for i in range(n):
+        if i == 0:
+            if closes[0] < closes[1]: bounces.append({'time': times[0], 'price': closes[0]})
+            if closes[0] > closes[1]: rejections.append({'time': times[0], 'price': closes[0]})
+        elif i == n - 1:
+            if closes[n-1] < closes[n-2]: bounces.append({'time': times[n-1], 'price': closes[n-1]})
+            if closes[n-1] > closes[n-2]: rejections.append({'time': times[n-1], 'price': closes[n-1]})
+        else:
+            if closes[i] < closes[i-1] and closes[i] < closes[i+1]:
+                bounces.append({'time': times[i], 'price': closes[i]})
+            if closes[i] > closes[i-1] and closes[i] > closes[i+1]:
+                rejections.append({'time': times[i], 'price': closes[i]})
+                
+    # 2. Extreme Wicks
+    bearish = ny_data[ny_data['Close'] < ny_data['Open']]
+    bullish = ny_data[ny_data['Close'] > ny_data['Open']]
+    
+    hw = None
+    if not bearish.empty:
+        hw_idx = bearish['High'].idxmax()
+        hw = {'time': hw_idx, 'price': bearish.loc[hw_idx, 'High']}
+        
+    lw = None
+    if not bullish.empty:
+        lw_idx = bullish['Low'].idxmin()
+        lw = {'time': lw_idx, 'price': bullish.loc[lw_idx, 'Low']}
+        
+    return {
+        'bounces': bounces,
+        'rejections': rejections,
+        'hw': hw,
+        'lw': lw
+    }
 
 # --- 4. UI COMPONENTS ---
 def render_section_banner(icon: str, title: str, subtitle: str, color: str):
@@ -116,9 +179,13 @@ def main():
         st.markdown("<br>", unsafe_allow_html=True)
         
         st.markdown("<h3 class='orbitron' style='font-size: 0.9rem;'>SESSION CONTROLS</h3>", unsafe_allow_html=True)
-        target_date = st.date_input("Analysis Date", datetime.now())
-        manual_offset = st.number_input("ES-SPX Offset", value=0.0, step=0.25)
         
+        # Default to the most recent weekday
+        today = datetime.now()
+        default_date = today if today.weekday() < 5 else today - timedelta(days=today.weekday()-4)
+        target_date = st.date_input("Prior Session Date", default_date)
+        
+        manual_offset = st.number_input("ES-SPX Offset", value=0.0, step=0.25)
         st.markdown("---")
         st.button("🔄 Force Data Refresh")
 
@@ -131,52 +198,66 @@ def main():
     with tab_map:
         render_section_banner("🗺️", "STRUCTURAL MAP", "Prior NY Session Data & 9 AM Projections", "#00d4ff")
         
-        # Safeguard: Check if data exists and has length
         if es_data is not None and len(es_data) > 0:
-            col1, col2, col3, col4 = st.columns(4)
+            ny_data = filter_ny_session(es_data, target_date)
             
-            try:
-                # Bulletproof extraction: Convert to numpy array first to strip pandas formatting
-                closes = np.asarray(es_data['Close'])
-                opens = np.asarray(es_data['Open'])
+            if not ny_data.empty:
+                inflections = detect_inflection_points(ny_data)
                 
-                # Get the last scalar value
+                # Top Metrics
+                col1, col2, col3, col4 = st.columns(4)
+                closes = np.asarray(ny_data['Close'])
+                opens = np.asarray(ny_data['Open'])
+                
                 last_price = float(closes[-1])
-                open_price = float(opens[-1])
-                change = last_price - open_price
+                change = last_price - float(opens[0])
+                total_lines = len(inflections['bounces']) + len(inflections['rejections']) + (1 if inflections['hw'] else 0) + (1 if inflections['lw'] else 0)
                 
-                with col1: render_metric_card("Current ES", f"{last_price:.2f}")
-                with col2: render_metric_card("24h Change", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
-                with col3: render_metric_card("Cone Rate", "0.52")
-                with col4: render_metric_card("Active Lines", "0")
+                with col1: render_metric_card("NY Session Close", f"{last_price:.2f}")
+                with col2: render_metric_card("Session Net", f"{change:+.2f}", "#00e676" if change > 0 else "#ff5252")
+                with col3: render_metric_card("Target Date", target_date.strftime("%Y-%m-%d"), "#ffd740")
+                with col4: render_metric_card("Generated Lines", str(total_lines), "#b388ff")
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 # Chart Rendering
-                st.markdown("<h3 class='orbitron' style='font-size: 1.1rem;'>30M PRICE ACTION</h3>", unsafe_allow_html=True)
-                fig = go.Figure(data=[go.Candlestick(x=es_data.index,
-                                open=es_data['Open'], high=es_data['High'],
-                                low=es_data['Low'], close=es_data['Close'])])
-                
-                fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=400)
+                st.markdown(f"<h3 class='orbitron' style='font-size: 1.1rem;'>NY SESSION PRICE ACTION ({target_date.strftime('%m/%d')})</h3>", unsafe_allow_html=True)
+                fig = go.Figure(data=[go.Candlestick(x=ny_data.index,
+                                open=ny_data['Open'], high=ny_data['High'],
+                                low=ny_data['Low'], close=ny_data['Close'])])
+                fig.update_layout(template="plotly_dark", margin=dict(l=0, r=0, t=0, b=0), height=400, xaxis_rangeslider_visible=False)
                 st.plotly_chart(fig, use_container_width=True)
                 
-            except Exception as e:
-                st.error(f"Error processing price metrics: {e}. yfinance may have returned an unexpected data structure.")
+                # Display Detected Points
+                st.markdown("---")
+                st.markdown("<h3 class='orbitron' style='font-size: 1.1rem; color: #ffd740;'>DETECTED ANCHOR POINTS</h3>", unsafe_allow_html=True)
+                
+                p_col1, p_col2 = st.columns(2)
+                with p_col1:
+                    st.markdown("<h4 class='rajdhani' style='color: #00e676;'>ASCENDING GENERATORS (Support/Resistance)</h4>", unsafe_allow_html=True)
+                    if inflections['hw']:
+                        st.markdown(f"**🔴 Highest Wick (HW):** <span class='jetbrains'>{inflections['hw']['price']:.2f}</span> at {inflections['hw']['time'].strftime('%H:%M CT')}", unsafe_allow_html=True)
+                    for i, b in enumerate(inflections['bounces']):
+                        st.markdown(f"**🟢 Bounce {i+1}:** <span class='jetbrains'>{b['price']:.2f}</span> at {b['time'].strftime('%H:%M CT')}", unsafe_allow_html=True)
+                        
+                with p_col2:
+                    st.markdown("<h4 class='rajdhani' style='color: #ff5252;'>DESCENDING GENERATORS (Support/Resistance)</h4>", unsafe_allow_html=True)
+                    if inflections['lw']:
+                        st.markdown(f"**🟢 Lowest Wick (LW):** <span class='jetbrains'>{inflections['lw']['price']:.2f}</span> at {inflections['lw']['time'].strftime('%H:%M CT')}", unsafe_allow_html=True)
+                    for i, r in enumerate(inflections['rejections']):
+                        st.markdown(f"**🔴 Rejection {i+1}:** <span class='jetbrains'>{r['price']:.2f}</span> at {r['time'].strftime('%H:%M CT')}", unsafe_allow_html=True)
+
+            else:
+                st.warning(f"No NY Session data found for {target_date.strftime('%Y-%m-%d')}. If this is a weekend or holiday, select a valid prior trading session date from the sidebar.")
         else:
-            st.warning("Awaiting Market Data: The liquidity provider returned an empty dataset. This usually happens on weekends or outside trading hours.")
+            st.warning("Awaiting Market Data...")
 
     with tab_asian:
         render_section_banner("🌏", "ASIAN SESSION", "ES Futures Prop Firm Scalping Framework", "#ff9100")
-        st.info("6:00 PM decision points and position sizing calculator will go here.")
-        
     with tab_ny:
         render_section_banner("🗽", "NY SESSION", "SPX 0DTE Options Signal Generation", "#b388ff")
-        st.info("9:00 AM signal cards, Black-Scholes premium projections, and confluence scoring will go here.")
-        
     with tab_log:
         render_section_banner("📓", "TRADE LOG", "Daily Journal & Performance Metrics", "#00e676")
-        st.info("Rich text editor and Plotly equity curves will go here.")
 
 if __name__ == "__main__":
     main()
