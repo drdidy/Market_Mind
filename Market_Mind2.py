@@ -180,16 +180,15 @@ def render_metric_card(label, value, color="#00d4ff"):
 
 def render_pro_ladder(ladder, current_price):
     """Renders a sleek, DOM-style price stack with the current price injected."""
-    # Inject current price into the ladder copy
     display_ladder = ladder.copy()
     display_ladder.append({
         'label': 'CURRENT', 'name': 'Market Price', 'dir': 'Neutral', 
         'val': current_price, 'is_key': True, 'is_live': True
     })
-    # Sort strictly by price
+    
     display_ladder.sort(key=lambda x: x['val'], reverse=True)
 
-    html = '<div style="display: flex; flex-direction: column; gap: 6px;">'
+    html = '<div style="display: flex; flex-direction: column; gap: 6px;">\n'
     for item in display_ladder:
         if item.get('is_live'):
             bg = "linear-gradient(90deg, rgba(0,212,255,0.15) 0%, rgba(0,0,0,0) 100%)"
@@ -201,12 +200,12 @@ def render_pro_ladder(ladder, current_price):
             dist = item['val'] - current_price
             dist_text = f"<span style='font-size: 0.8rem; color: #64748b; margin-left: 10px;'>({dist:+.2f} pts)</span>"
             
-            if item['dir'] == 'Ascending': # Resistance
+            if item['dir'] == 'Ascending':
                 bg = "linear-gradient(90deg, rgba(255,23,68,0.1) 0%, rgba(0,0,0,0) 100%)"
                 border = "3px solid #ff1744" if item['is_key'] else "1px solid #ff5252"
                 color = "#ff1744" if item['is_key'] else "#ff5252"
                 icon = "🔻" 
-            else: # Support
+            else:
                 bg = "linear-gradient(90deg, rgba(0,230,118,0.1) 0%, rgba(0,0,0,0) 100%)"
                 border = "3px solid #00e676" if item['is_key'] else "1px solid #69f0ae"
                 color = "#00e676" if item['is_key'] else "#69f0ae"
@@ -215,19 +214,18 @@ def render_pro_ladder(ladder, current_price):
         weight = "bold" if item.get('is_key') else "normal"
         marker = "💎 " if item.get('is_key') and not item.get('is_live') else ""
         
-        html += f"""
-        <div style="background: {bg}; border-left: {border}; padding: 12px 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 1.1rem;">{icon}</span>
-                <span style="color: {color}; font-weight: {weight}; font-family: 'Orbitron', sans-serif; font-size: 1.1rem;">{marker}{item['label']}</span>
-                <span style="color: #8892b0; font-size: 0.9rem; font-family: 'Rajdhani', sans-serif;">{item['name']}</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-                <span style="color: #ccd6f6; font-size: 1.2rem; font-weight: {weight};">{item['val']:.2f}</span>
-                {dist_text}
-            </div>
-        </div>
-        """
+        html += f"""<div style="background: {bg}; border-left: {border}; padding: 12px 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<span style="font-size: 1.1rem;">{icon}</span>
+<span style="color: {color}; font-weight: {weight}; font-family: 'Orbitron', sans-serif; font-size: 1.1rem;">{marker}{item['label']}</span>
+<span style="color: #8892b0; font-size: 0.9rem; font-family: 'Rajdhani', sans-serif;">{item['name']}</span>
+</div>
+<div style="display: flex; align-items: center;">
+<span style="color: #ccd6f6; font-size: 1.2rem; font-weight: {weight};">{item['val']:.2f}</span>
+{dist_text}
+</div>
+</div>\n"""
+
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
