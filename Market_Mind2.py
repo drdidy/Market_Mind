@@ -101,6 +101,13 @@ def get_market_data(symbol="ES=F"):
         return data
     except Exception: return None
 
+def filter_ny_session(df, target_date):
+    target_date_str = target_date.strftime('%Y-%m-%d')
+    try:
+        return df.loc[target_date_str].between_time('08:30', '15:00')
+    except KeyError:
+        return pd.DataFrame()
+
 def detect_inflection_points(ny_data):
     if ny_data.empty or len(ny_data) < 2: return None
     bounces, rejections = [], []
@@ -148,10 +155,10 @@ def generate_ny_signal(ladder, current_price):
     asc_lines = [l for l in ladder if l['dir'] == 'Ascending']
     desc_lines = [l for l in ladder if l['dir'] == 'Descending']
     
-    above_all_asc = all(current_price > l['val'] for l in asc_lines)
-    below_all_asc = all(current_price < l['val'] for l in asc_lines)
-    above_all_desc = all(current_price > l['val'] for l in desc_lines)
-    below_all_desc = all(current_price < l['val'] for l in desc_lines)
+    above_all_asc = all(current_price > l['val'] for l in asc_lines) if asc_lines else False
+    below_all_asc = all(current_price < l['val'] for l in asc_lines) if asc_lines else False
+    above_all_desc = all(current_price > l['val'] for l in desc_lines) if desc_lines else False
+    below_all_desc = all(current_price < l['val'] for l in desc_lines) if desc_lines else False
 
     if below_all_asc and below_all_desc: return "PUT", "Price is below all structural lines. Strong Bearish Trend.", "signal-put"
     if above_all_asc and above_all_desc: return "CALL", "Price broke through all resistance and support. Strong Bullish Trend.", "signal-call"
@@ -174,6 +181,10 @@ def render_metric_card(label, value, color="#38bdf8"):
 
 def render_spatial_ruler(ladder, current_price):
     """Next-Gen Spatial UI: Maps prices accurately to a visual vertical ruler."""
+    if not ladder:
+        st.write("No structural lines to display.")
+        return
+
     all_prices = [l['val'] for l in ladder] + [current_price]
     max_p, min_p = max(all_prices) + 5, min(all_prices) - 5
     price_range = max_p - min_p if max_p != min_p else 1
@@ -291,7 +302,7 @@ def main():
             render_spatial_ruler(asian_ladder, current_live_es)
 
     # --- TAB 3: NY SESSION ---
-    with tab_ ny:
+    with tab_ny:
         st.markdown("### SPX 0DTE OPTIONS ENGINE (9:00 AM CT)")
         current_spx = current_live_es - manual_offset
         ny_ladder = calculate_ladder(inflections, target_9am, offset=manual_offset)
